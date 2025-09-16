@@ -21,6 +21,10 @@ export interface Business {
   features: string[];
 }
 
+export const generateBusinessId = (lat: number, lng: number): string => {
+  return `${lat.toFixed(6)}_${lng.toFixed(6)}`;
+};
+
 export interface Review {
   id: string;
   businessId: string;
@@ -30,6 +34,8 @@ export interface Review {
   rating: number;
   text: string;
   date: string;
+  createdAt: Date;
+  updatedAt: Date;
   helpful: number;
 }
 

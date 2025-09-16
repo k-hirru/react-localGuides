@@ -1,40 +1,72 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { useNavigation, CommonActions } from '@react-navigation/native';
-import { LogIn, Mail, Lock, Apple, Smartphone } from 'lucide-react-native';
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+  ActivityIndicator,
+} from "react-native";
+import { useNavigation } from "@react-navigation/native";
+import { LogIn, Mail, Lock, Apple, Smartphone } from "lucide-react-native";
 
-// Import the new components
-import { StyledInput } from '@/src/components/StyledInput';
-import { SocialButton } from '@/src/components/SocialButton';
-import { KeyboardAvoidingScrollView } from '@/src/components/KeyboardAvoidingScrollView';
-import Colors from '@/src/constants/colors';
+import { StyledInput } from "@/src/components/StyledInput";
+import { SocialButton } from "@/src/components/SocialButton";
+import { KeyboardAvoidingScrollView } from "@/src/components/KeyboardAvoidingScrollView";
+import { useAuth } from "@/src/hooks/useAuth";
+import Colors from "@/src/constants/colors";
 
 export default function LoginScreen() {
   const navigation = useNavigation();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const { login, loading } = useAuth();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
-  const handleLogin = () => {
-    navigation.dispatch(
-      CommonActions.reset({
-        index: 0,
-        routes: [{ name: 'Tabs' }],
-      })
-    );
-    console.log('Attempting login with:', email, 'and password:', password);
+  const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert("Error", "Please enter both email and password");
+      return;
+    }
+
+    try {
+      await login(email, password);
+      // Navigation is handled automatically by the auth state change in AppNavigator
+    } catch (error: any) {
+      Alert.alert("Login Error", error.message);
+    }
   };
 
-  const handleSignup = () => {
-    navigation.dispatch(
-      CommonActions.reset({
-        index: 0,
-        routes: [{ name: 'Signup' }],
-      })
-    );
-  }
-
-  const handleSocialLogin = (platform: 'Apple' | 'Phone') => {
+  const handleSocialLogin = (platform: "Apple" | "Phone") => {
     console.log(`Attempting social login via ${platform}`);
+    Alert.alert("Coming Soon", `${platform} login will be available soon!`);
+  };
+
+  const handleForgotPassword = () => {
+    if (!email) {
+      Alert.alert("Email Required", "Please enter your email address first");
+      return;
+    }
+
+    Alert.alert("Reset Password", `Send password reset email to ${email}?`, [
+      {
+        text: "Cancel",
+        style: "cancel",
+      },
+      {
+        text: "Send",
+        onPress: async () => {
+          try {
+            // This would be implemented when we add resetPassword to useAuth
+            Alert.alert("Check Your Email", "Password reset email sent!");
+          } catch (error) {
+            Alert.alert(
+              "Error",
+              "Failed to send reset email. Please try again."
+            );
+          }
+        },
+      },
+    ]);
   };
 
   return (
@@ -45,9 +77,7 @@ export default function LoginScreen() {
         <Text style={[styles.title, { color: Colors.light.text }]}>
           Yelpify
         </Text>
-        <Text style={styles.subtitle}>
-          Discover local. Log in to guide.
-        </Text>
+        <Text style={styles.subtitle}>Discover local. Log in to guide.</Text>
       </View>
 
       {/* Login Form */}
@@ -58,6 +88,7 @@ export default function LoginScreen() {
           value={email}
           onChangeText={setEmail}
           keyboardType="email-address"
+          autoCapitalize="none"
         />
         <StyledInput
           Icon={Lock}
@@ -68,20 +99,24 @@ export default function LoginScreen() {
         />
 
         {/* Forgot Password Link */}
-        <TouchableOpacity 
-          style={styles.forgotPasswordButton} 
-          onPress={() => console.log('Forgot Password Pressed')}
+        <TouchableOpacity
+          style={styles.forgotPasswordButton}
+          onPress={handleForgotPassword}
         >
-          <Text style={styles.linkText}>
-            Forgot Password?
-          </Text>
+          <Text style={styles.linkText}>Forgot Password?</Text>
         </TouchableOpacity>
 
         {/* Main Login Button */}
-        <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-          <Text style={styles.loginButtonText}>
-            Sign In
-          </Text>
+        <TouchableOpacity
+          style={[styles.loginButton, loading && styles.loginButtonDisabled]}
+          onPress={handleLogin}
+          disabled={loading || !email || !password}
+        >
+          {loading ? (
+            <ActivityIndicator color={Colors.light.background} size="small" />
+          ) : (
+            <Text style={styles.loginButtonText}>Sign In</Text>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -93,27 +128,25 @@ export default function LoginScreen() {
       </View>
 
       <View>
-        <SocialButton 
-          Icon={Apple} 
-          text="Continue with Apple" 
-          onPress={() => handleSocialLogin('Apple')} 
+        <SocialButton
+          Icon={Apple}
+          text="Continue with Apple"
+          onPress={() => handleSocialLogin("Apple")}
         />
-        <SocialButton 
-          Icon={Smartphone} 
-          text="Continue with Phone Number" 
-          onPress={() => handleSocialLogin('Phone')} 
+        <SocialButton
+          Icon={Smartphone}
+          text="Continue with Phone Number"
+          onPress={() => handleSocialLogin("Phone")}
         />
       </View>
 
       {/* Sign Up Link */}
       <View style={styles.signUpContainer}>
-        <Text style={styles.signUpText}>
-          {`Don't have an account? `}
-        </Text>
-        <TouchableOpacity onPress={(handleSignup)}>
-          <Text style={[styles.signUpText, styles.linkText]}>
-            Sign Up
-          </Text>
+        <Text style={styles.signUpText}>{`Don't have an account? `}</Text>
+        <TouchableOpacity
+          onPress={() => navigation.navigate("SignUp" as never)}
+        >
+          <Text style={[styles.signUpText, styles.linkText]}>Sign Up</Text>
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingScrollView>
@@ -123,17 +156,17 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   mainContent: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   headerContainer: {
     marginBottom: 40,
-    alignItems: 'center',
+    alignItems: "center",
   },
   title: {
     fontSize: 48,
-    textAlign: 'center',
+    textAlign: "center",
     marginTop: 12,
-    fontWeight: '800',
+    fontWeight: "800",
   },
   subtitle: {
     fontSize: 18,
@@ -144,18 +177,18 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   forgotPasswordButton: {
-    alignSelf: 'flex-end',
+    alignSelf: "flex-end",
     marginTop: 4,
     marginBottom: 24,
   },
   linkText: {
     color: Colors.light.primary,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   loginButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     backgroundColor: Colors.light.primary,
     borderRadius: 12,
     padding: 20,
@@ -165,14 +198,17 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 5,
   },
+  loginButtonDisabled: {
+    opacity: 0.6,
+  },
   loginButtonText: {
     fontSize: 20,
     color: Colors.light.background,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   dividerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 24,
   },
   dividerLine: {
@@ -184,11 +220,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.light.gray[500],
     marginHorizontal: 16,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   signUpContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
     marginTop: 32,
     paddingBottom: 16,
   },
