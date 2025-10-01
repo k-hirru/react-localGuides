@@ -27,7 +27,7 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Home',
-          headerTitle: 'Local Guide',
+          headerTitle: 'Yelpify',
           tabBarIcon: ({ color, size }) => <Home color={color} size={size} />,
         }}
       />
