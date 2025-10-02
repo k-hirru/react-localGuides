@@ -1,11 +1,18 @@
-import { Tabs } from 'expo-router';
 import { Home, Search, Heart, User } from 'lucide-react-native';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import React from 'react';
 import Colors from '@/constants/colors';
 
+import HomeScreen from './index';
+import ExploreScreen from './explore';
+import FavoritesScreen from './favorites';
+import ProfileScreen from './profile';
+
+const Tab = createBottomTabNavigator();
+
 export default function TabLayout() {
   return (
-    <Tabs
+    <Tab.Navigator
       screenOptions={{
         tabBarActiveTintColor: Colors.light.tint,
         headerShown: true,
@@ -23,38 +30,42 @@ export default function TabLayout() {
         },
       }}
     >
-      <Tabs.Screen
-        name="index"
+      <Tab.Screen
+        name="Home"
+        component={HomeScreen}
         options={{
           title: 'Home',
           headerTitle: 'Yelpify',
           tabBarIcon: ({ color, size }) => <Home color={color} size={size} />,
         }}
       />
-      <Tabs.Screen
-        name="explore"
+      <Tab.Screen
+        name="Explore"
+        component={ExploreScreen}
         options={{
           title: 'Explore',
           headerTitle: 'Explore Places',
           tabBarIcon: ({ color, size }) => <Search color={color} size={size} />,
         }}
       />
-      <Tabs.Screen
-        name="favorites"
+      <Tab.Screen
+        name="Favorites"
+        component={FavoritesScreen}
         options={{
           title: 'Favorites',
           headerTitle: 'My Favorites',
           tabBarIcon: ({ color, size }) => <Heart color={color} size={size} />,
         }}
       />
-      <Tabs.Screen
-        name="profile"
+      <Tab.Screen
+        name="Profile"
+        component={ProfileScreen}
         options={{
           title: 'Profile',
           headerTitle: 'My Profile',
           tabBarIcon: ({ color, size }) => <User color={color} size={size} />,
         }}
       />
-    </Tabs>
+    </Tab.Navigator>
   );
 }

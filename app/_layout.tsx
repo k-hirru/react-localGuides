@@ -1,22 +1,43 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Stack } from "expo-router";
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AppProvider } from "@/hooks/useAppStore";
 
+import TabNavigator from './(tabs)/_layout';
+import BusinessDetailsScreen from './business/[id]';
+import AddReviewScreen from './business/[id]/add-review';
+
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
+const Stack = createNativeStackNavigator();
 
 function RootLayoutNav() {
   return (
-    <Stack screenOptions={{ headerBackTitle: "Back" }}>
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="business/[id]" options={{ headerShown: true }} />
-      <Stack.Screen name="business/[id]/add-review" options={{ headerShown: true }} />
-      <Stack.Screen name="modal" options={{ presentation: "modal" }} />
-    </Stack>
+    <Stack.Navigator screenOptions={{ headerBackTitle: "Back" }}>
+      <Stack.Screen 
+        name="Tabs" 
+        component={TabNavigator} 
+        options={{ headerShown: false }} 
+      />
+      <Stack.Screen 
+        name="BusinessDetails" 
+        component={BusinessDetailsScreen} 
+        options={{ headerShown: true }} 
+      />
+      <Stack.Screen 
+        name="AddReview" 
+        component={AddReviewScreen} 
+        options={{ 
+          title: 'Add Review',
+          headerShown: true, 
+          headerBackTitle: 'Back',
+          presentation: "modal"
+        }} 
+      />
+    </Stack.Navigator>
   );
 }
 

@@ -4,12 +4,13 @@ import { Search, TrendingUp, Award } from 'lucide-react-native';
 import { useAppStore } from '@/hooks/useAppStore';
 import BusinessCard from '@/components/BusinessCard';
 import CategoryFilter from '@/components/CategoryFilter';
-import { router } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
 
 export default function HomeScreen() {
   const { businesses, searchBusinesses } = useAppStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const navigation = useNavigation();
 
   const filteredBusinesses = searchBusinesses(searchQuery, { 
     category: selectedCategory 
@@ -25,8 +26,9 @@ export default function HomeScreen() {
     .slice(0, 3);
 
   const handleBusinessPress = (businessId: string) => {
-    router.push(`/business/${businessId}`);
+    (navigation as any).navigate('BusinessDetails', { id: businessId });
   };
+
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>

@@ -3,14 +3,15 @@ import { View, Text, StyleSheet, FlatList } from 'react-native';
 import { Heart } from 'lucide-react-native';
 import { useAppStore } from '@/hooks/useAppStore';
 import BusinessCard from '@/components/BusinessCard';
-import { router } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
 
 export default function FavoritesScreen() {
+  const navigation= useNavigation();
   const { getFavoriteBusinesses } = useAppStore();
   const favoriteBusinesses = getFavoriteBusinesses();
 
   const handleBusinessPress = (businessId: string) => {
-    router.push(`/business/${businessId}`);
+   (navigation as any).navigate('BusinessDetails', { id: businessId });
   };
 
   if (favoriteBusinesses.length === 0) {
