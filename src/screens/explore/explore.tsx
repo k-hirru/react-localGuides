@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, FlatList, TouchableOpacity } from 'react-native';
 import { Search, Filter, MapPin, Star } from 'lucide-react-native';
-import { useAppStore } from '@/hooks/useAppStore';
-import BusinessCard from '@/components/BusinessCard';
-import CategoryFilter from '@/components/CategoryFilter';
+import { useAppStore } from '@/src/hooks/useAppStore';
+import BusinessCard from '@/src/components/BusinessCard';
+import CategoryFilter from '@/src/components/CategoryFilter';
 import { useNavigation } from '@react-navigation/native';
-import { PRICE_LEVELS } from '@/constants/categories';
-import { SearchFilters } from '@/types';
+import { PRICE_LEVELS } from '@/src/constants/categories';
+import { SearchFilters } from '@/src/types';
 
 export default function ExploreScreen() {
   const navigation = useNavigation();

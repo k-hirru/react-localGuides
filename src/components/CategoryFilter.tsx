@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { CATEGORIES } from '@/constants/categories';
+import { CATEGORIES } from '@/src/constants/categories';
 
 interface CategoryFilterProps {
   selectedCategory: string;

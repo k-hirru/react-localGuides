@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
 import { Settings, Star, Heart, MessageSquare, Award, MapPin, Phone } from 'lucide-react-native';
-import { useAppStore } from '@/hooks/useAppStore';
+import { useAppStore } from '@/src/hooks/useAppStore';
 
 export default function ProfileScreen() {
   const { user, favorites, reviews } = useAppStore();

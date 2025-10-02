@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { useAppStore } from '@/hooks/useAppStore';
-import StarRating from '@/components/StarRating';
+import { useAppStore } from '@/src/hooks/useAppStore';
+import StarRating from '@/src/components/StarRating';
 
 export default function AddReviewScreen() {
   const route = useRoute();

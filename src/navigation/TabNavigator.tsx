@@ -1,12 +1,12 @@
 import { Home, Search, Heart, User } from 'lucide-react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import React from 'react';
-import Colors from '@/constants/colors';
+import Colors from '@/src/constants/colors';
 
-import HomeScreen from './index';
-import ExploreScreen from './explore';
-import FavoritesScreen from './favorites';
-import ProfileScreen from './profile';
+import HomeScreen from '../screens/home/index';
+import ExploreScreen from '../screens/explore/explore';
+import FavoritesScreen from '../screens/favorites/favorites';
+import ProfileScreen from '../screens/profile/profile';
 
 const Tab = createBottomTabNavigator();
 

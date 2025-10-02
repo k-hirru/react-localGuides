@@ -1,10 +1,10 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { Heart, MapPin } from 'lucide-react-native';
-import { Business } from '@/types';
-import { useAppStore } from '@/hooks/useAppStore';
+import { Business } from '@/src/types';
+import { useAppStore } from '@/src/hooks/useAppStore';
 import StarRating from './StarRating';
-import { PRICE_LEVELS } from '@/constants/categories';
+import { PRICE_LEVELS } from '@/src/constants/categories';
 
 interface BusinessCardProps {
   business: Business;

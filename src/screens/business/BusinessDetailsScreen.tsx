@@ -2,10 +2,10 @@ import React, { useState, useLayoutEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, Linking, Alert } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Heart, Phone, Globe, Clock, MapPin, MessageSquare, Share } from 'lucide-react-native';
-import { useAppStore } from '@/hooks/useAppStore';
-import StarRating from '@/components/StarRating';
-import ReviewCard from '@/components/ReviewCard';
-import { PRICE_LEVELS } from '@/constants/categories';
+import { useAppStore } from '@/src/hooks/useAppStore';
+import StarRating from '@/src/components/StarRating';
+import ReviewCard from '@/src/components/ReviewCard';
+import { PRICE_LEVELS } from '@/src/constants/categories';
 
 export default function BusinessDetailScreen() {
   const route = useRoute();

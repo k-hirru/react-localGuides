@@ -1,8 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, FlatList } from 'react-native';
 import { Heart } from 'lucide-react-native';
-import { useAppStore } from '@/hooks/useAppStore';
-import BusinessCard from '@/components/BusinessCard';
+import { useAppStore } from '@/src/hooks/useAppStore';
+import BusinessCard from '@/src/components/BusinessCard';
 import { useNavigation } from '@react-navigation/native';
 
 export default function FavoritesScreen() {
