@@ -4,11 +4,12 @@ import { Search, Filter, MapPin, Star } from 'lucide-react-native';
 import { useAppStore } from '@/hooks/useAppStore';
 import BusinessCard from '@/components/BusinessCard';
 import CategoryFilter from '@/components/CategoryFilter';
-import { router } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
 import { PRICE_LEVELS } from '@/constants/categories';
 import { SearchFilters } from '@/types';
 
 export default function ExploreScreen() {
+  const navigation = useNavigation();
   const { searchBusinesses } = useAppStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -26,7 +27,7 @@ export default function ExploreScreen() {
   });
 
   const handleBusinessPress = (businessId: string) => {
-    router.push(`/business/${businessId}`);
+    (navigation as any).navigate('BusinessDetails', { id: businessId });
   };
 
   const togglePriceLevel = (level: number) => {

@@ -9,7 +9,7 @@ export default function ProfileScreen() {
   if (!user) {
     return (
       <View style={styles.container}>
-        <Text style={styles.title}>Please log in to view your profile</Text>
+        <Text style={styles.name}>Please log in to view your profile</Text>
       </View>
     );
   }

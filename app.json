@@ -1,5 +1,6 @@
 {
   "expo": {
+    "packageManager" : "npm",
     "name": "Local Guide & Review App",
     "slug": "local-guide-review-app",
     "version": "1.0.0",

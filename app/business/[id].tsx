@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useLayoutEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, Linking, Alert } from 'react-native';
-import { Stack, useLocalSearchParams, router } from 'expo-router';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { Heart, Phone, Globe, Clock, MapPin, MessageSquare, Share } from 'lucide-react-native';
 import { useAppStore } from '@/hooks/useAppStore';
 import StarRating from '@/components/StarRating';
@@ -8,13 +8,37 @@ import ReviewCard from '@/components/ReviewCard';
 import { PRICE_LEVELS } from '@/constants/categories';
 
 export default function BusinessDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const route = useRoute();
+  const navigation = useNavigation();
+  const { id } = route.params as { id: string };
   const { getBusinessById, getReviewsForBusiness, favorites, toggleFavorite } = useAppStore();
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
 
   const business = getBusinessById(id!);
   const reviews = getReviewsForBusiness(id!);
   const isFavorite = favorites.includes(id!);
+
+  useLayoutEffect(() => {
+    if (business) {
+      navigation.setOptions({
+        title: business.name,
+        headerRight: () => (
+          <View style={styles.headerButtons}>
+            <TouchableOpacity onPress={handleShare} style={styles.headerButton}>
+              <Share size={20} color="#007AFF" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => toggleFavorite(id)} style={styles.headerButton}>
+              <Heart
+                size={20}
+                fill={isFavorite ? '#FF6B6B' : 'transparent'}
+                color={isFavorite ? '#FF6B6B' : '#007AFF'}
+              />
+            </TouchableOpacity>
+          </View>
+        ),
+      });
+    }
+  }, [navigation, business, isFavorite]);
 
   if (!business) {
     return (
@@ -46,30 +70,11 @@ export default function BusinessDetailScreen() {
   };
 
   const handleAddReview = () => {
-    router.push(`/business/${id}/add-review`);
+    (navigation as any).navigate('AddReview', { id });
   };
 
   return (
     <>
-      <Stack.Screen
-        options={{
-          title: business.name,
-          headerRight: () => (
-            <View style={styles.headerButtons}>
-              <TouchableOpacity onPress={handleShare} style={styles.headerButton}>
-                <Share size={20} color="#007AFF" />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => toggleFavorite(id!)} style={styles.headerButton}>
-                <Heart
-                  size={20}
-                  fill={isFavorite ? '#FF6B6B' : 'transparent'}
-                  color={isFavorite ? '#FF6B6B' : '#007AFF'}
-                />
-              </TouchableOpacity>
-            </View>
-          ),
-        }}
-      />
       
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         {/* Photo Gallery */}

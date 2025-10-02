@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform } from 'react-native';
-import { Stack, useLocalSearchParams, router } from 'expo-router';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAppStore } from '@/hooks/useAppStore';
 import StarRating from '@/components/StarRating';
 
 export default function AddReviewScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const route = useRoute();
+  const navigation = useNavigation();
+  const { id } = route.params as { id: string };
   const { getBusinessById, addReview, user } = useAppStore();
   const [rating, setRating] = useState(0);
   const [reviewText, setReviewText] = useState('');
@@ -51,7 +53,7 @@ export default function AddReviewScreen() {
         [
           {
             text: 'OK',
-            onPress: () => router.back(),
+            onPress: () => navigation.goBack(),
           },
         ]
       );
@@ -64,12 +66,6 @@ export default function AddReviewScreen() {
 
   return (
     <>
-      <Stack.Screen
-        options={{
-          title: 'Add Review',
-          headerBackTitle: 'Back',
-        }}
-      />
       
       <KeyboardAvoidingView
         style={styles.container}
