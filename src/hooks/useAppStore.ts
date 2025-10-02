@@ -1,8 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import createContextHook from '@nkzw/create-context-hook';
 import { useEffect, useState } from 'react';
-import { mockBusinesses, mockReviews, mockUser } from '@/data/mockData';
-import { Business, Review, User, SearchFilters } from '@/types';
+import { mockBusinesses, mockReviews, mockUser } from '@/src/data/mockData';
+import { Business, Review, User, SearchFilters } from '@/src/types';
 
 const STORAGE_KEYS = {
   FAVORITES: 'favorites',

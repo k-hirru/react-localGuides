@@ -1,4 +1,4 @@
-import { Business, Review, User } from '@/types';
+import { Business, Review, User } from '@/src/types';
 
 export const mockBusinesses: Business[] = [
   {

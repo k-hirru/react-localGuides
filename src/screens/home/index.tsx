@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, FlatList } from 'react-native';
 import { Search, TrendingUp, Award } from 'lucide-react-native';
-import { useAppStore } from '@/hooks/useAppStore';
-import BusinessCard from '@/components/BusinessCard';
-import CategoryFilter from '@/components/CategoryFilter';
+import { useAppStore } from '@/src/hooks/useAppStore';
+import BusinessCard from '@/src/components/BusinessCard';
+import CategoryFilter from '@/src/components/CategoryFilter';
 import { useNavigation } from '@react-navigation/native';
 
 export default function HomeScreen() {

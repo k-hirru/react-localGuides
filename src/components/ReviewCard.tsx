@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
 import { ThumbsUp } from 'lucide-react-native';
-import { Review } from '@/types';
+import { Review } from '@/src/types';
 import StarRating from './StarRating';
 
 interface ReviewCardProps {

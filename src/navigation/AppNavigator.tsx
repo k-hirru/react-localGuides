@@ -1,13 +1,14 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { NavigationContainer } from '@react-navigation/native'; 
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { AppProvider } from "@/hooks/useAppStore";
+import { AppProvider } from "@/src/hooks/useAppStore";
 
-import TabNavigator from './(tabs)/_layout';
-import BusinessDetailsScreen from './business/[id]';
-import AddReviewScreen from './business/[id]/add-review';
+import TabNavigator from './TabNavigator';
+import BusinessDetailsScreen from '../screens/business/BusinessDetailsScreen';
+import AddReviewScreen from '../screens/business/AddReviewScreen';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -41,18 +42,20 @@ function RootLayoutNav() {
   );
 }
 
-export default function RootLayout() {
+export default function AppNavigator() { 
   useEffect(() => {
     SplashScreen.hideAsync();
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <AppProvider>
-        <GestureHandlerRootView style={{ flex: 1 }}>
-          <RootLayoutNav />
-        </GestureHandlerRootView>
-      </AppProvider>
-    </QueryClientProvider>
+    <NavigationContainer> 
+      <QueryClientProvider client={queryClient}>
+        <AppProvider>
+          <GestureHandlerRootView style={{ flex: 1 }}>
+            <RootLayoutNav />
+          </GestureHandlerRootView>
+        </AppProvider>
+      </QueryClientProvider>
+    </NavigationContainer>
   );
 }
