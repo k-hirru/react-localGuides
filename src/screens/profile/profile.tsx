@@ -1,10 +1,21 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
-import { Settings, Star, Heart, MessageSquare, Award, MapPin, Phone } from 'lucide-react-native';
+import { Settings, Star, Heart, MessageSquare, Award, MapPin, Phone, DoorOpen } from 'lucide-react-native';
 import { useAppStore } from '@/src/hooks/useAppStore';
+import { useNavigation, CommonActions } from '@react-navigation/native';
 
 export default function ProfileScreen() {
   const { user, favorites, reviews } = useAppStore();
+  const navigation = useNavigation();
+
+  const handleLogout = () => {
+    navigation.dispatch(
+          CommonActions.reset({
+            index: 0,
+            routes: [{ name: 'Login' }],
+          })
+        );
+  }
 
   if (!user) {
     return (
@@ -81,6 +92,11 @@ export default function ProfileScreen() {
         <TouchableOpacity style={styles.menuItem}>
           <Phone size={20} color="#666" />
           <Text style={styles.menuText}>Help & Support</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
+          <DoorOpen size={20} color="#ee1010ff" />
+          <Text style={styles.menuTextLogout}>Log Out</Text>
         </TouchableOpacity>
       </View>
 
@@ -194,6 +210,12 @@ const styles = StyleSheet.create({
   menuText: {
     fontSize: 16,
     color: '#333',
+    marginLeft: 16,
+    flex: 1,
+  },
+    menuTextLogout: {
+    fontSize: 16,
+    color: '#ee1010ff',
     marginLeft: 16,
     flex: 1,
   },
