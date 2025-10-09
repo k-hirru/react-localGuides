@@ -34,6 +34,7 @@ export default function TabLayout() {
         name="Home"
         component={HomeScreen}
         options={{
+          
           title: 'Home',
           headerTitle: 'Yelpify',
           tabBarIcon: ({ color, size }) => <Home color={color} size={size} />,

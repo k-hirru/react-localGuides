@@ -9,6 +9,8 @@ import { AppProvider } from "@/src/hooks/useAppStore";
 import TabNavigator from './TabNavigator';
 import BusinessDetailsScreen from '../screens/business/BusinessDetailsScreen';
 import AddReviewScreen from '../screens/business/AddReviewScreen';
+import LogInScreen from '../screens/entry/LoginScreen'
+import SignUpScreen from '../screens/entry/SignUpScreen'
 
 SplashScreen.preventAutoHideAsync();
 
@@ -18,6 +20,16 @@ const Stack = createNativeStackNavigator();
 function RootLayoutNav() {
   return (
     <Stack.Navigator screenOptions={{ headerBackTitle: "Back" }}>
+      <Stack.Screen
+        name="Login"
+        component={LogInScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen 
+        name="Signup" 
+        component={SignUpScreen} 
+        options={{ headerShown: false }} 
+      />
       <Stack.Screen 
         name="Tabs" 
         component={TabNavigator} 
