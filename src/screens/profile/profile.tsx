@@ -1,23 +1,25 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
-import { Settings, Star, Heart, MessageSquare, Award, MapPin, Phone, DoorOpen } from 'lucide-react-native';
+import { Settings, Star, Heart, MessageSquare, Award, MapPin, Phone, DoorOpen, UserCircle } from 'lucide-react-native';
 import { useAppStore } from '@/src/hooks/useAppStore';
-import { useNavigation, CommonActions } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
+import { useAuth } from '@/src/hooks/useAuth';
+
 
 export default function ProfileScreen() {
-  const { user, favorites, reviews } = useAppStore();
+  const { user: appUser, favorites, reviews } = useAppStore();
+  const { user: authUser, logout } = useAuth();
   const navigation = useNavigation();
 
-  const handleLogout = () => {
-    navigation.dispatch(
-          CommonActions.reset({
-            index: 0,
-            routes: [{ name: 'Login' }],
-          })
-        );
-  }
+  const handleLogout = async () => {
+    try {
+      await logout(); 
+    } catch (error) {
+      console.error('Failed to logout:', error);
+    }
+  };
 
-  if (!user) {
+  if (!authUser) {
     return (
       <View style={styles.container}>
         <Text style={styles.name}>Please log in to view your profile</Text>
@@ -25,15 +27,15 @@ export default function ProfileScreen() {
     );
   }
 
-  const userReviews = reviews.filter(review => review.userId === user.id);
+  const userReviews = reviews.filter(review => review.userId === authUser.uid);
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* Profile Header */}
       <View style={styles.header}>
-        <Image source={{ uri: user.avatar }} style={styles.avatar} />
-        <Text style={styles.name}>{user.name}</Text>
-        <Text style={styles.email}>{user.email}</Text>
+        <UserCircle size={80} style={styles.avatar} />
+        <Text style={styles.name}>{authUser.displayName || 'User'}</Text>
+        <Text style={styles.email}>{authUser.email}</Text>
         
         <TouchableOpacity style={styles.editButton}>
           <Settings size={16} color="#007AFF" />

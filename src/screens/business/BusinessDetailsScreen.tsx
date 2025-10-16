@@ -1,22 +1,105 @@
-import React, { useState, useLayoutEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, Linking, Alert } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
-import { Heart, Phone, Globe, Clock, MapPin, MessageSquare, Share } from 'lucide-react-native';
-import { useAppStore } from '@/src/hooks/useAppStore';
-import StarRating from '@/src/components/StarRating';
-import ReviewCard from '@/src/components/ReviewCard';
-import { PRICE_LEVELS } from '@/src/constants/categories';
+import React, {
+  useState,
+  useLayoutEffect,
+  useEffect,
+  useCallback,
+} from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Image,
+  TouchableOpacity,
+  Linking,
+  Alert,
+} from "react-native";
+import {
+  useNavigation,
+  useRoute,
+  useFocusEffect,
+} from "@react-navigation/native";
+import {
+  Heart,
+  Phone,
+  Globe,
+  Clock,
+  MapPin,
+  MessageSquare,
+  Share,
+} from "lucide-react-native";
+import { useAppStore } from "@/src/hooks/useAppStore";
+import { Review } from "@/src/types";
+import { reviewService } from "@/src/services/reviewService";
+import PullToRefreshScrollView from "@/src/components/PullToRefreshScrollView";
+import StarRating from "@/src/components/StarRating";
+import ReviewCard from "@/src/components/ReviewCard";
+import { PRICE_LEVELS } from "@/src/constants/categories";
 
 export default function BusinessDetailScreen() {
   const route = useRoute();
   const navigation = useNavigation();
   const { id } = route.params as { id: string };
-  const { getBusinessById, getReviewsForBusiness, favorites, toggleFavorite } = useAppStore();
+  const { getBusinessById, favorites, toggleFavorite, deleteReview } =
+    useAppStore();
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
 
   const business = getBusinessById(id!);
-  const reviews = getReviewsForBusiness(id!);
   const isFavorite = favorites.includes(id!);
+
+  const loadBusinessReviews = async () => {
+    if (!business) return;
+
+    try {
+      setReviewsLoading(true);
+      const businessReviews = await reviewService.getReviewsForBusiness(
+        business.id
+      );
+      setReviews(businessReviews);
+    } catch (error) {
+      console.error("Error loading business reviews:", error);
+    } finally {
+      setReviewsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadBusinessReviews();
+  }, [business]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadBusinessReviews();
+    }, [business])
+  );
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    loadBusinessReviews();
+  };
+
+  // Add these missing functions
+  const handleEdit = (review: Review) => {
+    // Navigate to AddReview screen in edit mode
+    (navigation as any).navigate("AddReview", {
+      id: business?.id,
+      review: review,
+    });
+  };
+
+  const handleDelete = async (reviewId: string) => {
+    try {
+      await deleteReview(reviewId);
+      // Refresh reviews after deletion
+      await loadBusinessReviews();
+    } catch (error) {
+      console.error("Error deleting review:", error);
+      Alert.alert("Error", "Failed to delete review. Please try again.");
+    }
+  };
 
   useLayoutEffect(() => {
     if (business) {
@@ -27,11 +110,14 @@ export default function BusinessDetailScreen() {
             <TouchableOpacity onPress={handleShare} style={styles.headerButton}>
               <Share size={20} color="#007AFF" />
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => toggleFavorite(id)} style={styles.headerButton}>
+            <TouchableOpacity
+              onPress={() => toggleFavorite(id)}
+              style={styles.headerButton}
+            >
               <Heart
                 size={20}
-                fill={isFavorite ? '#FF6B6B' : 'transparent'}
-                color={isFavorite ? '#FF6B6B' : '#007AFF'}
+                fill={isFavorite ? "#FF6B6B" : "transparent"}
+                color={isFavorite ? "#FF6B6B" : "#007AFF"}
               />
             </TouchableOpacity>
           </View>
@@ -48,7 +134,8 @@ export default function BusinessDetailScreen() {
     );
   }
 
-  const priceSymbol = PRICE_LEVELS.find(p => p.level === business.priceLevel)?.symbol || '$';
+  const priceSymbol =
+    PRICE_LEVELS.find((p) => p.level === business.priceLevel)?.symbol || "$";
 
   const handleCall = () => {
     Linking.openURL(`tel:${business.phone}`);
@@ -66,16 +153,15 @@ export default function BusinessDetailScreen() {
   };
 
   const handleShare = () => {
-    Alert.alert('Share', `Share ${business.name} with friends`);
+    Alert.alert("Share", `Share ${business.name} with friends`);
   };
 
   const handleAddReview = () => {
-    (navigation as any).navigate('AddReview', { id });
+    (navigation as any).navigate("AddReview", { id });
   };
 
   return (
     <>
-      
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         {/* Photo Gallery */}
         <View style={styles.photoContainer}>
@@ -84,7 +170,10 @@ export default function BusinessDetailScreen() {
             pagingEnabled
             showsHorizontalScrollIndicator={false}
             onMomentumScrollEnd={(event) => {
-              const index = Math.round(event.nativeEvent.contentOffset.x / event.nativeEvent.layoutMeasurement.width);
+              const index = Math.round(
+                event.nativeEvent.contentOffset.x /
+                  event.nativeEvent.layoutMeasurement.width
+              );
               setSelectedPhotoIndex(index);
             }}
           >
@@ -92,7 +181,7 @@ export default function BusinessDetailScreen() {
               <Image key={index} source={{ uri: photo }} style={styles.photo} />
             ))}
           </ScrollView>
-          
+
           <View style={styles.photoIndicator}>
             <Text style={styles.photoIndicatorText}>
               {selectedPhotoIndex + 1} / {business.photos.length}
@@ -103,11 +192,13 @@ export default function BusinessDetailScreen() {
         {/* Business Info */}
         <View style={styles.infoContainer}>
           <Text style={styles.businessName}>{business.name}</Text>
-          
+
           <View style={styles.ratingRow}>
             <StarRating rating={business.rating} size={16} />
             <Text style={styles.ratingText}>{business.rating}</Text>
-            <Text style={styles.reviewCount}>({business.reviewCount} reviews)</Text>
+            <Text style={styles.reviewCount}>
+              ({business.reviewCount} reviews)
+            </Text>
             <Text style={styles.price}>{priceSymbol}</Text>
           </View>
 
@@ -129,14 +220,20 @@ export default function BusinessDetailScreen() {
             <Phone size={20} color="#007AFF" />
             <Text style={styles.actionButtonText}>Call</Text>
           </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.actionButton} onPress={handleDirections}>
+
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={handleDirections}
+          >
             <MapPin size={20} color="#007AFF" />
             <Text style={styles.actionButtonText}>Directions</Text>
           </TouchableOpacity>
-          
+
           {business.website && (
-            <TouchableOpacity style={styles.actionButton} onPress={handleWebsite}>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={handleWebsite}
+            >
               <Globe size={20} color="#007AFF" />
               <Text style={styles.actionButtonText}>Website</Text>
             </TouchableOpacity>
@@ -149,12 +246,12 @@ export default function BusinessDetailScreen() {
             <MapPin size={16} color="#666" />
             <Text style={styles.contactText}>{business.address}</Text>
           </View>
-          
+
           <View style={styles.contactItem}>
             <Phone size={16} color="#666" />
             <Text style={styles.contactText}>{business.phone}</Text>
           </View>
-          
+
           <View style={styles.contactItem}>
             <Clock size={16} color="#666" />
             <View style={styles.hoursContainer}>
@@ -171,109 +268,132 @@ export default function BusinessDetailScreen() {
         {/* Reviews Section */}
         <View style={styles.reviewsContainer}>
           <View style={styles.reviewsHeader}>
-            <Text style={styles.reviewsTitle}>Reviews ({reviews.length})</Text>
-            <TouchableOpacity style={styles.addReviewButton} onPress={handleAddReview}>
+            <Text style={styles.reviewsTitle}>
+              Reviews ({reviewsLoading ? "..." : reviews.length})
+            </Text>
+            <TouchableOpacity
+              style={styles.addReviewButton}
+              onPress={handleAddReview}
+            >
               <MessageSquare size={16} color="#FFF" />
               <Text style={styles.addReviewText}>Add Review</Text>
             </TouchableOpacity>
           </View>
 
-          {reviews.map((review) => (
-            <ReviewCard key={review.id} review={review} />
-          ))}
+          {reviewsLoading ? (
+            <View style={styles.loadingContainer}>
+              <Text>Loading reviews...</Text>
+            </View>
+          ) : reviews.length === 0 ? (
+            <View style={styles.noReviewsContainer}>
+              <Text style={styles.noReviewsText}>
+                No reviews yet. Be the first to review!
+              </Text>
+            </View>
+          ) : (
+            reviews.map((review) => (
+              <ReviewCard
+                key={review.id}
+                review={review}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+              />
+            ))
+          )}
         </View>
       </ScrollView>
     </>
   );
 }
 
+// Your styles remain the same...
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: "#F8F9FA",
   },
   errorContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   errorText: {
     fontSize: 18,
-    color: '#666',
+    color: "#666",
   },
   headerButtons: {
-    flexDirection: 'row',
+    flexDirection: "row",
   },
   headerButton: {
     marginLeft: 16,
   },
   photoContainer: {
     height: 250,
-    position: 'relative',
+    position: "relative",
   },
   photo: {
-    width: '100%',
+    width: "100%",
     height: 250,
   },
   photoIndicator: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 12,
     right: 12,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
   },
   photoIndicatorText: {
-    color: '#FFF',
+    color: "#FFF",
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   infoContainer: {
-    backgroundColor: '#FFF',
+    backgroundColor: "#FFF",
     padding: 20,
     marginBottom: 12,
   },
   businessName: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: "bold",
+    color: "#333",
     marginBottom: 12,
   },
   ratingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 16,
   },
   ratingText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: "600",
+    color: "#333",
     marginLeft: 8,
   },
   reviewCount: {
     fontSize: 14,
-    color: '#666',
+    color: "#666",
     marginLeft: 8,
   },
   price: {
     fontSize: 16,
-    color: '#4CAF50',
-    fontWeight: '600',
-    marginLeft: 'auto',
+    color: "#4CAF50",
+    fontWeight: "600",
+    marginLeft: "auto",
   },
   description: {
     fontSize: 16,
-    color: '#333',
+    color: "#333",
     lineHeight: 24,
     marginBottom: 16,
   },
   featuresContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
   },
   featureTag: {
-    backgroundColor: '#F0F8FF',
+    backgroundColor: "#F0F8FF",
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
@@ -282,40 +402,40 @@ const styles = StyleSheet.create({
   },
   featureText: {
     fontSize: 12,
-    color: '#007AFF',
-    fontWeight: '500',
+    color: "#007AFF",
+    fontWeight: "500",
   },
   actionButtons: {
-    flexDirection: 'row',
-    backgroundColor: '#FFF',
+    flexDirection: "row",
+    backgroundColor: "#FFF",
     paddingVertical: 16,
     paddingHorizontal: 20,
     marginBottom: 12,
-    justifyContent: 'space-around',
+    justifyContent: "space-around",
   },
   actionButton: {
-    alignItems: 'center',
+    alignItems: "center",
     flex: 1,
   },
   actionButtonText: {
     fontSize: 12,
-    color: '#007AFF',
+    color: "#007AFF",
     marginTop: 4,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   contactContainer: {
-    backgroundColor: '#FFF',
+    backgroundColor: "#FFF",
     padding: 20,
     marginBottom: 12,
   },
   contactItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    alignItems: "flex-start",
     marginBottom: 16,
   },
   contactText: {
     fontSize: 16,
-    color: '#333',
+    color: "#333",
     marginLeft: 12,
     flex: 1,
   },
@@ -324,48 +444,61 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   hoursRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginBottom: 4,
   },
   dayText: {
     fontSize: 14,
-    color: '#333',
-    fontWeight: '500',
+    color: "#333",
+    fontWeight: "500",
   },
   hoursText: {
     fontSize: 14,
-    color: '#666',
+    color: "#666",
   },
   reviewsContainer: {
     marginBottom: 20,
   },
   reviewsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: '#FFF',
+    backgroundColor: "#FFF",
     marginBottom: 8,
   },
   reviewsTitle: {
     fontSize: 20,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: "600",
+    color: "#333",
   },
   addReviewButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#007AFF',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#007AFF",
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
   },
   addReviewText: {
-    color: '#FFF',
+    color: "#FFF",
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: "500",
     marginLeft: 6,
+  },
+  loadingContainer: {
+    padding: 20,
+    alignItems: "center",
+  },
+  noReviewsContainer: {
+    padding: 20,
+    alignItems: "center",
+  },
+  noReviewsText: {
+    fontSize: 16,
+    color: "#666",
+    textAlign: "center",
   },
 });

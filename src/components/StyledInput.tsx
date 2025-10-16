@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { View, TextInput, StyleSheet } from 'react-native';
 import Colors from '@/src/constants/colors';
 

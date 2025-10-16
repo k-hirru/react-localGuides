@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, FlatList } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TextInput, FlatList, SafeAreaView } from 'react-native'; // <-- Added SafeAreaView
 import { Search, TrendingUp, Award } from 'lucide-react-native';
 import { useAppStore } from '@/src/hooks/useAppStore';
+import { useAuth } from '@/src/hooks/useAuth';
 import BusinessCard from '@/src/components/BusinessCard';
 import CategoryFilter from '@/src/components/CategoryFilter';
 import { useNavigation } from '@react-navigation/native';
@@ -9,11 +10,14 @@ import { useNavigation } from '@react-navigation/native';
 export default function HomeScreen() {
   const { businesses, searchBusinesses } = useAppStore();
   const [searchQuery, setSearchQuery] = useState('');
+  const { user } = useAuth();
   const [selectedCategory, setSelectedCategory] = useState('all');
   const navigation = useNavigation();
 
-  const filteredBusinesses = searchBusinesses(searchQuery, { 
-    category: selectedCategory 
+  const userName = user?.displayName?.split(' ')[0] || 'there';
+
+  const filteredBusinesses = searchBusinesses(searchQuery, {
+    category: selectedCategory
   });
 
   const topRatedBusinesses = businesses
@@ -31,93 +35,101 @@ export default function HomeScreen() {
 
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>Discover Local</Text>
-        <Text style={styles.subtitle}>Find the best places around you</Text>
-      </View>
 
-      {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <Search size={20} color="#666" style={styles.searchIcon} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search restaurants, cafes, services..."
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-      </View>
-
-      {/* Category Filter */}
-      <CategoryFilter
-        selectedCategory={selectedCategory}
-        onCategoryChange={setSelectedCategory}
-      />
-
-      {/* Top Rated Section */}
-      {!searchQuery && selectedCategory === 'all' && (
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Award size={20} color="#FFD700" />
-            <Text style={styles.sectionTitle}>Top Rated</Text>
-          </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {topRatedBusinesses.map((business) => (
-              <View key={business.id} style={styles.horizontalCard}>
-                <BusinessCard
-                  business={business}
-                  onPress={() => handleBusinessPress(business.id)}
-                />
-              </View>
-            ))}
-          </ScrollView>
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.title}>Welcome, {userName}! 👋</Text>
+          <Text style={styles.subtitle}>Ready to discover amazing local spots?</Text>
         </View>
-      )}
 
-      {/* Trending Section */}
-      {!searchQuery && selectedCategory === 'all' && (
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <TrendingUp size={20} color="#FF6B6B" />
-            <Text style={styles.sectionTitle}>Trending Now</Text>
-          </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {trendingBusinesses.map((business) => (
-              <View key={business.id} style={styles.horizontalCard}>
-                <BusinessCard
-                  business={business}
-                  onPress={() => handleBusinessPress(business.id)}
-                />
-              </View>
-            ))}
-          </ScrollView>
+        {/* Search Bar */}
+        <View style={styles.searchContainer}>
+          <Search size={20} color="#666" style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search restaurants, cafes, services..."
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
         </View>
-      )}
 
-      {/* All Results */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>
-          {searchQuery || selectedCategory !== 'all' ? 'Search Results' : 'All Places'}
-        </Text>
-        <FlatList
-          data={filteredBusinesses}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <BusinessCard
-              business={item}
-              onPress={() => handleBusinessPress(item.id)}
-            />
-          )}
-          scrollEnabled={false}
-          showsVerticalScrollIndicator={false}
+        {/* Category Filter */}
+        <CategoryFilter
+          selectedCategory={selectedCategory}
+          onCategoryChange={setSelectedCategory}
         />
-      </View>
-    </ScrollView>
+
+        {/* Top Rated Section */}
+        {!searchQuery && selectedCategory === 'all' && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Award size={20} color="#FFD700" />
+              <Text style={styles.sectionTitle}>Top Rated</Text>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {topRatedBusinesses.map((business) => (
+                <View key={business.id} style={styles.horizontalCard}>
+                  <BusinessCard
+                    business={business}
+                    onPress={() => handleBusinessPress(business.id)}
+                  />
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* Trending Section */}
+        {!searchQuery && selectedCategory === 'all' && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <TrendingUp size={20} color="#FF6B6B" />
+              <Text style={styles.sectionTitle}>Trending Now</Text>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {trendingBusinesses.map((business) => (
+                <View key={business.id} style={styles.horizontalCard}>
+                  <BusinessCard
+                    business={business}
+                    onPress={() => handleBusinessPress(business.id)}
+                  />
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* All Results */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>
+            {searchQuery || selectedCategory !== 'all' ? 'Search Results' : 'All Places'}
+          </Text>
+          <FlatList
+            data={filteredBusinesses}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <BusinessCard
+                business={item}
+                onPress={() => handleBusinessPress(item.id)}
+              />
+            )}
+            scrollEnabled={false}
+            showsVerticalScrollIndicator={false}
+          />
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  // New style for SafeAreaView
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#F8F9FA', // Match the container background
+  },
   container: {
     flex: 1,
     backgroundColor: '#F8F9FA',

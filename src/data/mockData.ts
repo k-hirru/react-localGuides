@@ -1,8 +1,8 @@
-import { Business, Review, User } from '@/src/types';
+import { Business, generateBusinessId, Review, User } from '@/src/types';
 
 export const mockBusinesses: Business[] = [
   {
-    id: '1',
+    id: generateBusinessId(37.7749, -122.4194),
     name: 'The Garden Bistro',
     category: 'restaurants',
     rating: 4.5,
@@ -34,7 +34,7 @@ export const mockBusinesses: Business[] = [
     features: ['Outdoor Seating', 'Vegan Options', 'Full Bar', 'Reservations'],
   },
   {
-    id: '2',
+    id: generateBusinessId(32.649, -114.4094),
     name: 'Brew & Bean Coffee',
     category: 'cafes',
     rating: 4.2,
@@ -53,8 +53,8 @@ export const mockBusinesses: Business[] = [
       'Sunday': '7:00 AM - 7:00 PM',
     },
     coordinates: {
-      latitude: 37.7849,
-      longitude: -122.4094,
+      latitude: 32.649,
+      longitude: -114.4094,
     },
     photos: [
       'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=800',
@@ -65,7 +65,7 @@ export const mockBusinesses: Business[] = [
     features: ['WiFi', 'Study Space', 'Pastries', 'Oat Milk'],
   },
   {
-    id: '3',
+    id: generateBusinessId(21.6382, 45.1423),
     name: 'Sunset Lounge',
     category: 'bars',
     rating: 4.7,
@@ -84,8 +84,8 @@ export const mockBusinesses: Business[] = [
       'Sunday': '2:00 PM - 11:00 PM',
     },
     coordinates: {
-      latitude: 37.7649,
-      longitude: -122.4294,
+      latitude: 21.6382,
+      longitude: 45.1423,
     },
     photos: [
       'https://images.unsplash.com/photo-1514933651103-005eec06c04b?w=800',
@@ -96,7 +96,7 @@ export const mockBusinesses: Business[] = [
     features: ['Rooftop', 'City Views', 'Craft Cocktails', 'Happy Hour'],
   },
   {
-    id: '4',
+    id: generateBusinessId(53.1451, 23.5678),
     name: 'Tech Repair Pro',
     category: 'services',
     rating: 4.8,
@@ -115,8 +115,8 @@ export const mockBusinesses: Business[] = [
       'Sunday': 'Closed',
     },
     coordinates: {
-      latitude: 37.7949,
-      longitude: -122.3994,
+      latitude: 53.1451,
+      longitude: 23.5678,
     },
     photos: [
       'https://images.unsplash.com/photo-1581092160562-40aa08e78837?w=800',
@@ -129,7 +129,7 @@ export const mockBusinesses: Business[] = [
 
 export const mockReviews: Review[] = [
   {
-    id: '1',
+    id: generateBusinessId(37.7749, -122.4194),
     businessId: '1',
     userId: 'user1',
     userName: 'Sarah Johnson',
@@ -137,10 +137,12 @@ export const mockReviews: Review[] = [
     rating: 5,
     text: 'Amazing food and atmosphere! The seasonal menu is always fresh and creative. Highly recommend the truffle pasta.',
     date: '2024-01-15',
+    createdAt: new Date('2024-01-15'),
+    updatedAt: new Date('2024-01-15'),
     helpful: 12,
   },
   {
-    id: '2',
+    id: generateBusinessId(32.649, -114.4094),
     businessId: '1',
     userId: 'user2',
     userName: 'Mike Chen',
@@ -148,10 +150,12 @@ export const mockReviews: Review[] = [
     rating: 4,
     text: 'Great service and delicious food. The outdoor seating is perfect for a date night.',
     date: '2024-01-10',
+    createdAt: new Date('2024-01-10'),
+    updatedAt: new Date('2024-01-10'),
     helpful: 8,
   },
   {
-    id: '3',
+    id: generateBusinessId(21.6382, 45.1423),
     businessId: '2',
     userId: 'user3',
     userName: 'Emma Davis',
@@ -159,10 +163,12 @@ export const mockReviews: Review[] = [
     rating: 4,
     text: 'Perfect spot for remote work. Great coffee and reliable WiFi. The almond croissants are to die for!',
     date: '2024-01-12',
+    createdAt: new Date('2024-01-12'),
+    updatedAt: new Date('2024-01-12'),
     helpful: 15,
   },
   {
-    id: '4',
+    id: generateBusinessId(21.6382, 45.1423),
     businessId: '3',
     userId: 'user4',
     userName: 'Alex Rodriguez',
@@ -170,7 +176,35 @@ export const mockReviews: Review[] = [
     rating: 5,
     text: 'Best rooftop bar in the city! The sunset views are incredible and the cocktails are expertly crafted.',
     date: '2024-01-08',
+    createdAt: new Date('2024-01-08'),
+    updatedAt: new Date('2024-01-08'),
     helpful: 23,
+  },
+  {
+    id: generateBusinessId(32.649, -114.4094),
+    businessId: '4',
+    userId: 'user5',
+    userName: 'Jessica Williams',
+    userAvatar: 'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=100',
+    rating: 5,
+    text: 'Fixed my phone in under an hour! Professional service and reasonable prices. Highly recommended!',
+    date: '2024-01-05',
+    createdAt: new Date('2024-01-05'),
+    updatedAt: new Date('2024-01-05'),
+    helpful: 18,
+  },
+  {
+    id: generateBusinessId(21.6382, 45.1423),
+    businessId: '2',
+    userId: 'user6',
+    userName: 'David Kim',
+    userAvatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100',
+    rating: 4,
+    text: 'Great coffee and atmosphere. Perfect place to get some work done or catch up with friends.',
+    date: '2024-01-03',
+    createdAt: new Date('2024-01-03'),
+    updatedAt: new Date('2024-01-03'),
+    helpful: 7,
   },
 ];
 
