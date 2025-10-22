@@ -1,99 +1,107 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import createContextHook from '@nkzw/create-context-hook';
-import { useEffect, useState } from 'react';
-import { mockBusinesses, mockReviews, mockUser } from '@/src/data/mockData';
-import { Business, Review, User, SearchFilters } from '@/src/types';
+import { useState, useEffect } from 'react';
+import { reviewService } from '@/src/services/reviewService';
+import { useAuth } from './useAuth';
+import { mockBusinesses } from '@/src/data/mockData';
+import { Review, Business, SearchFilters } from '@/src/types';
 
-const STORAGE_KEYS = {
-  FAVORITES: 'favorites',
-  REVIEWS: 'reviews',
-  USER: 'user',
-};
-
-export const [AppProvider, useAppStore] = createContextHook(() => {
+export const useAppStore = () => {
+  const { user: authUser } = useAuth();
   const [businesses] = useState<Business[]>(mockBusinesses);
-  const [reviews, setReviews] = useState<Review[]>(mockReviews);
-  const [user, setUser] = useState<User | null>(null);
+  const [reviews, setReviews] = useState<Review[]>([]);
   const [favorites, setFavorites] = useState<string[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   // Load persisted data
   useEffect(() => {
-    loadPersistedData();
-  }, []);
+    loadAllReviews();
+  }, [authUser]);
 
-  const loadPersistedData = async () => {
+ const loadAllReviews = async () => {
+    if (!authUser) {
+      setReviews([]);
+      return;
+    }
+
     try {
-      const [storedFavorites, storedReviews, storedUser] = await Promise.all([
-        AsyncStorage.getItem(STORAGE_KEYS.FAVORITES),
-        AsyncStorage.getItem(STORAGE_KEYS.REVIEWS),
-        AsyncStorage.getItem(STORAGE_KEYS.USER),
-      ]);
-
-      if (storedFavorites) {
-        setFavorites(JSON.parse(storedFavorites));
-      }
-      if (storedReviews) {
-        setReviews(JSON.parse(storedReviews));
-      }
-      if (storedUser) {
-        setUser(JSON.parse(storedUser));
-      } else {
-        // Set mock user for demo
-        setUser(mockUser);
-        setFavorites(mockUser.favoriteBusinesses);
-      }
+      setLoading(true);
+      // You might want to load all reviews or just user's reviews
+      const userReviews = await reviewService.getUserReviews(authUser.uid);
+      setReviews(userReviews);
     } catch (error) {
-      console.error('Error loading persisted data:', error);
+      console.error('Error loading reviews:', error);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  const toggleFavorite = async (businessId: string) => {
-    const newFavorites = favorites.includes(businessId)
-      ? favorites.filter(id => id !== businessId)
-      : [...favorites, businessId];
-    
-    setFavorites(newFavorites);
-    
-    if (user) {
-      const updatedUser = { ...user, favoriteBusinesses: newFavorites };
-      setUser(updatedUser);
-      await AsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(updatedUser));
-    }
-    
-    await AsyncStorage.setItem(STORAGE_KEYS.FAVORITES, JSON.stringify(newFavorites));
-  };
-
-  const addReview = async (review: Omit<Review, 'id' | 'date'>) => {
-    const newReview: Review = {
-      ...review,
-      id: Date.now().toString(),
-      date: new Date().toISOString().split('T')[0],
-    };
-
-    const updatedReviews = [...reviews, newReview];
-    setReviews(updatedReviews);
-    await AsyncStorage.setItem(STORAGE_KEYS.REVIEWS, JSON.stringify(updatedReviews));
-
-    if (user) {
-      const updatedUser = { ...user, reviewCount: user.reviewCount + 1 };
-      setUser(updatedUser);
-      await AsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(updatedUser));
-    }
-  };
-
-  const getBusinessById = (id: string): Business | undefined => {
+  const getBusinessById = (id: string) => {
     return businesses.find(business => business.id === id);
   };
 
-  const getReviewsForBusiness = (businessId: string): Review[] => {
-    return reviews.filter(review => review.businessId === businessId);
+  const getReviewsForBusiness = async (businessId: string): Promise<Review[]> => {
+    try {
+      return await reviewService.getReviewsForBusiness(businessId);
+    } catch (error) {
+      console.error('Error getting business reviews:', error);
+      return [];
+    }
   };
 
-  const getFavoriteBusinesses = (): Business[] => {
-    return businesses.filter(business => favorites.includes(business.id));
+  const addReview = async (reviewData: Omit<Review, 'id' | 'date' | 'createdAt' | 'updatedAt'>) => {
+  if (!authUser) throw new Error('User must be logged in');
+
+  try {
+    // Check if user already reviewed this business
+    const existingReview = await reviewService.getUserReviewForBusiness(authUser.uid, reviewData.businessId);
+    
+    if (existingReview) {
+      throw new Error('You have already reviewed this business');
+    }
+
+    const reviewId = await reviewService.addReview({
+      ...reviewData,
+      userId: authUser.uid,
+      userName: authUser.displayName || 'Anonymous User',
+      userAvatar: authUser.photoURL || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100',
+    });
+
+    // Reload reviews to include the new one
+    await loadAllReviews();
+    
+    return reviewId;
+  } catch (error) {
+    console.error('Error adding review:', error);
+    throw error;
+  }
+};
+
+
+  const updateReview = async (reviewId: string, updates: { rating?: number; text?: string }) => {
+    try {
+      await reviewService.updateReview(reviewId, updates);
+      await loadAllReviews(); // Reload to get updated data
+    } catch (error) {
+      console.error('Error updating review:', error);
+      throw error;
+    }
+  };
+
+  const deleteReview = async (reviewId: string) => {
+    try {
+      await reviewService.deleteReview(reviewId);
+      await loadAllReviews(); // Reload to remove deleted review
+    } catch (error) {
+      console.error('Error deleting review:', error);
+      throw error;
+    }
+  };
+
+  const toggleFavorite = (businessId: string) => {
+    setFavorites(prev => 
+      prev.includes(businessId) 
+        ? prev.filter(id => id !== businessId)
+        : [...prev, businessId]
+    );
   };
 
   const searchBusinesses = (query: string, filters?: Partial<SearchFilters>): Business[] => {
@@ -141,17 +149,28 @@ export const [AppProvider, useAppStore] = createContextHook(() => {
     return filtered;
   };
 
+   const user = authUser ? {
+    id: authUser.uid,
+    name: authUser.displayName || 'User',
+    email: authUser.email || '',
+    avatar: authUser.photoURL || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100',
+    reviewCount: reviews.filter(review => review.userId === authUser.uid).length,
+    favoriteBusinesses: favorites,
+  } : null;
+
   return {
+    user,
     businesses,
     reviews,
-    user,
     favorites,
-    isLoading,
-    toggleFavorite,
-    addReview,
+    loading,
     getBusinessById,
     getReviewsForBusiness,
-    getFavoriteBusinesses,
+    addReview,
+    updateReview,
+    deleteReview,
+    toggleFavorite,
     searchBusinesses,
   };
-});
+
+};

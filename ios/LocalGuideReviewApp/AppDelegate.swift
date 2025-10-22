@@ -1,6 +1,7 @@
 import Expo
 import React
 import ReactAppDependencyProvider
+import FirebaseCore // <-- 1. ADD THIS IMPORT
 
 @UIApplicationMain
 public class AppDelegate: ExpoAppDelegate {
@@ -13,6 +14,13 @@ public class AppDelegate: ExpoAppDelegate {
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
+    
+    // 2. CRITICAL FIX: Initialize Firebase
+    // This reads the GoogleService-Info.plist and initializes the default app.
+    if FirebaseApp.app() == nil {
+        FirebaseApp.configure()
+    }
+    
     let delegate = ReactNativeDelegate()
     let factory = ExpoReactNativeFactory(delegate: delegate)
     delegate.dependencyProvider = RCTAppDependencyProvider()
@@ -27,7 +35,7 @@ public class AppDelegate: ExpoAppDelegate {
       withModuleName: "main",
       in: window,
       launchOptions: launchOptions)
-#endif
+#endif // os(iOS) || os(tvOS)
 
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }

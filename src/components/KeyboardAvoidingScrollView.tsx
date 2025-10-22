@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-  SafeAreaView,
   KeyboardAvoidingView,
   ScrollView,
   Platform,
@@ -12,42 +11,42 @@ import Colors from '@/src/constants/colors';
 interface KeyboardAvoidingScrollViewProps {
   children: React.ReactNode;
   contentContainerStyle?: ViewStyle;
+  style?: ViewStyle;
 }
 
 export const KeyboardAvoidingScrollView: React.FC<KeyboardAvoidingScrollViewProps> = ({
   children,
-  contentContainerStyle
+  contentContainerStyle,
+  style
 }) => {
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardAvoidingView}
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.container}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0} // Start with 0, adjust if needed
+    >
+      <ScrollView
+        contentContainerStyle={[styles.scrollViewContent, contentContainerStyle]}
+        style={[styles.scrollView, style]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        bounces={false} // Prevents weird bouncing that can break keyboard avoidance
       >
-        <ScrollView
-          contentContainerStyle={[styles.scrollViewContent, contentContainerStyle]}
-          style={styles.scrollView}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          {children}
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+        {children}
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
+  container: {
     flex: 1,
     backgroundColor: Colors.light.background,
-  },
-  keyboardAvoidingView: {
-    flex: 1,
   },
   scrollViewContent: {
     flexGrow: 1,
     justifyContent: 'center',
+    paddingVertical: 20, // Add some vertical padding
   },
   scrollView: {
     paddingHorizontal: 24,
