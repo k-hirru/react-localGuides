@@ -2,13 +2,15 @@ export const CATEGORIES = [
   { id: 'all', name: 'All', icon: '🏪' },
   { id: 'restaurants', name: 'Restaurants', icon: '🍽️' },
   { id: 'cafes', name: 'Cafes', icon: '☕' },
-  { id: 'bars', name: 'Bars', icon: '🍺' },
-  { id: 'shopping', name: 'Shopping', icon: '🛍️' },
-  { id: 'services', name: 'Services', icon: '🔧' },
-  { id: 'entertainment', name: 'Entertainment', icon: '🎬' },
-  { id: 'health', name: 'Health', icon: '🏥' },
-  { id: 'beauty', name: 'Beauty', icon: '💄' },
+  { id: 'fast_food', name: 'Fast Food', icon: '🍔' }, // Changed from 'bars'
 ];
+
+// Geoapify category mapping
+export const GEOAPIFY_CATEGORIES = {
+  restaurants: ['catering.restaurant'],
+  cafes: ['catering.cafe', 'catering.coffee'],
+  fast_food: ['catering.fast_food']
+}
 
 export const PRICE_LEVELS = [
   { level: 1, symbol: '$', label: 'Inexpensive' },
