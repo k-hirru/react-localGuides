@@ -1,10 +1,32 @@
+export interface GeoapifyPlace {
+  place_id: string;
+  name: string;
+  formatted: string;
+  lat: number;
+  lon: number;
+  categories: string[];
+  address: {
+    street?: string;
+    city?: string;
+    state?: string;
+    postcode?: string;
+    country?: string;
+  };
+  details: {
+    cuisine?: string;
+    brand?: string;
+    takeaway?: boolean;
+  };
+  distance?: number;
+}
+
 export interface Business {
-  id: string;
+  id: string; // Now using Geoapify's place_id
   name: string;
   category: string;
   rating: number;
   reviewCount: number;
-  priceLevel: number; // 1-4 ($, $$, $$$, $$$$)
+  priceLevel: number;
   imageUrl: string;
   address: string;
   phone: string;
@@ -19,11 +41,9 @@ export interface Business {
   photos: string[];
   description: string;
   features: string[];
+  placeId: string;
+  source: 'geoapify' | 'user';
 }
-
-export const generateBusinessId = (lat: number, lng: number): string => {
-  return `${lat.toFixed(6)}_${lng.toFixed(6)}`;
-};
 
 export interface Review {
   id: string;
@@ -38,7 +58,6 @@ export interface Review {
   updatedAt: Date;
   helpful: number;
 }
-
 export interface User {
   id: string;
   name: string;

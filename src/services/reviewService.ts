@@ -23,6 +23,54 @@ export const reviewService = {
     }
   },
 
+    async getBusinessesWithReviews(businessIds: string[]): Promise<Map<string, { rating: number; reviewCount: number }>> {
+    if (businessIds.length === 0) return new Map();
+    
+    const result = new Map();
+    
+    // Initialize with zero values
+    businessIds.forEach(id => {
+      result.set(id, { rating: 0, reviewCount: 0, totalScore: 0 });
+    });
+    
+    // Firestore can only handle 10 'in' queries, so we batch
+    for (let i = 0; i < businessIds.length; i += 10) {
+      const batchIds = businessIds.slice(i, i + 10);
+      
+      try {
+        const snapshot = await firestore()
+          .collection('reviews')
+          .where('businessId', 'in', batchIds)
+          .get();
+        
+        // Aggregate review data
+        snapshot.docs.forEach(doc => {
+          const review = doc.data();
+          const businessData = result.get(review.businessId);
+          if (businessData) {
+            businessData.totalScore += review.rating;
+            businessData.reviewCount += 1;
+          }
+        });
+      } catch (error) {
+        console.error('Error fetching batch reviews:', error);
+        // Continue with other batches
+      }
+    }
+    
+    // Calculate averages
+    const finalResult = new Map();
+    result.forEach((data, businessId) => {
+      finalResult.set(businessId, {
+        rating: data.reviewCount > 0 ? data.totalScore / data.reviewCount : 0,
+        reviewCount: data.reviewCount
+      });
+    });
+    
+    return finalResult;
+  },
+
+
   // Get reviews for a business
   async getReviewsForBusiness(businessId: string): Promise<Review[]> {
     try {

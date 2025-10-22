@@ -1,22 +1,52 @@
-import { useState, useEffect } from 'react';
+// /src/hooks/useAppStore.ts
+import { useState, useEffect, useCallback } from 'react';
 import { reviewService } from '@/src/services/reviewService';
+import { businessService } from '@/src/services/businessService';
 import { useAuth } from './useAuth';
-import { mockBusinesses } from '@/src/data/mockData';
+import { useLocation } from './useLocation';
 import { Review, Business, SearchFilters } from '@/src/types';
 
 export const useAppStore = () => {
   const { user: authUser } = useAuth();
-  const [businesses] = useState<Business[]>(mockBusinesses);
+  const { userLocation, refreshLocation } = useLocation();
+  const [businesses, setBusinesses] = useState<Business[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [businessesLoading, setBusinessesLoading] = useState(false);
+
+  // Load businesses when location changes
+  useEffect(() => {
+    if (userLocation) {
+      loadNearbyBusinesses();
+    }
+  }, [userLocation]);
 
   // Load persisted data
   useEffect(() => {
     loadAllReviews();
   }, [authUser]);
 
- const loadAllReviews = async () => {
+  const loadNearbyBusinesses = async (categories: string[] = []) => {
+    if (!userLocation) return;
+    
+    try {
+      setBusinessesLoading(true);
+      const nearbyBusinesses = await businessService.getNearbyBusinesses(
+        userLocation.latitude,
+        userLocation.longitude,
+        5000,
+        categories
+      );
+      setBusinesses(nearbyBusinesses);
+    } catch (error) {
+      console.error('Failed to load businesses:', error);
+    } finally {
+      setBusinessesLoading(false);
+    }
+  };
+
+  const loadAllReviews = async () => {
     if (!authUser) {
       setReviews([]);
       return;
@@ -24,7 +54,6 @@ export const useAppStore = () => {
 
     try {
       setLoading(true);
-      // You might want to load all reviews or just user's reviews
       const userReviews = await reviewService.getUserReviews(authUser.uid);
       setReviews(userReviews);
     } catch (error) {
@@ -48,38 +77,34 @@ export const useAppStore = () => {
   };
 
   const addReview = async (reviewData: Omit<Review, 'id' | 'date' | 'createdAt' | 'updatedAt'>) => {
-  if (!authUser) throw new Error('User must be logged in');
+    if (!authUser) throw new Error('User must be logged in');
 
-  try {
-    // Check if user already reviewed this business
-    const existingReview = await reviewService.getUserReviewForBusiness(authUser.uid, reviewData.businessId);
-    
-    if (existingReview) {
-      throw new Error('You have already reviewed this business');
+    try {
+      const existingReview = await reviewService.getUserReviewForBusiness(authUser.uid, reviewData.businessId);
+      
+      if (existingReview) {
+        throw new Error('You have already reviewed this business');
+      }
+
+      const reviewId = await reviewService.addReview({
+        ...reviewData,
+        userId: authUser.uid,
+        userName: authUser.displayName || 'Anonymous User',
+        userAvatar: authUser.photoURL || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100',
+      });
+
+      await loadAllReviews();
+      return reviewId;
+    } catch (error) {
+      console.error('Error adding review:', error);
+      throw error;
     }
-
-    const reviewId = await reviewService.addReview({
-      ...reviewData,
-      userId: authUser.uid,
-      userName: authUser.displayName || 'Anonymous User',
-      userAvatar: authUser.photoURL || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100',
-    });
-
-    // Reload reviews to include the new one
-    await loadAllReviews();
-    
-    return reviewId;
-  } catch (error) {
-    console.error('Error adding review:', error);
-    throw error;
-  }
-};
-
+  };
 
   const updateReview = async (reviewId: string, updates: { rating?: number; text?: string }) => {
     try {
       await reviewService.updateReview(reviewId, updates);
-      await loadAllReviews(); // Reload to get updated data
+      await loadAllReviews();
     } catch (error) {
       console.error('Error updating review:', error);
       throw error;
@@ -89,7 +114,7 @@ export const useAppStore = () => {
   const deleteReview = async (reviewId: string) => {
     try {
       await reviewService.deleteReview(reviewId);
-      await loadAllReviews(); // Reload to remove deleted review
+      await loadAllReviews();
     } catch (error) {
       console.error('Error deleting review:', error);
       throw error;
@@ -112,8 +137,10 @@ export const useAppStore = () => {
       const searchTerm = query.toLowerCase();
       filtered = filtered.filter(business =>
         business.name.toLowerCase().includes(searchTerm) ||
-        business.category.toLowerCase().includes(searchTerm) ||
-        business.description.toLowerCase().includes(searchTerm)
+        business.address.toLowerCase().includes(searchTerm) ||
+        business.features.some(feature => 
+          feature.toLowerCase().includes(searchTerm)
+        )
       );
     }
 
@@ -149,7 +176,12 @@ export const useAppStore = () => {
     return filtered;
   };
 
-   const user = authUser ? {
+  const refreshBusinesses = async (categories: string[] = []) => {
+    await refreshLocation(true); // Force location refresh
+    await loadNearbyBusinesses(categories);
+  };
+
+  const user = authUser ? {
     id: authUser.uid,
     name: authUser.displayName || 'User',
     email: authUser.email || '',
@@ -163,7 +195,7 @@ export const useAppStore = () => {
     businesses,
     reviews,
     favorites,
-    loading,
+    loading: loading || businessesLoading,
     getBusinessById,
     getReviewsForBusiness,
     addReview,
@@ -171,6 +203,7 @@ export const useAppStore = () => {
     deleteReview,
     toggleFavorite,
     searchBusinesses,
+    refreshBusinesses,
+    loadNearbyBusinesses,
   };
-
 };
