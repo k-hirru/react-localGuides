@@ -1,6 +1,6 @@
 {
   "expo": {
-    "packageManager" : "npm",
+    "packageManager": "npm",
     "name": "Local Guide & Review App",
     "slug": "local-guide-review-app",
     "version": "1.0.0",
@@ -16,12 +16,20 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.khirrucapstone.localguide"
+      "bundleIdentifier": "com.khirrucapstone.localguide",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "This app needs access to your location to show nearby businesses.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "This app needs access to your location to show nearby businesses."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#ffffff",
+        "permissions": [
+          "android.permission.ACCESS_FINE_LOCATION",
+          "android.permission.ACCESS_COARSE_LOCATION"
+        ]
       },
       "package": "com.khirrucapstone.localguide"
     },
@@ -29,6 +37,13 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      [
+        "react-native-permissions",
+        {
+          "iosPermissions": ["LocationWhenInUse", "LocationAlwaysAndWhenInUse"]
+        }
+      ],
+      "@maplibre/maplibre-react-native"
     ],
     "experiments": {
       "typedRoutes": true

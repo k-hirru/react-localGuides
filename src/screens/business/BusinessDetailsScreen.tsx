@@ -13,6 +13,7 @@ import {
   TouchableOpacity,
   Linking,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import {
   useNavigation,
@@ -29,76 +30,129 @@ import {
   Share,
 } from "lucide-react-native";
 import { useAppStore } from "@/src/hooks/useAppStore";
-import { Review } from "@/src/types";
+import { Business, Review } from "@/src/types";
 import { reviewService } from "@/src/services/reviewService";
-import PullToRefreshScrollView from "@/src/components/PullToRefreshScrollView";
 import StarRating from "@/src/components/StarRating";
 import ReviewCard from "@/src/components/ReviewCard";
 import { PRICE_LEVELS } from "@/src/constants/categories";
 
-export default function BusinessDetailScreen() {
+export default function BusinessDetailsScreen() {
   const route = useRoute();
   const navigation = useNavigation();
   const { id } = route.params as { id: string };
-  const { getBusinessById, favorites, toggleFavorite, deleteReview } =
-    useAppStore();
+  const {
+    getBusinessById,
+    fetchBusinessById,
+    favorites,
+    toggleFavorite,
+    deleteReview,
+  } = useAppStore();
+
+  const [business, setBusiness] = useState<Business | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [loading, setLoading] = useState(true);
   const [reviewsLoading, setReviewsLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
 
-  const business = getBusinessById(id!);
-  const isFavorite = favorites.includes(id!);
+  const isFavorite = business ? favorites.includes(business.id) : false;
+
+  const loadBusinessData = async () => {
+    try {
+      const localBusiness = getBusinessById(id);
+      if (localBusiness) return localBusiness;
+      return await fetchBusinessById(id);
+    } catch (error) {
+      console.error("Error loading business:", error);
+      return null;
+    }
+  };
 
   const loadBusinessReviews = async () => {
-    if (!business) return;
-
     try {
-      setReviewsLoading(true);
-      const businessReviews = await reviewService.getReviewsForBusiness(
-        business.id
-      );
-      setReviews(businessReviews);
+      return await reviewService.getReviewsForBusiness(id);
     } catch (error) {
       console.error("Error loading business reviews:", error);
-    } finally {
-      setReviewsLoading(false);
+      return [];
     }
   };
 
   useEffect(() => {
-    loadBusinessReviews();
-  }, [business]);
+    let isMounted = true;
+
+    const loadData = async () => {
+      setLoading(true);
+      setReviewsLoading(true);
+
+      const [businessData, businessReviews] = await Promise.all([
+        loadBusinessData(),
+        loadBusinessReviews(),
+      ]);
+
+      if (isMounted) {
+        if (businessData) setBusiness(businessData);
+        if (businessReviews) setReviews(businessReviews);
+        setLoading(false);
+        setReviewsLoading(false);
+      }
+    };
+
+    loadData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [id]);
 
   useFocusEffect(
     useCallback(() => {
-      loadBusinessReviews();
-    }, [business])
+      let isMounted = true;
+
+      const fetchReviews = async () => {
+        const updatedReviews = await loadBusinessReviews();
+        if (isMounted && updatedReviews) {
+          setReviews(updatedReviews);
+        }
+      };
+
+      fetchReviews();
+
+      return () => {
+        isMounted = false;
+      };
+    }, [id])
   );
 
-  const handleRefresh = () => {
-    setRefreshing(true);
-    loadBusinessReviews();
-  };
-
-  // Add these missing functions
   const handleEdit = (review: Review) => {
-    // Navigate to AddReview screen in edit mode
     (navigation as any).navigate("AddReview", {
-      id: business?.id,
+      businessId: id,
       review: review,
     });
   };
 
   const handleDelete = async (reviewId: string) => {
-    try {
-      await deleteReview(reviewId);
-      // Refresh reviews after deletion
-      await loadBusinessReviews();
-    } catch (error) {
-      console.error("Error deleting review:", error);
-      Alert.alert("Error", "Failed to delete review. Please try again.");
-    }
+    Alert.alert(
+      "Delete Review",
+      "Are you sure you want to delete this review?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deleteReview(reviewId);
+              await loadBusinessReviews();
+            } catch (error) {
+              console.error("Error deleting review:", error);
+              Alert.alert(
+                "Error",
+                "Failed to delete review. Please try again."
+              );
+            }
+          },
+        },
+      ]
+    );
   };
 
   useLayoutEffect(() => {
@@ -111,7 +165,7 @@ export default function BusinessDetailScreen() {
               <Share size={20} color="#007AFF" />
             </TouchableOpacity>
             <TouchableOpacity
-              onPress={() => toggleFavorite(id)}
+              onPress={() => business && toggleFavorite(business.id)}
               style={styles.headerButton}
             >
               <Heart
@@ -126,10 +180,22 @@ export default function BusinessDetailScreen() {
     }
   }, [navigation, business, isFavorite]);
 
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#007AFF" />
+        <Text style={styles.loadingText}>Loading business details...</Text>
+      </View>
+    );
+  }
+
   if (!business) {
     return (
       <View style={styles.errorContainer}>
         <Text style={styles.errorText}>Business not found</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={loadBusinessData}>
+          <Text style={styles.retryButtonText}>Try Again</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -138,12 +204,18 @@ export default function BusinessDetailScreen() {
     PRICE_LEVELS.find((p) => p.level === business.priceLevel)?.symbol || "$";
 
   const handleCall = () => {
-    Linking.openURL(`tel:${business.phone}`);
+    if (business.phone) {
+      Linking.openURL(`tel:${business.phone}`);
+    } else {
+      Alert.alert("No Phone", "Phone number not available for this business.");
+    }
   };
 
   const handleWebsite = () => {
     if (business.website) {
       Linking.openURL(business.website);
+    } else {
+      Alert.alert("No Website", "Website not available for this business.");
     }
   };
 
@@ -157,54 +229,60 @@ export default function BusinessDetailScreen() {
   };
 
   const handleAddReview = () => {
-    (navigation as any).navigate("AddReview", { id });
+    if (!business) return;
+    (navigation as any).navigate("AddReview", {
+      businessId: id,
+      business: business,
+    });
   };
 
   return (
-    <>
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        {/* Photo Gallery */}
-        <View style={styles.photoContainer}>
-          <ScrollView
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            onMomentumScrollEnd={(event) => {
-              const index = Math.round(
-                event.nativeEvent.contentOffset.x /
-                  event.nativeEvent.layoutMeasurement.width
-              );
-              setSelectedPhotoIndex(index);
-            }}
-          >
-            {business.photos.map((photo, index) => (
-              <Image key={index} source={{ uri: photo }} style={styles.photo} />
-            ))}
-          </ScrollView>
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      {/* Photo Gallery */}
+      <View style={styles.photoContainer}>
+        <ScrollView
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onMomentumScrollEnd={(event) => {
+            const index = Math.round(
+              event.nativeEvent.contentOffset.x /
+                event.nativeEvent.layoutMeasurement.width
+            );
+            setSelectedPhotoIndex(index);
+          }}
+        >
+          {business.photos.map((photo, index) => (
+            <Image key={index} source={{ uri: photo }} style={styles.photo} />
+          ))}
+        </ScrollView>
 
+        {business.photos.length > 1 && (
           <View style={styles.photoIndicator}>
             <Text style={styles.photoIndicatorText}>
               {selectedPhotoIndex + 1} / {business.photos.length}
             </Text>
           </View>
+        )}
+      </View>
+
+      {/* Business Info */}
+      <View style={styles.infoContainer}>
+        <Text style={styles.businessName}>{business.name}</Text>
+
+        <View style={styles.ratingRow}>
+          <StarRating rating={business.rating} size={16} />
+          <Text style={styles.ratingText}>{business.rating.toFixed(1)}</Text>
+          <Text style={styles.reviewCount}>
+            ({business.reviewCount} reviews)
+          </Text>
+          <Text style={styles.price}>{priceSymbol}</Text>
         </View>
 
-        {/* Business Info */}
-        <View style={styles.infoContainer}>
-          <Text style={styles.businessName}>{business.name}</Text>
+        <Text style={styles.description}>{business.description}</Text>
 
-          <View style={styles.ratingRow}>
-            <StarRating rating={business.rating} size={16} />
-            <Text style={styles.ratingText}>{business.rating}</Text>
-            <Text style={styles.reviewCount}>
-              ({business.reviewCount} reviews)
-            </Text>
-            <Text style={styles.price}>{priceSymbol}</Text>
-          </View>
-
-          <Text style={styles.description}>{business.description}</Text>
-
-          {/* Features */}
+        {/* Features */}
+        {business.features.length > 0 && (
           <View style={styles.featuresContainer}>
             {business.features.map((feature, index) => (
               <View key={index} style={styles.featureTag}>
@@ -212,114 +290,137 @@ export default function BusinessDetailScreen() {
               </View>
             ))}
           </View>
+        )}
+      </View>
+
+      {/* Action Buttons */}
+      <View style={styles.actionButtons}>
+        <TouchableOpacity style={styles.actionButton} onPress={handleCall}>
+          <Phone size={20} color="#007AFF" />
+          <Text style={styles.actionButtonText}>Call</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={handleDirections}
+        >
+          <MapPin size={20} color="#007AFF" />
+          <Text style={styles.actionButtonText}>Directions</Text>
+        </TouchableOpacity>
+
+        {business.website && (
+          <TouchableOpacity style={styles.actionButton} onPress={handleWebsite}>
+            <Globe size={20} color="#007AFF" />
+            <Text style={styles.actionButtonText}>Website</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* Contact Info */}
+      <View style={styles.contactContainer}>
+        <View style={styles.contactItem}>
+          <MapPin size={16} color="#666" />
+          <Text style={styles.contactText}>{business.address}</Text>
         </View>
 
-        {/* Action Buttons */}
-        <View style={styles.actionButtons}>
-          <TouchableOpacity style={styles.actionButton} onPress={handleCall}>
-            <Phone size={20} color="#007AFF" />
-            <Text style={styles.actionButtonText}>Call</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={handleDirections}
-          >
-            <MapPin size={20} color="#007AFF" />
-            <Text style={styles.actionButtonText}>Directions</Text>
-          </TouchableOpacity>
-
-          {business.website && (
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={handleWebsite}
-            >
-              <Globe size={20} color="#007AFF" />
-              <Text style={styles.actionButtonText}>Website</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {/* Contact Info */}
-        <View style={styles.contactContainer}>
-          <View style={styles.contactItem}>
-            <MapPin size={16} color="#666" />
-            <Text style={styles.contactText}>{business.address}</Text>
-          </View>
-
+        {business.phone && (
           <View style={styles.contactItem}>
             <Phone size={16} color="#666" />
             <Text style={styles.contactText}>{business.phone}</Text>
           </View>
+        )}
 
-          <View style={styles.contactItem}>
-            <Clock size={16} color="#666" />
-            <View style={styles.hoursContainer}>
-              {Object.entries(business.hours).map(([day, hours]) => (
-                <View key={day} style={styles.hoursRow}>
-                  <Text style={styles.dayText}>{day}</Text>
-                  <Text style={styles.hoursText}>{hours}</Text>
-                </View>
-              ))}
-            </View>
+        <View style={styles.contactItem}>
+          <Clock size={16} color="#666" />
+          <View style={styles.hoursContainer}>
+            {Object.entries(business.hours).map(([day, hours]) => (
+              <View key={day} style={styles.hoursRow}>
+                <Text style={styles.dayText}>{day}</Text>
+                <Text style={styles.hoursText}>{hours}</Text>
+              </View>
+            ))}
           </View>
         </View>
+      </View>
 
-        {/* Reviews Section */}
-        <View style={styles.reviewsContainer}>
-          <View style={styles.reviewsHeader}>
-            <Text style={styles.reviewsTitle}>
-              Reviews ({reviewsLoading ? "..." : reviews.length})
+      {/* Reviews Section */}
+      <View style={styles.reviewsContainer}>
+        <View style={styles.reviewsHeader}>
+          <Text style={styles.reviewsTitle}>
+            Reviews ({reviewsLoading ? "..." : reviews.length})
+          </Text>
+          <TouchableOpacity
+            style={styles.addReviewButton}
+            onPress={handleAddReview}
+          >
+            <MessageSquare size={16} color="#FFF" />
+            <Text style={styles.addReviewText}>Add Review</Text>
+          </TouchableOpacity>
+        </View>
+
+        {reviewsLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="small" color="#007AFF" />
+            <Text>Loading reviews...</Text>
+          </View>
+        ) : reviews.length === 0 ? (
+          <View style={styles.noReviewsContainer}>
+            <Text style={styles.noReviewsText}>
+              No reviews yet. Be the first to review!
             </Text>
-            <TouchableOpacity
-              style={styles.addReviewButton}
-              onPress={handleAddReview}
-            >
-              <MessageSquare size={16} color="#FFF" />
-              <Text style={styles.addReviewText}>Add Review</Text>
-            </TouchableOpacity>
           </View>
-
-          {reviewsLoading ? (
-            <View style={styles.loadingContainer}>
-              <Text>Loading reviews...</Text>
-            </View>
-          ) : reviews.length === 0 ? (
-            <View style={styles.noReviewsContainer}>
-              <Text style={styles.noReviewsText}>
-                No reviews yet. Be the first to review!
-              </Text>
-            </View>
-          ) : (
-            reviews.map((review) => (
-              <ReviewCard
-                key={review.id}
-                review={review}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-              />
-            ))
-          )}
-        </View>
-      </ScrollView>
-    </>
+        ) : (
+          reviews.map((review) => (
+            <ReviewCard
+              key={review.id}
+              review={review}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+            />
+          ))
+        )}
+      </View>
+    </ScrollView>
   );
 }
 
-// Your styles remain the same...
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#F8F9FA",
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: "#666",
+  },
   errorContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    padding: 20,
   },
   errorText: {
     fontSize: 18,
     color: "#666",
+    marginBottom: 16,
+  },
+  retryButton: {
+    backgroundColor: "#007AFF",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: "#FFF",
+    fontSize: 16,
+    fontWeight: "600",
   },
   headerButtons: {
     flexDirection: "row",
@@ -487,10 +588,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "500",
     marginLeft: 6,
-  },
-  loadingContainer: {
-    padding: 20,
-    alignItems: "center",
   },
   noReviewsContainer: {
     padding: 20,

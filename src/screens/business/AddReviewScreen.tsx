@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { useAppStore } from '@/src/hooks/useAppStore';
-import { useAuth } from '@/src/hooks/useAuth';
-import { Review } from '@/src/types';
-import StarRating from '@/src/components/StarRating';
+import { useAppStore } from '../../hooks/useAppStore';
+import { useAuth } from '../../hooks/useAuth';
+import { Business, Review } from '../../types';
+import StarRating from '../../components/StarRating';
 
 export default function AddReviewScreen() {
   const route = useRoute();
   const navigation = useNavigation();
-  const { id, review: existingReview } = route.params as { 
+  const { id, review: existingReview, business: routeBusiness } = route.params as { 
     id: string; 
     review?: Review; // For edit mode
+    business?: Business;
   };
   
   const { getBusinessById, addReview, updateReview } = useAppStore();
@@ -20,9 +21,9 @@ export default function AddReviewScreen() {
   const [reviewText, setReviewText] = useState(existingReview?.text || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const business = getBusinessById(id!);
+  const business = routeBusiness || getBusinessById(id!);
   const isEditMode = !!existingReview;
-
+  
   useEffect(() => {
     if (isEditMode) {
       navigation.setOptions({ title: 'Edit Review' });

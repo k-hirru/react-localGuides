@@ -14,6 +14,7 @@ export default function TabLayout() {
   return (
     <Tab.Navigator
       screenOptions={{
+        animation: "fade",
         tabBarActiveTintColor: Colors.light.tint,
         headerShown: true,
         tabBarStyle: {
@@ -35,8 +36,17 @@ export default function TabLayout() {
         component={HomeScreen}
         options={{
           title: "Home",
-          headerShown: false, 
-          tabBarIcon: ({ color, size }) => <Home color={color} size={size} />,
+          headerShown: false,
+          tabBarIcon: ({ color, size, focused }) => (
+            <Home
+              color={color}
+              size={focused ? size + 4 : size}
+              style={{
+                transform: [{ scale: focused ? 1.15 : 1 }],
+                transitionDuration: "150ms",
+              }}
+            />
+          ),
         }}
       />
       <Tab.Screen
@@ -45,7 +55,16 @@ export default function TabLayout() {
         options={{
           title: "Explore",
           headerTitle: "Explore Places",
-          tabBarIcon: ({ color, size }) => <Search color={color} size={size} />,
+          tabBarIcon: ({ color, size, focused }) => (
+            <Search
+              color={color}
+              size={focused ? size + 4 : size}
+              style={{
+                transform: [{ scale: focused ? 1.15 : 1 }],
+                transitionDuration: "150ms",
+              }}
+            />
+          ),
         }}
       />
       <Tab.Screen
@@ -54,7 +73,16 @@ export default function TabLayout() {
         options={{
           title: "Favorites",
           headerTitle: "My Favorites",
-          tabBarIcon: ({ color, size }) => <Heart color={color} size={size} />,
+          tabBarIcon: ({ color, size, focused }) => (
+            <Heart
+              color={color}
+              size={focused ? size + 4 : size}
+              style={{
+                transform: [{ scale: focused ? 1.15 : 1 }],
+                transitionDuration: "150ms",
+              }}
+            />
+          ),
         }}
       />
       <Tab.Screen
@@ -63,7 +91,16 @@ export default function TabLayout() {
         options={{
           title: "Profile",
           headerTitle: "My Profile",
-          tabBarIcon: ({ color, size }) => <User color={color} size={size} />,
+          tabBarIcon: ({ color, size, focused }) => (
+            <User
+              color={color}
+              size={focused ? size + 4 : size}
+              style={{
+                transform: [{ scale: focused ? 1.15 : 1 }],
+                transitionDuration: "150ms",
+              }}
+            />
+          ),
         }}
       />
     </Tab.Navigator>
