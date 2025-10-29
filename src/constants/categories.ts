@@ -8,9 +8,9 @@ export const CATEGORIES = [
 // Geoapify category mapping
 export const GEOAPIFY_CATEGORIES = {
   restaurants: ['catering.restaurant'],
-  cafes: ['catering.cafe', 'catering.coffee'],
+  cafes: ['catering.cafe'],
   fast_food: ['catering.fast_food']
-}
+};
 
 export const PRICE_LEVELS = [
   { level: 1, symbol: '$', label: 'Inexpensive' },

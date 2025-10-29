@@ -41,13 +41,14 @@ export interface Business {
   photos: string[];
   description: string;
   features: string[];
-  placeId: string;
-  source: 'geoapify' | 'user';
+  // New fields for Geoapify integration
+  placeId: string; // Duplicate of id for clarity
+  source: 'geoapify' | 'user'; // Track data source
 }
 
 export interface Review {
   id: string;
-  businessId: string;
+  businessId: string; // Now references Geoapify place_id
   userId: string;
   userName: string;
   userAvatar: string;

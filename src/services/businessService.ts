@@ -1,38 +1,36 @@
-// /src/services/businessService.ts
-import { Business } from '@/src/types';
-import { geoapifyService } from './geoapifyService';
-import { reviewService } from './reviewService';
-import { mapGeoapifyToBusiness } from '@/src/utils/businessMapper';
-import { GEOAPIFY_CATEGORIES } from '@/src/constants/categories';
+import { Business } from "@/src/types";
+import { geoapifyService } from "./geoapifyService";
+import { reviewService } from "./reviewService";
+import { mapGeoapifyToBusiness } from "@/src/utils/businessMapper";
+import { queryOptions } from "@tanstack/react-query";
 
-// Helper to map app categories to Geoapify categories (moved outside class)
 const mapAppCategoriesToGeoapify = (categories: string[]): string[] => {
   if (categories.length === 0) {
-    // Return all food-related categories
-    return [
-      ...GEOAPIFY_CATEGORIES.restaurants,
-      ...GEOAPIFY_CATEGORIES.cafes,
-      ...GEOAPIFY_CATEGORIES.fast_food
-    ];
+    return ["catering.restaurant", "catering.cafe", "catering.fast_food"];
   }
-  
-  const geoapifyCategories: string[] = [];
-  
-  categories.forEach(category => {
-    switch (category) {
-      case 'restaurants':
-        geoapifyCategories.push(...GEOAPIFY_CATEGORIES.restaurants);
-        break;
-      case 'cafes':
-        geoapifyCategories.push(...GEOAPIFY_CATEGORIES.cafes);
-        break;
-      case 'fast_food':
-        geoapifyCategories.push(...GEOAPIFY_CATEGORIES.fast_food);
-        break;
-    }
-  });
-  
-  return geoapifyCategories;
+
+  return categories
+    .map((category) => {
+      switch (category) {
+        case "restaurants":
+          return "catering.restaurant";
+        case "cafes":
+          return "catering.cafe";
+        case "fast_food":
+          return "catering.fast_food";
+        default:
+          return null;
+      }
+    })
+    .filter(Boolean) as string[];
+};
+
+export const businessQueryKeys = {
+  all: ["businesses"] as const,
+  lists: () => [...businessQueryKeys.all, "list"] as const,
+  list: (filters: any) => [...businessQueryKeys.lists(), filters] as const,
+  details: () => [...businessQueryKeys.all, "detail"] as const,
+  detail: (id: string) => [...businessQueryKeys.details(), id] as const,
 };
 
 export const businessService = {
@@ -40,69 +38,96 @@ export const businessService = {
     lat: number,
     lng: number,
     radius: number = 5000,
-    categories: string[] = []
+    categories: string[] = [],
+    forceRefresh: boolean = false
   ): Promise<Business[]> {
     try {
-      // Convert app categories to Geoapify categories
+      console.log("🔍 BUSINESS SERVICE - Starting getNearbyBusinesses");
+      console.log("📍 Coordinates:", lat, lng);
       const geoapifyCategories = mapAppCategoriesToGeoapify(categories);
-      
+      console.log("🎯 Categories:", geoapifyCategories);
+
       const places = await geoapifyService.searchNearbyPlaces(
         lat,
         lng,
         radius,
-        geoapifyCategories
+        geoapifyCategories,
+        20,
+        forceRefresh
       );
-      
-      // Get review stats for all businesses
-      const placeIds = places.map(place => place.place_id);
-      const reviewsMap = await reviewService.getBusinessesWithReviews(placeIds);
-      
-      // Map to Business objects with review data
-      return places.map(place => {
-        const reviewStats = reviewsMap.get(place.place_id) || { rating: 0, reviewCount: 0 };
-        return mapGeoapifyToBusiness(place, reviewStats);
-      });
-      
-    } catch (error) {
-      console.error('Error fetching nearby businesses:', error);
-      throw new Error('Failed to load nearby businesses');
-    }
-  },
 
-  async searchBusinesses(
-    query: string,
-    lat: number,
-    lng: number,
-    radius: number = 5000
-  ): Promise<Business[]> {
-    // For now, filter from nearby results since we don't have text search in Geoapify yet
-    const nearbyBusinesses = await this.getNearbyBusinesses(lat, lng, radius);
-    
-    return nearbyBusinesses.filter(business =>
-      business.name.toLowerCase().includes(query.toLowerCase()) ||
-      business.address.toLowerCase().includes(query.toLowerCase()) ||
-      business.features.some(feature => 
-        feature.toLowerCase().includes(query.toLowerCase())
-      )
-    );
+      console.log("📊 Geoapify returned places:", places.length);
+      if (!places.length) {
+        console.log("❌ No places found from Geoapify");
+        return [];
+      }
+
+      const placeIds = places.map((p) => p.place_id);
+      console.log("🆔 Place IDs:", placeIds);
+      const reviewsMap = await reviewService.getBusinessesWithReviews(placeIds);
+
+      const businesses = places.map((place) =>
+        mapGeoapifyToBusiness(
+          place,
+          reviewsMap.get(place.place_id) || { rating: 0, reviewCount: 0 }
+        )
+      );
+      console.log("🏪 Final businesses:", businesses.length);
+      console.log("📝 Sample business:", businesses[0]?.name);
+      
+      return businesses;
+    } catch {
+      console.error("❌ BUSINESS SERVICE - Error:", Error);
+      return [];
+    }
   },
 
   async getBusinessById(placeId: string): Promise<Business | null> {
     try {
       const place = await geoapifyService.getPlaceDetails(placeId);
       const reviews = await reviewService.getReviewsForBusiness(placeId);
-      
-      const reviewStats = {
-        rating: reviews.length > 0 
-          ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length 
-          : 0,
-        reviewCount: reviews.length
-      };
-      
-      return mapGeoapifyToBusiness(place, reviewStats);
-    } catch (error) {
-      console.error('Error fetching business details:', error);
+
+      const rating =
+        reviews.length > 0
+          ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+          : 0;
+
+      return mapGeoapifyToBusiness(place, {
+        rating,
+        reviewCount: reviews.length,
+      });
+    } catch {
       return null;
     }
   },
+
+  searchBusinesses(
+    query: string,
+    lat: number,
+    lng: number,
+    radius: number = 5000
+  ): Promise<Business[]> {
+    return this.getNearbyBusinesses(lat, lng, radius).then((biz) =>
+      biz.filter(
+        (b) =>
+          b.name.toLowerCase().includes(query.toLowerCase()) ||
+          b.address.toLowerCase().includes(query.toLowerCase()) ||
+          b.features.some((f) => f.toLowerCase().includes(query.toLowerCase()))
+      )
+    );
+  },
+
+  // ✅ React Query support wrapper
+  getNearbyBusinessesQuery: (
+    lat: number,
+    lng: number,
+    categories: string[] = []
+  ) =>
+    queryOptions({
+      queryKey: businessQueryKeys.list({ lat, lng, categories }),
+      queryFn: () =>
+        businessService.getNearbyBusinesses(lat, lng, 5000, categories),
+      staleTime: 5 * 60 * 1000,
+      gcTime: 10 * 60 * 1000,
+    }),
 };

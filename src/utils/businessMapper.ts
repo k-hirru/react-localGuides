@@ -55,6 +55,7 @@ const estimatePriceLevel = (place: GeoapifyPlace): number => {
   if (categories.includes('catering.fast_food')) return 1;
   if (categories.includes('catering.cafe')) return 2;
   if (categories.includes('catering.restaurant')) {
+    // Premium brands or cuisines might indicate higher price
     const premiumCuisines = ['fine_dining', 'steak_house', 'seafood'];
     const isPremium = premiumCuisines.some(cuisine => 
       details.cuisine?.toLowerCase().includes(cuisine)
@@ -62,7 +63,7 @@ const estimatePriceLevel = (place: GeoapifyPlace): number => {
     return isPremium ? 3 : 2;
   }
   
-  return 2; 
+  return 2; // Default moderate
 };
 
 const getPlaceholderImage = (category: string, name: string): string => {

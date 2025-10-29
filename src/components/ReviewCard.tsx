@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, memo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, Image } from 'react-native';
 import { useAuth } from '@/src/hooks/useAuth';
 import StarRating from './StarRating';
@@ -11,7 +11,7 @@ interface ReviewCardProps {
   onDelete?: (reviewId: string) => void;
 }
 
-export default function ReviewCard({ review, onEdit, onDelete }: ReviewCardProps) {
+const ReviewCard = memo(({ review, onEdit, onDelete }: ReviewCardProps) => {
   const { user: authUser } = useAuth();
   const [showMenu, setShowMenu] = useState(false);
   const isOwnReview = authUser?.uid === review.userId;
@@ -28,10 +28,10 @@ export default function ReviewCard({ review, onEdit, onDelete }: ReviewCardProps
       'Are you sure you want to delete this review?',
       [
         { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Delete', 
+        {
+          text: 'Delete',
           style: 'destructive',
-          onPress: () => onDelete?.(review.id)
+          onPress: () => onDelete?.(review.id),
         },
       ]
     );
@@ -42,9 +42,9 @@ export default function ReviewCard({ review, onEdit, onDelete }: ReviewCardProps
       <View style={styles.header}>
         <View style={styles.userInfo}>
           {review.userAvatar ? (
-            <Image 
-              source={{ uri: review.userAvatar }} 
-              style={styles.avatar} 
+            <Image
+              source={{ uri: review.userAvatar }}
+              style={styles.avatar}
             />
           ) : (
             <UserCircle size={40} color="#666" />
@@ -54,7 +54,7 @@ export default function ReviewCard({ review, onEdit, onDelete }: ReviewCardProps
             <Text style={styles.date}>{review.date}</Text>
           </View>
         </View>
-        
+
         {isOwnReview && (
           <TouchableOpacity onPress={() => setShowMenu(!showMenu)}>
             <MoreVertical size={20} color="#666" />
@@ -89,7 +89,11 @@ export default function ReviewCard({ review, onEdit, onDelete }: ReviewCardProps
       </View>
     </View>
   );
-}
+});
+
+ReviewCard.displayName = 'ReviewCard';
+
+export default ReviewCard;
 
 const styles = StyleSheet.create({
   container: {

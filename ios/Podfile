@@ -11,11 +11,30 @@ platform :ios, podfile_properties['ios.deploymentTarget'] || '15.1'
 install! 'cocoapods',
   :deterministic_uuids => false
 
+# ✅ ADD THIS: Generic node_require function as per docs
+def node_require(script)
+  # Resolve script with node to allow for hoisting
+  require Pod::Executable.execute_command('node', ['-p',
+    "require.resolve(
+      '#{script}',
+      {paths: [process.argv[1]]},
+    )", __dir__]).strip
+end
+
+# ✅ USE IT: Require both react-native's and permissions setup script
+node_require('react-native/scripts/react_native_pods.rb')
+node_require('react-native-permissions/scripts/setup.rb')
+
 prepare_react_native_project!
 
 target 'LocalGuideReviewApp' do
   use_expo_modules!
   
+  # ✅ ADD THIS: Setup the permissions we need (only Location)
+  setup_permissions([
+    'LocationWhenInUse',
+    'LocationAlwaysAndWhenInUse'
+  ])
 
   if ENV['EXPO_USE_COMMUNITY_AUTOLINKING'] == '1'
     config_command = ['node', '-e', "process.argv=['', '', 'config'];require('@react-native-community/cli').run()"];
@@ -40,7 +59,6 @@ target 'LocalGuideReviewApp' do
   use_react_native!(
     :path => config[:reactNativePath],
     :hermes_enabled => podfile_properties['expo.jsEngine'] == nil || podfile_properties['expo.jsEngine'] == 'hermes',
-    # An absolute path to your application root.
     :app_path => "#{Pod::Config.instance.installation_root}/..",
     :privacy_file_aggregation_enabled => podfile_properties['apple.privacyManifestAggregationEnabled'] != 'false',
   )
@@ -53,8 +71,10 @@ target 'LocalGuideReviewApp' do
       :ccache_enabled => podfile_properties['apple.ccacheEnabled'] == 'true',
     )
 
-    # This is necessary for Xcode 14, because it signs resource bundles by default
-    # when building for devices.
+    $MLRN.post_install(installer)
+    MLRN_PATH = "../node_modules/@maplibre/maplibre-react-native"
+    pod 'maplibre-react-native', :path => MLRN_PATH
+    
     installer.target_installation_results.pod_target_installation_results
       .each do |pod_name, target_installation_result|
       target_installation_result.resource_bundle_targets.each do |resource_bundle_target|
