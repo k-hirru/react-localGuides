@@ -1,50 +1,54 @@
 import firestore from "@react-native-firebase/firestore";
 import { Review } from "@/src/types";
 
+// Get Firestore instance
+const db = firestore();
+
 export const reviewService = {
   // Add a new review
   async addReview(
-    review: Omit<Review, "id" | "date" | "createdAt" | "updatedAt">
+    reviewData: Omit<Review, "id" | "date" | "createdAt" | "updatedAt">
   ): Promise<string> {
     try {
-      const reviewData = {
-        ...review,
+      const reviewWithTimestamps = {
+        ...reviewData,
         date: firestore.FieldValue.serverTimestamp(),
         createdAt: firestore.FieldValue.serverTimestamp(),
         updatedAt: firestore.FieldValue.serverTimestamp(),
       };
 
-      const reviewRef = await firestore().collection("reviews").add(reviewData);
-
-      return reviewRef.id;
+      const docRef = await db.collection("reviews").add(reviewWithTimestamps);
+      return docRef.id;
     } catch (error) {
       console.error("Error adding review:", error);
       throw new Error("Failed to add review");
     }
   },
 
-  async getBusinessesWithReviews(businessIds: string[]): Promise<Map<string, { rating: number; reviewCount: number }>> {
+  async getBusinessesWithReviews(
+    businessIds: string[]
+  ): Promise<Map<string, { rating: number; reviewCount: number }>> {
     if (businessIds.length === 0) return new Map();
-    
+
     const result = new Map();
-    
+
     // Initialize with zero values
-    businessIds.forEach(id => {
+    businessIds.forEach((id) => {
       result.set(id, { rating: 0, reviewCount: 0, totalScore: 0 });
     });
-    
+
     // Firestore can only handle 10 'in' queries, so we batch
     for (let i = 0; i < businessIds.length; i += 10) {
       const batchIds = businessIds.slice(i, i + 10);
-      
+
       try {
-        const snapshot = await firestore()
-          .collection('reviews')
-          .where('businessId', 'in', batchIds)
+        const querySnapshot = await db
+          .collection("reviews")
+          .where("businessId", "in", batchIds)
           .get();
-        
+
         // Aggregate review data
-        snapshot.docs.forEach(doc => {
+        querySnapshot.forEach((doc) => {
           const review = doc.data();
           const businessData = result.get(review.businessId);
           if (businessData) {
@@ -53,35 +57,46 @@ export const reviewService = {
           }
         });
       } catch (error) {
-        console.error('Error fetching batch reviews:', error);
+        console.error("Error fetching batch reviews:", error);
         // Continue with other batches
       }
     }
-    
+
     // Calculate averages
     const finalResult = new Map();
     result.forEach((data, businessId) => {
       finalResult.set(businessId, {
         rating: data.reviewCount > 0 ? data.totalScore / data.reviewCount : 0,
-        reviewCount: data.reviewCount
+        reviewCount: data.reviewCount,
       });
     });
-    
+
     return finalResult;
   },
 
   // Get reviews for a business
   async getReviewsForBusiness(businessId: string): Promise<Review[]> {
     try {
-      const snapshot = await firestore()
+      console.log("🔍 Fetching reviews for business:", businessId);
+
+      const querySnapshot = await db
         .collection("reviews")
         .where("businessId", "==", businessId)
         .orderBy("date", "desc")
         .get();
 
-      return snapshot.docs.map((doc) => {
+      console.log(
+        "✅ Reviews query successful, found:",
+        querySnapshot.size,
+        "reviews"
+      );
+
+      const reviews: Review[] = [];
+
+      querySnapshot.forEach((doc) => {
         const data = doc.data();
-        return {
+        console.log("📝 Review data:", data);
+        reviews.push({
           id: doc.id,
           businessId: data.businessId,
           userId: data.userId,
@@ -95,10 +110,21 @@ export const reviewService = {
             new Date().toISOString().split("T")[0],
           createdAt: data.createdAt?.toDate() || new Date(),
           updatedAt: data.updatedAt?.toDate() || new Date(),
-        };
+        });
       });
-    } catch (error) {
-      console.error("Error fetching reviews:", error);
+
+      return reviews;
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.error("❌ Error fetching reviews:", error);
+        console.error("Error details:", {
+          message: error.message,
+          businessId,
+        });
+      } else {
+        console.error("❌ Unknown error fetching reviews:", error);
+      }
+
       throw new Error("Failed to fetch reviews");
     }
   },
@@ -106,15 +132,17 @@ export const reviewService = {
   // Get reviews by a user
   async getUserReviews(userId: string): Promise<Review[]> {
     try {
-      const snapshot = await firestore()
+      const querySnapshot = await db
         .collection("reviews")
         .where("userId", "==", userId)
         .orderBy("date", "desc")
         .get();
 
-      return snapshot.docs.map((doc) => {
+      const reviews: Review[] = [];
+
+      querySnapshot.forEach((doc) => {
         const data = doc.data();
-        return {
+        reviews.push({
           id: doc.id,
           businessId: data.businessId,
           userId: data.userId,
@@ -128,8 +156,10 @@ export const reviewService = {
             new Date().toISOString().split("T")[0],
           createdAt: data.createdAt?.toDate() || new Date(),
           updatedAt: data.updatedAt?.toDate() || new Date(),
-        };
+        });
       });
+
+      return reviews;
     } catch (error) {
       console.error("Error fetching user reviews:", error);
       throw new Error("Failed to fetch user reviews");
@@ -142,7 +172,7 @@ export const reviewService = {
     updates: { rating?: number; text?: string }
   ): Promise<void> {
     try {
-      await firestore()
+      await db
         .collection("reviews")
         .doc(reviewId)
         .update({
@@ -158,7 +188,7 @@ export const reviewService = {
   // Delete a review
   async deleteReview(reviewId: string): Promise<void> {
     try {
-      await firestore().collection("reviews").doc(reviewId).delete();
+      await db.collection("reviews").doc(reviewId).delete();
     } catch (error) {
       console.error("Error deleting review:", error);
       throw new Error("Failed to delete review");
@@ -171,16 +201,16 @@ export const reviewService = {
     businessId: string
   ): Promise<Review | null> {
     try {
-      const snapshot = await firestore()
+      const querySnapshot = await db
         .collection("reviews")
         .where("userId", "==", userId)
         .where("businessId", "==", businessId)
         .limit(1)
         .get();
 
-      if (snapshot.empty) return null;
+      if (querySnapshot.empty) return null;
 
-      const doc = snapshot.docs[0];
+      const doc = querySnapshot.docs[0];
       const data = doc.data();
       return {
         id: doc.id,

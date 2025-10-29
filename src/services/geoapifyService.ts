@@ -107,13 +107,41 @@ class GeoapifyService {
     return data.features.map((feature: any) => {
       const props = feature.properties;
       const geometry = feature.geometry;
+      
+      let lat: number = props.lat;
+      let lon: number = props.lon;
+
+      // COORDINATE EXTRACTION
+      if (geometry && geometry.type === 'Point' && Array.isArray(geometry.coordinates)) {
+          // Geoapify Point is [lon, lat]
+          lon = geometry.coordinates[0];
+          lat = geometry.coordinates[1];
+      } else if (geometry && geometry.type !== 'Point') {
+          // If it's a complex geometry (Polygon, etc.), rely on the simpler properties.lat/lon
+          // If we tried to access geometry.coordinates here, it would be an array of arrays (the polygon points)
+          // The error you saw happens when geometry.coordinates is an array of arrays, and you try to assign it to a single number
+          console.warn(`Complex geometry type found (${geometry.type}). Using properties.lat/lon.`);
+      }
+
+      // If props.lat or props.lon were undefined, the mapper would fail later.
+      // We rely on Geoapify to provide props.lat/lon for a center point.
+      if (!lat || !lon) {
+          console.error("Missing valid coordinates for place:", props.name);
+          // Optional: throw error or skip item if coordinates are essential
+      }
+
 
       return {
         place_id: props.place_id,
         name: props.name || "Unnamed Place",
         formatted: props.formatted || "Address not available",
-        lat: geometry?.coordinates[1] || props.lat,
-        lon: geometry?.coordinates[0] || props.lon,
+        
+        // ❌ Remove the old problematic line: lat: geometry?.coordinates[1] || props.lat,
+        // ❌ Remove the old problematic line: lon: geometry?.coordinates[0] || props.lon,
+        
+        // ✅ Use the cleaned variables
+        lat: lat, 
+        lon: lon,
         categories: props.categories || [],
         address: {
           street: props.street,

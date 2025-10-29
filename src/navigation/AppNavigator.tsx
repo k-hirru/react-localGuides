@@ -11,6 +11,7 @@ import BusinessDetailsScreen from "../screens/business/BusinessDetailsScreen";
 import AddReviewScreen from "../screens/business/AddReviewScreen";
 import LoginScreen from "../screens/entry/LoginScreen";
 import SignUpScreen from "../screens/entry/SignUpScreen";
+import BusinessMapScreen from "../screens/business/BusinessMapScreen";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -34,7 +35,7 @@ function AuthNavigator() {
     <Stack.Navigator
       screenOptions={{
         headerBackTitle: "Back",
-        animation: 'slide_from_right',
+        animation: "slide_from_right",
         animationDuration: 200,
       }}
     >
@@ -63,7 +64,10 @@ function AuthNavigator() {
           <Stack.Screen
             name="BusinessDetails"
             component={BusinessDetailsScreen}
-            options={{ headerShown: true }}
+            options={({ route }) => ({
+              title: "Business Details",
+              headerShown: true,
+            })}
           />
           <Stack.Screen
             name="AddReview"
@@ -73,6 +77,14 @@ function AuthNavigator() {
               headerShown: true,
               headerBackTitle: "Back",
               presentation: "modal",
+            }}
+          />
+          <Stack.Screen
+            name="BusinessMap"
+            component={BusinessMapScreen}
+            options={{
+              title: "Location",
+              headerShown: false,
             }}
           />
         </>

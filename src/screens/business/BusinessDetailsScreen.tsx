@@ -80,19 +80,32 @@ export default function BusinessDetailsScreen() {
     let isMounted = true;
 
     const loadData = async () => {
+      console.log("🚀 Loading business details for ID:", id);
       setLoading(true);
       setReviewsLoading(true);
 
-      const [businessData, businessReviews] = await Promise.all([
-        loadBusinessData(),
-        loadBusinessReviews(),
-      ]);
+      try {
+        const businessData = await loadBusinessData();
+        console.log(
+          "📊 Business data loaded:",
+          businessData ? "Found" : "Not found"
+        );
 
-      if (isMounted) {
-        if (businessData) setBusiness(businessData);
-        if (businessReviews) setReviews(businessReviews);
-        setLoading(false);
-        setReviewsLoading(false);
+        const businessReviews = await loadBusinessReviews();
+        console.log("💬 Reviews loaded:", businessReviews?.length || 0);
+
+        if (isMounted) {
+          if (businessData) setBusiness(businessData);
+          if (businessReviews) setReviews(businessReviews);
+          setLoading(false);
+          setReviewsLoading(false);
+        }
+      } catch (error) {
+        console.error("💥 Error in loadData:", error);
+        if (isMounted) {
+          setLoading(false);
+          setReviewsLoading(false);
+        }
       }
     };
 
@@ -220,8 +233,10 @@ export default function BusinessDetailsScreen() {
   };
 
   const handleDirections = () => {
-    const url = `https://maps.google.com/?q=${business.coordinates.latitude},${business.coordinates.longitude}`;
-    Linking.openURL(url);
+    (navigation as any).navigate("BusinessMap", {
+      id: id,
+      business: business,
+    });
   };
 
   const handleShare = () => {

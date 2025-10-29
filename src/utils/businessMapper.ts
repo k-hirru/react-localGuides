@@ -1,6 +1,5 @@
 import { Business, GeoapifyPlace } from '@/src/types';
 import { GEOAPIFY_CATEGORIES } from '@/src/constants/categories';
-import MapLibreGL from "@maplibre/maplibre-react-native";
 
 // Unsplash image URLs for placeholders
 const PLACEHOLDER_IMAGES = [

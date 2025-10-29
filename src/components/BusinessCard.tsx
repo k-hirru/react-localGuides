@@ -8,7 +8,7 @@ import { PRICE_LEVELS } from "../constants/categories";
 
 interface BusinessCardProps {
   business: Business;
-  onPress: () => void;
+  onPress: (businessId: string) => void;  // ✅ FIX: Accept businessId parameter
 }
 
 const BusinessCard = memo(({ business, onPress }: BusinessCardProps) => {
@@ -17,8 +17,19 @@ const BusinessCard = memo(({ business, onPress }: BusinessCardProps) => {
   const priceSymbol =
     PRICE_LEVELS.find((p) => p.level === business.priceLevel)?.symbol || "$";
 
+  // ✅ FIX: Pass the business ID when calling onPress
+  const handlePress = () => {
+    console.log('🟢 BusinessCard - Pressed business ID:', business.id);
+    onPress(business.id);
+  };
+
+  const handleFavoritePress = (event: any) => {
+    event.stopPropagation(); // Prevent triggering the card press
+    toggleFavorite(business.id);
+  };
+
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress}>
+    <TouchableOpacity style={styles.card} onPress={handlePress}>
       <Image
         source={{ uri: business.imageUrl }}
         style={styles.image}
@@ -28,7 +39,7 @@ const BusinessCard = memo(({ business, onPress }: BusinessCardProps) => {
 
       <TouchableOpacity
         style={styles.favoriteButton}
-        onPress={() => toggleFavorite(business.id)}
+        onPress={handleFavoritePress}
       >
         <Heart
           size={20}

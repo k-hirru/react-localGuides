@@ -1,7 +1,8 @@
 import { Home, Search, Heart, User } from "lucide-react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import React from "react";
+import React from "react"; 
 import Colors from "../constants/colors";
+import AnimatedTabLabel from "../components/AnimatedTabBarLabel";
 
 import HomeScreen from "../screens/home/index";
 import ExploreScreen from "../screens/explore/explore";
@@ -16,18 +17,18 @@ export default function TabLayout() {
       screenOptions={{
         animation: "fade",
         tabBarActiveTintColor: Colors.light.tint,
+        tabBarInactiveTintColor: "#A0A0A0", 
         headerShown: true,
         tabBarStyle: {
           backgroundColor: "#FFF",
-          borderTopWidth: 1,
-          borderTopColor: "#E0E0E0",
+          borderTopWidth: 1, 
+          borderTopColor: "#cac8c8ff",
+          height: 80,
           paddingBottom: 8,
           paddingTop: 8,
-          height: 88,
         },
         tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: "500",
+          display: 'none', 
         },
       }}
     >
@@ -35,35 +36,26 @@ export default function TabLayout() {
         name="Home"
         component={HomeScreen}
         options={{
-          title: "Home",
+          title: "Home", // This is still used by screen reader/fallback
           headerShown: false,
-          tabBarIcon: ({ color, size, focused }) => (
-            <Home
-              color={color}
-              size={focused ? size + 4 : size}
-              style={{
-                transform: [{ scale: focused ? 1.15 : 1 }],
-                transitionDuration: "150ms",
-              }}
-            />
+          // Keep the icon static and simple
+          tabBarIcon: ({ color, size }) => <Home color={color} size={size * 0.9} />, 
+          // 💡 Use the custom Animated Label component here
+          tabBarLabel: ({ color, focused }) => (
+            <AnimatedTabLabel label="Home" color={color} focused={focused} />
           ),
         }}
       />
+      {/* Apply the same tabBarIcon and tabBarLabel logic to other screens */}
       <Tab.Screen
         name="Explore"
         component={ExploreScreen}
         options={{
           title: "Explore",
           headerTitle: "Explore Places",
-          tabBarIcon: ({ color, size, focused }) => (
-            <Search
-              color={color}
-              size={focused ? size + 4 : size}
-              style={{
-                transform: [{ scale: focused ? 1.15 : 1 }],
-                transitionDuration: "150ms",
-              }}
-            />
+          tabBarIcon: ({ color, size }) => <Search color={color} size={size * 0.9} />,
+          tabBarLabel: ({ color, focused }) => (
+            <AnimatedTabLabel label="Explore" color={color} focused={focused} />
           ),
         }}
       />
@@ -73,15 +65,9 @@ export default function TabLayout() {
         options={{
           title: "Favorites",
           headerTitle: "My Favorites",
-          tabBarIcon: ({ color, size, focused }) => (
-            <Heart
-              color={color}
-              size={focused ? size + 4 : size}
-              style={{
-                transform: [{ scale: focused ? 1.15 : 1 }],
-                transitionDuration: "150ms",
-              }}
-            />
+          tabBarIcon: ({ color, size }) => <Heart color={color} size={size * 0.9} />,
+          tabBarLabel: ({ color, focused }) => (
+            <AnimatedTabLabel label="Favorites" color={color} focused={focused} />
           ),
         }}
       />
@@ -91,15 +77,9 @@ export default function TabLayout() {
         options={{
           title: "Profile",
           headerTitle: "My Profile",
-          tabBarIcon: ({ color, size, focused }) => (
-            <User
-              color={color}
-              size={focused ? size + 4 : size}
-              style={{
-                transform: [{ scale: focused ? 1.15 : 1 }],
-                transitionDuration: "150ms",
-              }}
-            />
+          tabBarIcon: ({ color, size }) => <User color={color} size={size * 0.9} />,
+          tabBarLabel: ({ color, focused }) => (
+            <AnimatedTabLabel label="Profile" color={color} focused={focused} />
           ),
         }}
       />
