@@ -168,6 +168,57 @@ export default function BusinessDetailsScreen() {
     );
   };
 
+  const loadBusinessReviews = async () => {
+    if (!business) return;
+
+    try {
+      setReviewsLoading(true);
+      const businessReviews = await reviewService.getReviewsForBusiness(
+        business.id
+      );
+      setReviews(businessReviews);
+    } catch (error) {
+      console.error("Error loading business reviews:", error);
+    } finally {
+      setReviewsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadBusinessReviews();
+  }, [business]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadBusinessReviews();
+    }, [business])
+  );
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    loadBusinessReviews();
+  };
+
+  // Add these missing functions
+  const handleEdit = (review: Review) => {
+    // Navigate to AddReview screen in edit mode
+    (navigation as any).navigate("AddReview", {
+      id: business?.id,
+      review: review,
+    });
+  };
+
+  const handleDelete = async (reviewId: string) => {
+    try {
+      await deleteReview(reviewId);
+      // Refresh reviews after deletion
+      await loadBusinessReviews();
+    } catch (error) {
+      console.error("Error deleting review:", error);
+      Alert.alert("Error", "Failed to delete review. Please try again.");
+    }
+  };
+
   useLayoutEffect(() => {
     if (business) {
       navigation.setOptions({
@@ -399,6 +450,7 @@ export default function BusinessDetailsScreen() {
   );
 }
 
+// Your styles remain the same...
 const styles = StyleSheet.create({
   container: {
     flex: 1,

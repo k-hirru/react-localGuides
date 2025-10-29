@@ -59,7 +59,6 @@ export interface Review {
   updatedAt: Date;
   helpful: number;
 }
-
 export interface User {
   id: string;
   name: string;
