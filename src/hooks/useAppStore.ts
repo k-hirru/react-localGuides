@@ -1,15 +1,22 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { reviewService } from "@/src/services/reviewService";
 import { businessService } from "@/src/services/businessService";
+import { favoriteService } from "@/src/services/favoriteService";
 import { useAuth } from "./useAuth";
 import { useLocation } from "./useLocation";
 import { Review, Business, SearchFilters } from "@/src/types";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // ✅ Global refs to track loading state across all hook instances
 const globalRefs = {
   hasLoadedBusinesses: false,
   isLoadingBusinesses: false,
   locationDebounce: null as ReturnType<typeof setTimeout> | null,
+};
+
+// ✅ Storage keys
+const STORAGE_KEYS = {
+  FAVORITES: 'favorites',
 };
 
 export const useAppStore = () => {
@@ -19,11 +26,138 @@ export const useAppStore = () => {
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [favorites, setFavorites] = useState<string[]>([]);
+  const [favoriteBusinesses, setFavoriteBusinesses] = useState<Business[]>([]);
   const [loading, setLoading] = useState(false);
   const [businessesLoading, setBusinessesLoading] = useState(false);
   const [searchResults, setSearchResults] = useState<Business[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [lastSearchQuery, setLastSearchQuery] = useState("");
+
+  // ✅ Load favorites from storage on mount
+  // ✅ Load favorites from Firebase when user logs in
+  useEffect(() => {
+    if (!authUser) {
+      console.log("👤 No user logged in, clearing favorites");
+      setFavorites([]);
+      return;
+    }
+
+    console.log("👤 User logged in, loading favorites for:", authUser.uid);
+    
+    // Load initial favorites
+    loadFavoritesFromFirebase();
+
+    // Subscribe to real-time updates
+    const unsubscribe = favoriteService.subscribeToFavorites(
+      authUser.uid, 
+      (firebaseFavorites) => {
+        console.log("❤️ Real-time favorites update:", firebaseFavorites.length, "favorites");
+        setFavorites(firebaseFavorites);
+      }
+    );
+
+    return () => {
+      console.log("🧹 Cleaning up favorites subscription");
+      unsubscribe();
+    };
+  }, [authUser?.uid]); // Only depend on authUser.uid
+
+    useEffect(() => {
+    const updateFavoriteBusinesses = async () => {
+      if (!authUser || favorites.length === 0) {
+        setFavoriteBusinesses([]);
+        return;
+      }
+
+      console.log("🔄 Updating favorite businesses");
+      console.log("   - Favorites:", favorites.length);
+      console.log("   - Local businesses:", businesses.length);
+
+      // Find favorites that are in local businesses
+      const localFavorites = businesses.filter(business => 
+        favorites.includes(business.id)
+      );
+
+      console.log("   - Found in local:", localFavorites.length);
+
+      // Find favorites that are NOT in local businesses
+      const missingIds = favorites.filter(id => 
+        !businesses.some(business => business.id === id)
+      );
+
+      console.log("   - Missing from local:", missingIds.length);
+
+      if (missingIds.length === 0) {
+        setFavoriteBusinesses(localFavorites);
+        return;
+      }
+
+      // Fetch missing businesses
+      try {
+        const fetchedBusinesses: Business[] = [];
+        
+        for (const placeId of missingIds) {
+          try {
+            const business = await businessService.getBusinessById(placeId);
+            if (business) {
+              fetchedBusinesses.push(business);
+            }
+          } catch (error) {
+            console.error("Failed to fetch business:", placeId, error);
+          }
+        }
+
+        const allFavorites = [...localFavorites, ...fetchedBusinesses];
+        console.log("✅ Final favorite businesses:", allFavorites.length);
+        setFavoriteBusinesses(allFavorites);
+      } catch (error) {
+        console.error("Error updating favorite businesses:", error);
+        setFavoriteBusinesses(localFavorites);
+      }
+    };
+
+    updateFavoriteBusinesses();
+  }, [favorites, businesses, authUser]);
+
+
+  // ✅ Load favorites from Firebase
+  const loadFavoritesFromFirebase = async () => {
+    if (!authUser) return;
+    
+    try {
+      console.log("📥 Loading favorites from Firebase for user:", authUser.uid);
+      const firebaseFavorites = await favoriteService.getUserFavorites(authUser.uid);
+      console.log("✅ Loaded favorites from Firebase:", firebaseFavorites.length, "favorites");
+      setFavorites(firebaseFavorites);
+    } catch (error) {
+      console.error("❌ Error loading favorites from Firebase:", error);
+      // Fallback to local storage if Firebase fails
+      await loadFavoritesFromStorage();
+    }
+  };
+
+  // ✅ Keep local storage as fallback
+  const loadFavoritesFromStorage = async () => {
+    try {
+      const storedFavorites = await AsyncStorage.getItem(STORAGE_KEYS.FAVORITES);
+      if (storedFavorites) {
+        const parsedFavorites = JSON.parse(storedFavorites);
+        console.log("📥 Loaded favorites from storage (fallback):", parsedFavorites.length);
+        setFavorites(parsedFavorites);
+      }
+    } catch (error) {
+      console.error("Error loading favorites from storage:", error);
+    }
+  };
+
+  // ✅ Save to local storage as backup (optional)
+  const saveFavoritesToStorage = async () => {
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.FAVORITES, JSON.stringify(favorites));
+    } catch (error) {
+      console.error("Error saving favorites to storage:", error);
+    }
+  };
 
   // ✅ Load businesses when location changes - WITH GLOBAL STATE
   useEffect(() => {
@@ -249,12 +383,54 @@ export const useAppStore = () => {
   };
 
   /** Favorites */
-  const toggleFavorite = (businessId: string) => {
-    setFavorites((prev) =>
-      prev.includes(businessId)
-        ? prev.filter((id) => id !== businessId)
-        : [...prev, businessId]
-    );
+  const toggleFavorite = async (businessId: string) => {
+    if (!authUser) {
+      console.log("❌ Cannot toggle favorite - no user logged in");
+      alert("Please sign in to save favorites");
+      return;
+    }
+
+    try {
+      const currentlyFavorite = favorites.includes(businessId);
+      console.log("❤️ Toggling favorite:", businessId, "Currently favorite:", currentlyFavorite);
+
+      // Optimistic update
+      setFavorites(prev => {
+        const newFavorites = currentlyFavorite
+          ? prev.filter(id => id !== businessId)
+          : [...prev, businessId];
+        return newFavorites;
+      });
+
+      // Update Firebase
+      await favoriteService.toggleFavorite(authUser.uid, businessId, currentlyFavorite);
+      console.log("✅ Favorite successfully updated in Firebase");
+
+    } catch (error) {
+      console.error("❌ Error toggling favorite in Firebase:", error);
+      
+      // Revert optimistic update on error
+      setFavorites(prev => {
+        const newFavorites = favorites.includes(businessId)
+          ? [...prev, businessId]
+          : prev.filter(id => id !== businessId);
+        return newFavorites;
+      });
+      
+      alert("Failed to update favorite. Please try again.");
+    }
+  };
+
+  // ✅ SIMPLIFIED - Now just returns the state
+  const getFavoriteBusinesses = () => {
+    console.log("📋 getFavoriteBusinesses returning:", favoriteBusinesses.length, "businesses");
+    return favoriteBusinesses;
+  };
+
+  // ✅ Check if business is favorite
+  const isFavorite = (businessId: string) => {
+    if (!authUser) return false;
+    return favorites.includes(businessId);
   };
 
   /** Search and Filter (local only) */
@@ -320,7 +496,7 @@ export const useAppStore = () => {
   };
 
   /** User state formatting */
-  const user = authUser
+const user = authUser
     ? {
         id: authUser.uid,
         name: authUser.displayName || "User",
@@ -346,6 +522,8 @@ export const useAppStore = () => {
     updateReview,
     deleteReview,
     toggleFavorite,
+    getFavoriteBusinesses,
+    isFavorite,
     searchBusinesses,
     refreshBusinesses,
     loadNearbyBusinesses,

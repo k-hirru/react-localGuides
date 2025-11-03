@@ -64,7 +64,7 @@ export default function TabLayout() {
         component={FavoritesScreen}
         options={{
           title: "Favorites",
-          headerTitle: "My Favorites",
+          headerShown: false,
           tabBarIcon: ({ color, size }) => <Heart color={color} size={size * 0.9} />,
           tabBarLabel: ({ color, focused }) => (
             <AnimatedTabLabel label="Favorites" color={color} focused={focused} />

@@ -8,24 +8,32 @@ import { PRICE_LEVELS } from "../constants/categories";
 
 interface BusinessCardProps {
   business: Business;
-  onPress: (businessId: string) => void;  // ✅ FIX: Accept businessId parameter
+  onPress: (businessId: string) => void;
+  customHeartAction?: () => void; // ✅ NEW: Optional custom heart action
 }
 
-const BusinessCard = memo(({ business, onPress }: BusinessCardProps) => {
-  const { favorites, toggleFavorite } = useAppStore();
-  const isFavorite = favorites.includes(business.id);
+const BusinessCard = memo(({ business, onPress, customHeartAction }: BusinessCardProps) => {
+  const { toggleFavorite, isFavorite } = useAppStore();
+  
+  // ✅ Use the isFavorite function instead of checking favorites array directly
+  const favorite = isFavorite(business.id);
   const priceSymbol =
     PRICE_LEVELS.find((p) => p.level === business.priceLevel)?.symbol || "$";
 
-  // ✅ FIX: Pass the business ID when calling onPress
   const handlePress = () => {
     console.log('🟢 BusinessCard - Pressed business ID:', business.id);
     onPress(business.id);
   };
 
-  const handleFavoritePress = (event: any) => {
-    event.stopPropagation(); // Prevent triggering the card press
-    toggleFavorite(business.id);
+  // ✅ Handle heart press - use custom action if provided, otherwise default
+  const handleFavoritePress = () => {
+    if (customHeartAction) {
+      console.log('❤️ Using custom heart action');
+      customHeartAction();
+    } else {
+      console.log('❤️ BusinessCard - Toggling favorite for:', business.id);
+      toggleFavorite(business.id);
+    }
   };
 
   return (
@@ -40,11 +48,12 @@ const BusinessCard = memo(({ business, onPress }: BusinessCardProps) => {
       <TouchableOpacity
         style={styles.favoriteButton}
         onPress={handleFavoritePress}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
       >
         <Heart
           size={20}
-          fill={isFavorite ? "#FF6B6B" : "transparent"}
-          color={isFavorite ? "#FF6B6B" : "#FFF"}
+          fill={favorite ? "#FF6B6B" : "transparent"}
+          color={favorite ? "#FF6B6B" : "#FFF"}
         />
       </TouchableOpacity>
 

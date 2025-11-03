@@ -52,39 +52,58 @@ export default function HomeScreen() {
   console.log("🏠 HOME SCREEN - Local businesses:", localBusinesses.length);
   console.log("🏠 HOME SCREEN - Global businesses:", businesses.length);
 
-  // Use localBusinesses instead of businesses in your component
+  // ✅ FIXED: Proper filtering logic with correct category property
   const filteredBusinesses = useMemo(() => {
-    return searchQuery
-      ? searchBusinesses(searchQuery, { category: selectedCategory })
-      : localBusinesses; // ✅ Use localBusinesses here
+    if (searchQuery) {
+      // When searching, use the search function with category filter
+      return searchBusinesses(searchQuery, { category: selectedCategory });
+    } else {
+      // When not searching, just filter the local businesses by category
+      if (selectedCategory === "all") {
+        return localBusinesses;
+      }
+      // ✅ CORRECTED: business.category is a string, not an array
+      return localBusinesses.filter(
+        (business) => business.category === selectedCategory
+      );
+    }
   }, [searchQuery, localBusinesses, selectedCategory, searchBusinesses]);
 
+  // ✅ FIXED: Use filteredBusinesses for topRated and trending to maintain consistency
   const topRatedBusinesses = useMemo(() => {
-    return [...businesses]
+    const source =
+      selectedCategory === "all" ? localBusinesses : filteredBusinesses;
+    return [...source]
       .filter((b) => b.rating >= 4.0)
       .sort((a, b) => b.rating - a.rating)
       .slice(0, 3);
-  }, [businesses]);
+  }, [localBusinesses, filteredBusinesses, selectedCategory]);
 
   const trendingBusinesses = useMemo(() => {
-    return [...businesses]
+    const source =
+      selectedCategory === "all" ? localBusinesses : filteredBusinesses;
+    return [...source]
       .sort((a, b) => b.reviewCount - a.reviewCount)
       .slice(0, 3);
-  }, [businesses]);
+  }, [localBusinesses, filteredBusinesses, selectedCategory]);
 
-  // ✅ Refresh on pull
+  // ✅ FIXED: Refresh without category filtering - just get all businesses
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      const categories = selectedCategory === "all" ? [] : [selectedCategory];
-      await refreshBusinesses(categories, true);
+      // Always refresh with empty categories to get all businesses
+      await refreshBusinesses([], true);
+      // Reset category to all after refresh
+      setSelectedCategory("all");
     } finally {
       setRefreshing(false);
     }
-  }, [selectedCategory, refreshBusinesses]);
+  }, [refreshBusinesses]);
 
+  // ✅ FIXED: Category change only filters locally, doesn't trigger refresh
   const handleCategoryChange = useCallback((category: string) => {
     setSelectedCategory(category);
+    // No refresh call here - just let the filtering happen
   }, []);
 
   const handleBusinessPress = useCallback(
@@ -149,29 +168,27 @@ export default function HomeScreen() {
           </View>
         ) : (
           <>
-            {/* Top Rated */}
-            {!searchQuery &&
-              selectedCategory === "all" &&
-              topRatedBusinesses.length > 0 && (
-                <View style={styles.section}>
-                  <View style={styles.sectionHeader}>
-                    <Award size={20} color="#FFD700" />
-                    <Text style={styles.sectionTitle}>Top Rated</Text>
-                  </View>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                    {topRatedBusinesses.map((b) => (
-                      <View key={b.id} style={styles.horizontalCard}>
-                        <BusinessCard
-                          business={b}
-                          onPress={() => handleBusinessPress(b.id)}
-                        />
-                      </View>
-                    ))}
-                  </ScrollView>
+            {/* Top Rated - Always show when not searching */}
+            {!searchQuery && topRatedBusinesses.length > 0 && (
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <Award size={20} color="#FFD700" />
+                  <Text style={styles.sectionTitle}>Top Rated</Text>
                 </View>
-              )}
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  {topRatedBusinesses.map((b) => (
+                    <View key={b.id} style={styles.horizontalCard}>
+                      <BusinessCard
+                        business={b}
+                        onPress={() => handleBusinessPress(b.id)}
+                      />
+                    </View>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
 
-            {/* Trending */}
+            {/* Popular Nearby - Only show when "all" category is selected */}
             {!searchQuery &&
               selectedCategory === "all" &&
               trendingBusinesses.length > 0 && (
@@ -195,6 +212,12 @@ export default function HomeScreen() {
 
             {/* Full List */}
             <View style={styles.section}>
+              <Text style={styles.nearbyTitle}>
+                {selectedCategory === "all"
+                  ? `Nearby Places (${filteredBusinesses.length})`
+                  : `${selectedCategory.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())} (${filteredBusinesses.length})`}
+              </Text>
+
               <FlatList
                 data={filteredBusinesses}
                 keyExtractor={(item) => item.id}
@@ -204,6 +227,15 @@ export default function HomeScreen() {
                 windowSize={5}
                 maxToRenderPerBatch={8}
                 removeClippedSubviews={Platform.OS === "android"}
+                ListEmptyComponent={
+                  <View style={styles.emptyState}>
+                    <Text style={styles.emptyStateText}>
+                      {selectedCategory === "all"
+                        ? "No places found nearby. Pull to refresh."
+                        : `No ${selectedCategory} places found.`}
+                    </Text>
+                  </View>
+                }
               />
             </View>
           </>
@@ -254,9 +286,23 @@ const styles = StyleSheet.create({
     color: "#333",
     marginLeft: 8,
   },
+  nearbyTitle: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: "#333",
+    marginLeft: 18,
+  },
   horizontalCard: { width: 280, marginRight: 8 },
   loadingContainer: { padding: 40, alignItems: "center" },
   loadingText: { marginTop: 12, fontSize: 16, color: "#666" },
-  emptyState: { padding: 40, alignItems: "center" },
-  emptyStateText: { fontSize: 16, color: "#666", marginBottom: 8 },
+  emptyState: {
+    padding: 40,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptyStateText: {
+    fontSize: 16,
+    color: "#666",
+    textAlign: "center",
+  },
 });

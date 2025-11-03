@@ -43,9 +43,9 @@ export default function BusinessDetailsScreen() {
   const {
     getBusinessById,
     fetchBusinessById,
-    favorites,
     toggleFavorite,
     deleteReview,
+    isFavorite,
   } = useAppStore();
 
   const [business, setBusiness] = useState<Business | null>(null);
@@ -53,8 +53,6 @@ export default function BusinessDetailsScreen() {
   const [loading, setLoading] = useState(true);
   const [reviewsLoading, setReviewsLoading] = useState(true);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
-
-  const isFavorite = business ? favorites.includes(business.id) : false;
 
   const loadBusinessData = async () => {
     try {
@@ -178,13 +176,13 @@ export default function BusinessDetailsScreen() {
               <Share size={20} color="#007AFF" />
             </TouchableOpacity>
             <TouchableOpacity
-              onPress={() => business && toggleFavorite(business.id)}
+              onPress={() => toggleFavorite(business.id)}
               style={styles.headerButton}
             >
               <Heart
                 size={20}
-                fill={isFavorite ? "#FF6B6B" : "transparent"}
-                color={isFavorite ? "#FF6B6B" : "#007AFF"}
+                color={isFavorite(business.id) ? "#FF6B6B" : "#ada9a9ff"}
+                fill={isFavorite(business.id) ? "#FF6B6B" : "transparent"}
               />
             </TouchableOpacity>
           </View>
