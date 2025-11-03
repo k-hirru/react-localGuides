@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   ListRenderItemInfo,
   Platform,
+  TouchableOpacity,
 } from "react-native";
 import { Search, TrendingUp, Award } from "lucide-react-native";
 import { useAppStore } from "@/src/hooks/useAppStore";
@@ -21,9 +22,10 @@ import { useNavigation } from "@react-navigation/native";
 import { Business } from "../../types";
 
 export default function HomeScreen() {
-  const { businesses, searchBusinesses, refreshBusinesses, loading } = useAppStore();
+  const { businesses, searchBusinesses, refreshBusinesses, loading } =
+    useAppStore();
   const [searchQuery, setSearchQuery] = useState("");
-    const [localBusinesses, setLocalBusinesses] = useState<Business[]>([]);
+  const [localBusinesses, setLocalBusinesses] = useState<Business[]>([]);
   const { user } = useAuth();
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [refreshing, setRefreshing] = useState(false);
@@ -32,7 +34,10 @@ export default function HomeScreen() {
 
   // ✅ Memoized business lists
   useEffect(() => {
-    console.log("🔄 HOME - Syncing businesses to local state:", businesses.length);
+    console.log(
+      "🔄 HOME - Syncing businesses to local state:",
+      businesses.length
+    );
     setLocalBusinesses(businesses);
   }, [businesses]);
 
@@ -106,22 +111,31 @@ export default function HomeScreen() {
       <ScrollView
         style={styles.container}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+        }
       >
         <View style={styles.header}>
           <Text style={styles.title}>Welcome, {userName}! 👋</Text>
-          <Text style={styles.subtitle}>Discover amazing local spots near you</Text>
+          <Text style={styles.subtitle}>
+            Discover amazing local spots near you
+          </Text>
         </View>
 
-        <View style={styles.searchContainer}>
+        <TouchableOpacity
+          style={styles.searchContainer}
+          onPress={() => {
+            // Navigate to Explore tab
+            (navigation as any).navigate("Explore", {
+              autoFocus: true,
+            });
+          }}
+        >
           <Search size={20} color="#666" style={styles.searchIcon} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search restaurants, cafes, fast food..."
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-        </View>
+          <Text style={styles.searchPlaceholder}>
+            Search restaurants, cafes, fast food...
+          </Text>
+        </TouchableOpacity>
 
         <CategoryFilter
           selectedCategory={selectedCategory}
@@ -136,45 +150,51 @@ export default function HomeScreen() {
         ) : (
           <>
             {/* Top Rated */}
-            {!searchQuery && selectedCategory === "all" && topRatedBusinesses.length > 0 && (
-              <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <Award size={20} color="#FFD700" />
-                  <Text style={styles.sectionTitle}>Top Rated</Text>
+            {!searchQuery &&
+              selectedCategory === "all" &&
+              topRatedBusinesses.length > 0 && (
+                <View style={styles.section}>
+                  <View style={styles.sectionHeader}>
+                    <Award size={20} color="#FFD700" />
+                    <Text style={styles.sectionTitle}>Top Rated</Text>
+                  </View>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    {topRatedBusinesses.map((b) => (
+                      <View key={b.id} style={styles.horizontalCard}>
+                        <BusinessCard
+                          business={b}
+                          onPress={() => handleBusinessPress(b.id)}
+                        />
+                      </View>
+                    ))}
+                  </ScrollView>
                 </View>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  {topRatedBusinesses.map((b) => (
-                    <View key={b.id} style={styles.horizontalCard}>
-                      <BusinessCard business={b} onPress={() => handleBusinessPress(b.id)} />
-                    </View>
-                  ))}
-                </ScrollView>
-              </View>
-            )}
+              )}
 
             {/* Trending */}
-            {!searchQuery && selectedCategory === "all" && trendingBusinesses.length > 0 && (
-              <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <TrendingUp size={20} color="#FF6B6B" />
-                  <Text style={styles.sectionTitle}>Popular Nearby</Text>
+            {!searchQuery &&
+              selectedCategory === "all" &&
+              trendingBusinesses.length > 0 && (
+                <View style={styles.section}>
+                  <View style={styles.sectionHeader}>
+                    <TrendingUp size={20} color="#FF6B6B" />
+                    <Text style={styles.sectionTitle}>Popular Nearby</Text>
+                  </View>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    {trendingBusinesses.map((b) => (
+                      <View key={b.id} style={styles.horizontalCard}>
+                        <BusinessCard
+                          business={b}
+                          onPress={() => handleBusinessPress(b.id)}
+                        />
+                      </View>
+                    ))}
+                  </ScrollView>
                 </View>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  {trendingBusinesses.map((b) => (
-                    <View key={b.id} style={styles.horizontalCard}>
-                      <BusinessCard business={b} onPress={() => handleBusinessPress(b.id)} />
-                    </View>
-                  ))}
-                </ScrollView>
-              </View>
-            )}
+              )}
 
             {/* Full List */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>
-                Nearby Places ({filteredBusinesses.length})
-              </Text>
-
               <FlatList
                 data={filteredBusinesses}
                 keyExtractor={(item) => item.id}
@@ -216,6 +236,11 @@ const styles = StyleSheet.create({
   },
   searchIcon: { marginRight: 12 },
   searchInput: { flex: 1, fontSize: 16, color: "#333" },
+  searchPlaceholder: {
+    flex: 1,
+    fontSize: 16,
+    color: "#666",
+  },
   section: { marginVertical: 8 },
   sectionHeader: {
     flexDirection: "row",

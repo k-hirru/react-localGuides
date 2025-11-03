@@ -1,30 +1,147 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, FlatList, TouchableOpacity } from 'react-native';
-import { Search, Filter, MapPin, Star } from 'lucide-react-native';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  ScrollView, 
+  TextInput, 
+  FlatList, 
+  TouchableOpacity,
+  ActivityIndicator,
+  RefreshControl,
+  Keyboard 
+} from 'react-native';
+import { Search, Filter, MapPin, Star, X } from 'lucide-react-native';
 import { useAppStore } from '@/src/hooks/useAppStore';
 import BusinessCard from '@/src/components/BusinessCard';
 import CategoryFilter from '@/src/components/CategoryFilter';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
 import { PRICE_LEVELS } from '@/src/constants/categories';
 import { SearchFilters } from '@/src/types';
 
 export default function ExploreScreen() {
   const navigation = useNavigation();
-  const { searchBusinesses } = useAppStore();
+  const route = useRoute();
+  
+  const { 
+    businesses, 
+    searchBusinesses, 
+    searchBusinessesWithAPI,
+    searchResults,
+    searchLoading,
+    refreshBusinesses, 
+    loading,
+    clearSearchResults 
+  } = useAppStore();
+  
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const lastSearchRef = useRef(''); 
+  
   const [filters, setFilters] = useState<Partial<SearchFilters>>({
     category: 'all',
     priceLevel: [],
     rating: 0,
     sortBy: 'rating',
-  });
+  }); 
 
-  const filteredBusinesses = searchBusinesses(searchQuery, {
-    ...filters,
-    category: selectedCategory,
-  });
+  const [isSearchActive, setIsSearchActive] = useState(false); 
+
+  const searchInputRef = useRef<TextInput>(null);
+  const searchTimeoutRef = useRef<number | null>(null);
+
+  const routeParams = route.params as { autoFocus?: boolean } | undefined;
+  const autoFocus = routeParams?.autoFocus || false;
+
+  // Set isSearchActive based on whether the search bar has content
+  useEffect(() => {
+    setIsSearchActive(searchQuery.trim().length > 0);
+  }, [searchQuery]);
+
+  // Auto-focus effect
+  useEffect(() => {
+    if (autoFocus && searchInputRef.current) {
+      const timer = setTimeout(() => {
+        searchInputRef.current?.focus();
+      }, 300);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [autoFocus]);
+
+  // Handle API search with debounce
+  useEffect(() => {
+  if (searchTimeoutRef.current) {
+    clearTimeout(searchTimeoutRef.current);
+  }
+
+  // Only search if query has actually changed and is not empty
+  if (searchQuery.trim().length > 0 && searchQuery.trim() !== lastSearchRef.current) {
+    lastSearchRef.current = searchQuery.trim();
+    
+    searchTimeoutRef.current = setTimeout(async () => {
+      console.log("🔍 EXPLORE - Triggering API search for:", searchQuery);
+      try {
+        await searchBusinessesWithAPI(
+          searchQuery, 
+          selectedCategory === 'all' ? [] : [selectedCategory]
+        );
+      } catch (error) {
+        console.error("Search error:", error);
+      }
+    }, 800);
+  }
+
+  return () => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+  };
+}, [searchQuery, selectedCategory, searchBusinessesWithAPI]);
+
+  const handleCleanup = useCallback(() => {
+    setShowFilters(false);
+    setSearchQuery('');
+    setIsSearchActive(false);
+    clearSearchResults(); 
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+  }, [clearSearchResults]); // Only depends on clearSearchResults
+
+  useFocusEffect(
+    React.useCallback(() => {
+      // Load businesses only if the list is empty AND we are not currently searching
+      if (businesses.length === 0 && !loading && !searchQuery.trim()) {
+        console.log("🔍 EXPLORE - No businesses, triggering refresh...");
+        refreshBusinesses([], false); 
+      }
+    }, [businesses.length, loading, searchQuery, refreshBusinesses]) 
+  );
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      const categories = selectedCategory === 'all' ? [] : [selectedCategory];
+      
+      if (isSearchActive) {
+        await searchBusinessesWithAPI(searchQuery, categories, true);
+      } else {
+        await refreshBusinesses(categories, true);
+      }
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery('');
+    setIsSearchActive(false);
+    clearSearchResults();
+    Keyboard.dismiss();
+  };
 
   const handleBusinessPress = (businessId: string) => {
     (navigation as any).navigate('BusinessDetails', { id: businessId });
@@ -39,36 +156,75 @@ export default function ExploreScreen() {
     setFilters({ ...filters, priceLevel: newLevels });
   };
 
+  const clearFilters = () => {
+    setFilters({
+      category: 'all',
+      priceLevel: [],
+      rating: 0,
+      sortBy: 'rating',
+    });
+    setSelectedCategory('all');
+  };
+  
+  // ------------------------------------------------------------------
+  // START OF RENDER LOGIC
+  // ------------------------------------------------------------------
+
+  const isInitialLoading = loading && businesses.length === 0;
+
+  const displayedBusinesses = isSearchActive && !searchLoading 
+    ? searchResults 
+    : searchBusinesses(searchQuery, {
+      ...filters,
+      category: selectedCategory,
+    });
+    
   return (
     <View style={styles.container}>
+      
       {/* Search Header */}
       <View style={styles.searchHeader}>
         <View style={styles.searchContainer}>
           <Search size={20} color="#666" style={styles.searchIcon} />
           <TextInput
+            ref={searchInputRef}
             style={styles.searchInput}
-            placeholder="Search for places..."
+            placeholder="Search for restaurants, cafes..."
             value={searchQuery}
             onChangeText={setSearchQuery}
+            returnKeyType="search"
           />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={handleClearSearch} style={styles.clearButton}>
+                <X size={18} color="#666" />
+            </TouchableOpacity>
+          )}
         </View>
+        
         <TouchableOpacity
           style={styles.filterButton}
           onPress={() => setShowFilters(!showFilters)}
+          disabled={isSearchActive}
         >
-          <Filter size={20} color="#007AFF" />
+          <Filter size={20} color={isSearchActive ? '#CCC' : '#007AFF'} />
         </TouchableOpacity>
       </View>
 
-      {/* Category Filter */}
-      <CategoryFilter
-        selectedCategory={selectedCategory}
-        onCategoryChange={setSelectedCategory}
-      />
+      {/* Conditionally Render Category Filter (Only when NOT in search mode) */}
+      {!isSearchActive && (
+        <CategoryFilter
+          selectedCategory={selectedCategory}
+          onCategoryChange={setSelectedCategory}
+        />
+      )}
+      
+      {/* Advanced Filters (Scrollable) */}
+      {showFilters && !isSearchActive && (
+        <ScrollView style={styles.filtersScroll} contentContainerStyle={styles.filtersContainer}>
+          <TouchableOpacity style={styles.clearFiltersButton} onPress={clearFilters}>
+            <Text style={styles.clearFiltersText}>Clear All Filters</Text>
+          </TouchableOpacity>
 
-      {/* Advanced Filters */}
-      {showFilters && (
-        <View style={styles.filtersContainer}>
           {/* Price Filter */}
           <View style={styles.filterSection}>
             <Text style={styles.filterTitle}>Price Range</Text>
@@ -108,7 +264,11 @@ export default function ExploreScreen() {
                   ]}
                   onPress={() => setFilters({ ...filters, rating })}
                 >
-                  <Star size={14} color="#FFD700" fill="#FFD700" />
+                  <Star 
+                    size={14} 
+                    color={filters.rating === rating ? "#FFF" : "#FFD700"} 
+                    fill={filters.rating === rating ? "#FFF" : "#FFD700"} 
+                  />
                   <Text
                     style={[
                       styles.ratingButtonText,
@@ -150,32 +310,67 @@ export default function ExploreScreen() {
               ))}
             </View>
           </View>
-        </View>
+        </ScrollView>
       )}
 
-      {/* Results */}
-      <View style={styles.resultsHeader}>
-        <Text style={styles.resultsCount}>
-          {filteredBusinesses.length} places found
-        </Text>
-        <TouchableOpacity style={styles.mapButton}>
-          <MapPin size={16} color="#007AFF" />
-          <Text style={styles.mapButtonText}>Map View</Text>
-        </TouchableOpacity>
-      </View>
-
-      <FlatList
-        data={filteredBusinesses}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <BusinessCard
-            business={item}
-            onPress={() => handleBusinessPress(item.id)}
+      {/* Results Header */}
+      {!isInitialLoading && !searchLoading && displayedBusinesses.length > 0 && (
+        <View style={styles.resultsHeader}>
+          <Text style={styles.resultsCount}>
+            {displayedBusinesses.length} {isSearchActive ? 'Results' : 'Places Nearby'}
+            {isSearchActive && searchQuery && ` for "${searchQuery}"`}
+          </Text>
+          <TouchableOpacity style={styles.mapButton}>
+            <MapPin size={16} color="#007AFF" />
+            <Text style={styles.mapButtonText}>Map View</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+      
+      {/* List Area Container ensures stable height */}
+      <View style={styles.listAreaContainer}>
+        {/* Loading/Searching State */}
+        {(isInitialLoading || searchLoading) ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#007AFF" />
+            <Text style={styles.loadingText}>
+              {isInitialLoading ? 'Finding nearby places...' : `Searching for "${searchQuery}"...`}
+            </Text>
+          </View>
+        ) : (
+          /* Results List */
+          <FlatList
+            data={displayedBusinesses}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <BusinessCard
+                business={item}
+                onPress={() => handleBusinessPress(item.id)}
+              />
+            )}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.listContainer}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={handleRefresh}
+              />
+            }
+            ListEmptyComponent={
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyStateText}>
+                  {isSearchActive
+                    ? `No results found for "${searchQuery}"`
+                    : businesses.length === 0 
+                      ? "No places found nearby. Pull to refresh."
+                      : "No results match your current filters."
+                  }
+                </Text>
+              </View>
+            }
           />
         )}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.listContainer}
-      />
+      </View>
     </View>
   );
 }
@@ -212,15 +407,34 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
   },
+  clearButton: {
+    padding: 4,
+  },
   filterButton: {
     padding: 8,
+  },
+  filtersScroll: {
+    maxHeight: 300, 
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
   },
   filtersContainer: {
     backgroundColor: '#FFF',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+  },
+  clearFiltersButton: {
+    alignSelf: 'flex-end',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 16,
+    marginBottom: 12,
+  },
+  clearFiltersText: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
   },
   filterSection: {
     marginBottom: 16,
@@ -310,6 +524,7 @@ const styles = StyleSheet.create({
   resultsCount: {
     fontSize: 16,
     color: '#666',
+    fontWeight: '500',
   },
   mapButton: {
     flexDirection: 'row',
@@ -318,9 +533,33 @@ const styles = StyleSheet.create({
   mapButtonText: {
     fontSize: 14,
     color: '#007AFF',
+    fontWeight: '500',
     marginLeft: 4,
+  },
+  listAreaContainer: {
+    flex: 1, 
   },
   listContainer: {
     paddingBottom: 20,
+  },
+  loadingContainer: {
+    flex: 1, 
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#666',
+  },
+  emptyState: {
+    padding: 40,
+    alignItems: 'center',
+  },
+  emptyStateText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
   },
 });

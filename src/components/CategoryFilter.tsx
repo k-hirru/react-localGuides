@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import { CATEGORIES } from '@/src/constants/categories';
 
 interface CategoryFilterProps {
@@ -9,51 +9,90 @@ interface CategoryFilterProps {
 
 export default function CategoryFilter({ selectedCategory, onCategoryChange }: CategoryFilterProps) {
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={styles.container}
-    >
-      {CATEGORIES.map((category) => (
-        <TouchableOpacity
-          key={category.id}
-          style={[
-            styles.categoryButton,
-            selectedCategory === category.id && styles.selectedCategory,
-          ]}
-          onPress={() => onCategoryChange(category.id)}
-        >
-          <Text style={styles.categoryIcon}>{category.icon}</Text>
-          <Text
-            style={[
-              styles.categoryText,
-              selectedCategory === category.id && styles.selectedCategoryText,
-            ]}
-          >
-            {category.name}
-          </Text>
-        </TouchableOpacity>
-      ))}
-    </ScrollView>
+    <View style={styles.outerContainer}>
+      <FlatList
+        data={CATEGORIES}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.container}
+        renderItem={({ item }) => {
+          const isSelected = selectedCategory === item.id;
+          return (
+            <TouchableOpacity
+              style={[
+                styles.categoryChip,
+                isSelected ? styles.selectedChip : styles.defaultChip,
+              ]}
+              onPress={() => onCategoryChange(item.id)}
+            >
+              <Text style={[styles.categoryIcon, isSelected ? styles.selectedIcon : styles.defaultIcon]}>
+                {item.icon}
+              </Text>
+              <Text
+                style={[
+                  styles.categoryText,
+                  isSelected ? styles.selectedText : styles.defaultText,
+                ]}
+              >
+                {item.name}
+              </Text>
+            </TouchableOpacity>
+          );
+        }}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  outerContainer: {
+    height: 60,
+  },
   container: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 10,
+    alignItems: 'center',
   },
-  categoryButton: {
+  categoryChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 20,
-    marginRight: 12,
+    borderRadius: 24,
+    marginRight: 10,
+    borderWidth: 1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 1.5,
+    elevation: 2,
+    height: 40,
   },
-  selectedCategory: {
+  defaultChip: {
+    backgroundColor: '#F5F5F5',
+    borderColor: '#E0E0E0',
+  },
+  defaultIcon: {
+    color: '#666',
+  },
+  defaultText: {
+    color: '#333',
+    fontWeight: '500',
+  },
+  selectedChip: {
     backgroundColor: '#007AFF',
+    borderColor: '#007AFF',
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 4,
+  },
+  selectedIcon: {
+    color: '#FFF',
+  },
+  selectedText: {
+    color: '#FFF',
+    fontWeight: '700',
   },
   categoryIcon: {
     fontSize: 16,
@@ -61,10 +100,5 @@ const styles = StyleSheet.create({
   },
   categoryText: {
     fontSize: 14,
-    color: '#666',
-    fontWeight: '500',
-  },
-  selectedCategoryText: {
-    color: '#FFF',
   },
 });

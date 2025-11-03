@@ -246,7 +246,7 @@ export default function BusinessDetailsScreen() {
   const handleAddReview = () => {
     if (!business) return;
     (navigation as any).navigate("AddReview", {
-      businessId: id,
+      id: id,
       business: business,
     });
   };

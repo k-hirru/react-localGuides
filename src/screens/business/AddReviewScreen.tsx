@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAppStore } from '../../hooks/useAppStore';
 import { useAuth } from '../../hooks/useAuth';
 import { Business, Review } from '../../types';
 import StarRating from '../../components/StarRating';
+import { KeyboardAvoidingScrollView } from '@/src/components/KeyboardAvoidingScrollView';
 
 export default function AddReviewScreen() {
   const route = useRoute();
@@ -104,9 +105,8 @@ export default function AddReviewScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
+    <KeyboardAvoidingScrollView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View style={styles.content}>
         <View style={styles.businessInfo}>
@@ -165,7 +165,7 @@ export default function AddReviewScreen() {
           </Text>
         </TouchableOpacity>
       </View>
-    </KeyboardAvoidingView>
+    </KeyboardAvoidingScrollView>
   );
 }
 

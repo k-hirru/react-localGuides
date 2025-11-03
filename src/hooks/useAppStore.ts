@@ -21,6 +21,9 @@ export const useAppStore = () => {
   const [favorites, setFavorites] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [businessesLoading, setBusinessesLoading] = useState(false);
+  const [searchResults, setSearchResults] = useState<Business[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [lastSearchQuery, setLastSearchQuery] = useState("");
 
   // ✅ Load businesses when location changes - WITH GLOBAL STATE
   useEffect(() => {
@@ -141,6 +144,58 @@ export const useAppStore = () => {
       console.error("Error getting business reviews:", error);
       return [];
     }
+  };
+
+  const searchBusinessesWithAPI = async (
+    query: string,
+    categories: string[] = [],
+    forceRefresh: boolean = false
+  ) => {
+    if (!userLocation || !query.trim()) {
+      return searchBusinesses(query, { category: categories[0] || "all" });
+    }
+
+    try {
+      setSearchLoading(true);
+
+      let searchResults = await businessService.searchBusinessesWithQuery(
+        query,
+        userLocation.latitude,
+        userLocation.longitude,
+        5000,
+        categories,
+        forceRefresh
+      );
+
+      // If geocoding returns no results, fall back to local search
+      if (searchResults.length === 0) {
+        console.log(
+          "🔄 Geocoding returned no results, falling back to local search"
+        );
+        searchResults = searchBusinesses(query, {
+          category: categories[0] || "all",
+        });
+      }
+
+      setSearchResults(searchResults);
+      return searchResults;
+    } catch (error) {
+      console.error("Search failed:", error);
+      // Fallback to local search on error
+      const localResults = searchBusinesses(query, {
+        category: categories[0] || "all",
+      });
+      setSearchResults(localResults);
+      return localResults;
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  /** Clear search results */
+  const clearSearchResults = () => {
+    setSearchResults([]);
+    setLastSearchQuery("");
   };
 
   /** Reviews */
@@ -295,5 +350,10 @@ export const useAppStore = () => {
     refreshBusinesses,
     loadNearbyBusinesses,
     loadAllReviews,
+    searchResults,
+    searchLoading: searchLoading || loading,
+    lastSearchQuery,
+    searchBusinessesWithAPI,
+    clearSearchResults,
   };
 };

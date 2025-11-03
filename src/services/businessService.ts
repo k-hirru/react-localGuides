@@ -101,6 +101,63 @@ export const businessService = {
     }
   },
 
+  async searchBusinessesWithQuery(
+    query: string,
+    lat: number,
+    lng: number,
+    radius: number = 5000,
+    categories: string[] = [],
+    forceRefresh: boolean = false
+  ): Promise<Business[]> {
+    try {
+      console.log("🔍 BUSINESS SERVICE - Starting geocoding search for:", query);
+      console.log("📍 Coordinates:", lat, lng);
+      
+      const geoapifyCategories = mapAppCategoriesToGeoapify(categories);
+      console.log("🎯 Categories:", geoapifyCategories);
+
+      // Use geocoding API instead of places API
+      const places = await geoapifyService.searchPlacesByName( 
+        query,
+        lat,
+        lng,
+        radius,
+        geoapifyCategories,
+        20,
+        forceRefresh
+      );
+
+      console.log("📊 Geocoding search returned places:", places.length);
+      
+      if (!places.length) {
+        console.log("❌ No places found from geocoding search");
+        return [];
+      }
+
+      const placeIds = places.map((p) => p.place_id);
+      console.log("🆔 Place IDs from geocoding:", placeIds);
+      
+      const reviewsMap = await reviewService.getBusinessesWithReviews(placeIds);
+
+      const businesses = places.map((place) =>
+        mapGeoapifyToBusiness(
+          place,
+          reviewsMap.get(place.place_id) || { rating: 0, reviewCount: 0 }
+        )
+      );
+      
+      console.log("🏪 Final search businesses:", businesses.length);
+      if (businesses.length > 0) {
+        console.log("📝 Sample search business:", businesses[0]?.name);
+      }
+      
+      return businesses;
+    } catch (error) {
+      console.error("❌ BUSINESS SERVICE - Places API name search error:", error);
+      return [];
+    }
+  },
+
   searchBusinesses(
     query: string,
     lat: number,
