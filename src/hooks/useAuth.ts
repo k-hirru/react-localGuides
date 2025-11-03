@@ -96,7 +96,6 @@ export const useAuth = () => {
   const logoutAndCleanup = async () => {
     try {
       await auth().signOut();
-      // Add any other cleanup you need here
       return true;
     } catch (error: any) {
       setError(error.message);

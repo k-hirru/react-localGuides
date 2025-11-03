@@ -135,8 +135,9 @@ export default function BusinessDetailsScreen() {
 
   const handleEdit = (review: Review) => {
     (navigation as any).navigate("AddReview", {
-      businessId: id,
+      id: id,
       review: review,
+      business: business
     });
   };
 
@@ -387,6 +388,7 @@ export default function BusinessDetailsScreen() {
             <ReviewCard
               key={review.id}
               review={review}
+              business={business}
               onEdit={handleEdit}
               onDelete={handleDelete}
             />

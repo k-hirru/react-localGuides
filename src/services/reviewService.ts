@@ -96,6 +96,8 @@ export const reviewService = {
       querySnapshot.forEach((doc) => {
         const data = doc.data();
         console.log("📝 Review data:", data);
+        console.log("🖼️ Review images:", data.images); // ✅ Debug images
+
         reviews.push({
           id: doc.id,
           businessId: data.businessId,
@@ -104,6 +106,7 @@ export const reviewService = {
           userAvatar: data.userAvatar,
           rating: data.rating,
           text: data.text,
+          images: data.images || [], // ✅ CRITICAL: Include images field
           helpful: data.helpful || 0,
           date:
             data.date?.toDate().toISOString().split("T")[0] ||
@@ -150,6 +153,7 @@ export const reviewService = {
           userAvatar: data.userAvatar,
           rating: data.rating,
           text: data.text,
+          images: data.images || [], // ✅ CRITICAL: Include images field
           helpful: data.helpful || 0,
           date:
             data.date?.toDate().toISOString().split("T")[0] ||
@@ -220,6 +224,7 @@ export const reviewService = {
         userAvatar: data.userAvatar,
         rating: data.rating,
         text: data.text,
+        images: data.images || [], // ✅ CRITICAL: Include images field
         helpful: data.helpful || 0,
         date:
           data.date?.toDate().toISOString().split("T")[0] ||

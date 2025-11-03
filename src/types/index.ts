@@ -58,6 +58,7 @@ export interface Review {
   createdAt: Date;
   updatedAt: Date;
   helpful: number;
+  images?: string[];
 }
 
 export interface User {

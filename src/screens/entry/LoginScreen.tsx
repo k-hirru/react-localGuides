@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-import { LogIn, Mail, Lock, Apple, Smartphone } from "lucide-react-native";
+import { LogIn, Mail, Lock, Apple, Smartphone, Eye, EyeOff } from "lucide-react-native";
 
 import { StyledInput } from "@/src/components/StyledInput";
 import { SocialButton } from "@/src/components/SocialButton";
@@ -18,9 +18,11 @@ import Colors from "@/src/constants/colors";
 
 export default function LoginScreen() {
   const navigation = useNavigation();
-  const { login, loading } = useAuth();
+  const { login, loading, resetPassword } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -30,18 +32,16 @@ export default function LoginScreen() {
 
     try {
       await login(email, password);
-      // Navigation is handled automatically by the auth state change in AppNavigator
     } catch (error: any) {
       Alert.alert("Login Error", error.message);
     }
   };
 
   const handleSocialLogin = (platform: "Apple" | "Phone") => {
-    console.log(`Attempting social login via ${platform}`);
     Alert.alert("Coming Soon", `${platform} login will be available soon!`);
   };
 
-  const handleForgotPassword = () => {
+  const handleForgotPassword = async () => {
     if (!email) {
       Alert.alert("Email Required", "Please enter your email address first");
       return;
@@ -56,17 +56,27 @@ export default function LoginScreen() {
         text: "Send",
         onPress: async () => {
           try {
-            // This would be implemented when we add resetPassword to useAuth
-            Alert.alert("Check Your Email", "Password reset email sent!");
-          } catch (error) {
+            setResetLoading(true);
+            await resetPassword(email);
+            Alert.alert(
+              "Check Your Email", 
+              "Password reset email sent! Please check your inbox/spam and follow the instructions."
+            );
+          } catch (error: any) {
             Alert.alert(
               "Error",
-              "Failed to send reset email. Please try again."
+              error.message || "Failed to send reset email. Please try again."
             );
+          } finally {
+            setResetLoading(false);
           }
         },
       },
     ]);
+  };
+
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
   };
 
   return (
@@ -90,20 +100,39 @@ export default function LoginScreen() {
           keyboardType="email-address"
           autoCapitalize="none"
         />
-        <StyledInput
-          Icon={Lock}
-          placeholder="Password"
-          value={password}
-          onChangeText={setPassword}
-          isPassword
-        />
+        
+        {/* ✅ FIXED: Password Input with Visibility Toggle */}
+        <View style={styles.passwordContainer}>
+          <StyledInput
+            Icon={Lock}
+            placeholder="Password"
+            value={password}
+            onChangeText={setPassword}
+            isPassword={!showPassword} // ✅ Use isPassword instead of secureTextEntry
+          />
+          <TouchableOpacity 
+            style={styles.visibilityToggle}
+            onPress={togglePasswordVisibility}
+          >
+            {showPassword ? (
+              <EyeOff size={20} color={Colors.light.gray[500]} />
+            ) : (
+              <Eye size={20} color={Colors.light.gray[500]} />
+            )}
+          </TouchableOpacity>
+        </View>
 
         {/* Forgot Password Link */}
         <TouchableOpacity
           style={styles.forgotPasswordButton}
           onPress={handleForgotPassword}
+          disabled={resetLoading}
         >
-          <Text style={styles.linkText}>Forgot Password?</Text>
+          {resetLoading ? (
+            <ActivityIndicator size="small" color={Colors.light.primary} />
+          ) : (
+            <Text style={styles.linkText}>Forgot Password?</Text>
+          )}
         </TouchableOpacity>
 
         {/* Main Login Button */}
@@ -176,10 +205,22 @@ const styles = StyleSheet.create({
   formContainer: {
     marginBottom: 32,
   },
+  passwordContainer: {
+    position: 'relative',
+  },
+  visibilityToggle: {
+    position: 'absolute',
+    right: 16,
+    top: 16,
+    zIndex: 10,
+    padding: 4,
+  },
   forgotPasswordButton: {
     alignSelf: "flex-end",
     marginTop: 4,
     marginBottom: 24,
+    height: 20,
+    justifyContent: 'center',
   },
   linkText: {
     color: Colors.light.primary,
