@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "688036793503",
+    "project_id": "react-localguides",
+    "storage_bucket": "react-localguides.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:688036793503:android:bba703580e5decd3db26aa",
+        "android_client_info": {
+          "package_name": "com.khirrucapstone.localguide"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBVTAUtyFWamyODHt-q7GBPJpEqXXHKKvM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

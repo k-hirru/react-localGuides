@@ -37,6 +37,12 @@
 		</dict>
 	</array>
 	
+	<!-- ✅ ADD PUSH NOTIFICATION ENTRIES HERE -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
+	
 	<!-- Location Permissions -->
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>This app needs access to your location to show nearby businesses.</string>
@@ -50,6 +56,10 @@
 	<string>Allow $(PRODUCT_NAME) to access your microphone</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Allow $(PRODUCT_NAME) to access your photos</string>
+	
+	<!-- ✅ ADD NOTIFICATION PERMISSION DESCRIPTION -->
+	<key>NSUserNotificationsUsageDescription</key>
+	<string>This app needs to send you notifications when your reviews receive helpful marks.</string>
 	
 	<!-- App Transport Security -->
 	<key>NSAppTransportSecurity</key>
