@@ -38,10 +38,9 @@ const HomeScreen = memo(function HomeScreen() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [refreshing, setRefreshing] = useState(false);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
-  const [hasTriggeredLoad, setHasTriggeredLoad] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   const { isConnected, showOfflineAlert } = useInternetConnectivity();
-
   const navigation = useNavigation();
 
   // ✅ Memoize user-dependent values
@@ -50,37 +49,29 @@ const HomeScreen = memo(function HomeScreen() {
     [user?.displayName]
   );
 
-  // ✅ FIXED: Show loading immediately, don't wait for trigger
-
   useEffect(() => {
-    if (!hasTriggeredLoad) {
-      console.log("🚀 HOME - Triggering first refresh");
-      setHasTriggeredLoad(true);
+    // Only trigger initial load once when component mounts and no businesses
+    if (!hasLoadedOnce && businesses.length === 0 && !loading) {
+      console.log("🚀 HOME - Triggering initial load");
       refreshBusinesses([], true).finally(() => {
         setHasLoadedOnce(true);
       });
     }
-  }, [hasTriggeredLoad, refreshBusinesses]);
+  }, [hasLoadedOnce, businesses.length, loading, refreshBusinesses]);
 
-  // 👇 Refined logic
-  const isInitialLoading =
-    (!hasLoadedOnce && (loading || businesses.length === 0)) ||
-    (loading && businesses.length === 0);
-
-  const showEmptyState =
-    hasLoadedOnce && !loading && !refreshing && businesses.length === 0;
-
-  const hasContent = businesses.length > 0;
+  const showLoadingState = !hasLoadedOnce || loading;
+  const showEmptyState = hasLoadedOnce && !loading && businesses.length === 0;
+  const hasContent = hasLoadedOnce && !loading && businesses.length > 0;
 
   const [fadeAnim] = useState(new Animated.Value(0));
 
   useEffect(() => {
     Animated.timing(fadeAnim, {
-      toValue: isInitialLoading ? 1 : 0,
+      toValue: showLoadingState ? 1 : 0,
       duration: 300,
       useNativeDriver: true,
     }).start();
-  }, [isInitialLoading]);
+  }, [showLoadingState]);
 
   // ✅ OPTIMIZED: Efficient filtering with memoization
   const filteredBusinesses = useMemo(() => {
@@ -158,11 +149,12 @@ const HomeScreen = memo(function HomeScreen() {
   console.log("🏠 HOME - State:", {
     loading,
     refreshing,
-    hasTriggeredLoad,
+    isInitialLoad,
     businessesCount: businesses.length,
     filteredCount: filteredBusinesses.length,
-    isInitialLoading,
+    showLoadingState,
     showEmptyState,
+    hasContent,
   });
 
   // ✅ FIXED: Empty State Component (without useMemo)
@@ -255,7 +247,7 @@ const HomeScreen = memo(function HomeScreen() {
         />
 
         {/* ✅ FIXED: Better conditional rendering */}
-        {isInitialLoading ? (
+        {showLoadingState ? (
           <View style={styles.loadingContainer}>
             <Animated.View style={{ opacity: fadeAnim }}>
               <FindingPlacesLoader />

@@ -63,8 +63,13 @@ export const reviewService = {
   ): Promise<Map<string, { rating: number; reviewCount: number }>> {
     if (businessIds.length === 0) return new Map();
 
-    const totals = new Map<string, { totalScore: number; reviewCount: number }>();
-    businessIds.forEach((id) => totals.set(id, { totalScore: 0, reviewCount: 0 }));
+    const totals = new Map<
+      string,
+      { totalScore: number; reviewCount: number }
+    >();
+    businessIds.forEach((id) =>
+      totals.set(id, { totalScore: 0, reviewCount: 0 })
+    );
 
     // Firestore "in" supports up to 10 values
     for (let i = 0; i < businessIds.length; i += 10) {
@@ -99,6 +104,52 @@ export const reviewService = {
     });
 
     return result;
+  },
+  async updateUserAvatarInReviews(
+    userId: string,
+    newAvatarUrl: string
+  ): Promise<void> {
+    try {
+      console.log(`🔄 Updating avatar for user ${userId} in all reviews...`);
+
+      const reviewsRef = collection(db, "reviews");
+      const q = query(reviewsRef, where("userId", "==", userId));
+      const snap = await getDocs(q);
+
+      if (snap.empty) {
+        console.log("ℹ️ No reviews found for user, skipping avatar update");
+        return;
+      }
+
+      const batch = writeBatch(db);
+      let updateCount = 0;
+
+      snap.forEach((doc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
+        const data = doc.data() as any;
+        // Only update if the avatar is different
+        if (data.userAvatar !== newAvatarUrl) {
+          batch.update(doc.ref, {
+            userAvatar: newAvatarUrl,
+            updatedAt: serverTimestamp(),
+          });
+          updateCount++;
+        }
+      });
+
+      if (updateCount > 0) {
+        await batch.commit();
+        console.log(
+          `✅ Updated avatar in ${updateCount} reviews for user ${userId}`
+        );
+      } else {
+        console.log(
+          "ℹ️ No avatar updates needed - all reviews already have current avatar"
+        );
+      }
+    } catch (error) {
+      console.error("❌ Error updating avatar in reviews:", error);
+      throw new Error("Failed to update avatar in reviews");
+    }
   },
 
   // Get reviews for a business
@@ -209,7 +260,10 @@ export const reviewService = {
         const data = reviewSnap.data() as any;
         const images: string[] = (data?.images as string[]) || [];
         if (images.length > 0) {
-          console.log("🗑️ Deleting review images from Firebase Storage:", images.length);
+          console.log(
+            "🗑️ Deleting review images from Firebase Storage:",
+            images.length
+          );
           await imageService.deleteImages(images);
         }
       }
@@ -223,19 +277,26 @@ export const reviewService = {
   },
 
   // Update helpful count (increment/decrement)
-  async updateReviewHelpfulCount(reviewId: string, delta: number): Promise<void> {
+  async updateReviewHelpfulCount(
+    reviewId: string,
+    delta: number
+  ): Promise<void> {
     try {
       await updateDoc(doc(db, "reviews", reviewId), {
         helpful: increment(delta),
       });
-      console.log(`✅ Updated helpful count for review ${reviewId} by ${delta}`);
+      console.log(
+        `✅ Updated helpful count for review ${reviewId} by ${delta}`
+      );
     } catch (error) {
       console.error("Error updating helpful count:", error);
       throw error;
     }
   },
 
-  async addHelpfulVote(voteData: Omit<HelpfulVote, "createdAt">): Promise<void> {
+  async addHelpfulVote(
+    voteData: Omit<HelpfulVote, "createdAt">
+  ): Promise<void> {
     try {
       const helpfulRef = doc(collection(db, "helpfuls")); // auto-id
       await setDoc(helpfulRef, {

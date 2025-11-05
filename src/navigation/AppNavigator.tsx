@@ -4,13 +4,13 @@ import {
   NavigationContainer,
   useNavigationContainerRef,
 } from "@react-navigation/native";
-import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { AuthProvider, useAuthContext } from "@/src/context/AuthContext"; // ← CHANGE THIS
+import { AuthProvider, useAuthContext } from "@/src/context/AuthContext";
 import { useNotifications } from "@/src/hooks/useNotification";
 import { NotificationData } from "@/src/services/notificationService";
 import { OfflineBanner } from "@/src/components/OfflineBanner";
+import { LoadingScreen } from "@/src/components/LoadingScreen";
 
 import TabNavigator from "./TabNavigator";
 import BusinessDetailsScreen from "../screens/business/BusinessDetailsScreen";
@@ -19,20 +19,16 @@ import LoginScreen from "../screens/entry/LoginScreen";
 import SignUpScreen from "../screens/entry/SignUpScreen";
 import BusinessMapScreen from "../screens/business/BusinessMapScreen";
 
-SplashScreen.preventAutoHideAsync();
-
 const queryClient = new QueryClient();
 const Stack = createNativeStackNavigator();
 
 function AuthNavigator() {
-  const { user, loading } = useAuthContext(); // ← USE CONTEXT INSTEAD
+  const { user, loading } = useAuthContext();
   const navigationRef = useNavigationContainerRef();
 
-  // Handle notification press - navigate to business details with review highlight
   const handleNotificationPress = (data: NotificationData) => {
     console.log("Notification pressed with data:", data);
     if (data.reviewId && data.businessId) {
-      // Navigate to BusinessDetailsScreen with the reviewId to highlight
       (navigationRef.current as any)?.navigate("BusinessDetails", {
         id: data.businessId,
         highlightReviewId: data.reviewId,
@@ -40,17 +36,10 @@ function AuthNavigator() {
     }
   };
 
-  // Setup notifications
   useNotifications(handleNotificationPress);
 
-  useEffect(() => {
-    if (!loading) {
-      SplashScreen.hideAsync();
-    }
-  }, [loading]);
-
   if (loading) {
-    return null;
+    return <LoadingScreen />; // Use the new loading screen
   }
 
   return (
@@ -62,7 +51,6 @@ function AuthNavigator() {
       }}
     >
       {!user ? (
-        // Auth screens - user not logged in
         <>
           <Stack.Screen
             name="Login"
@@ -76,7 +64,6 @@ function AuthNavigator() {
           />
         </>
       ) : (
-        // Main app - user logged in
         <>
           <Stack.Screen
             name="Tabs"

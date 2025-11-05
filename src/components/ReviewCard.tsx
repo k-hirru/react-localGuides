@@ -8,7 +8,7 @@ import {
   Image,
   ScrollView,
 } from "react-native";
-import { useAuth } from "@/src/hooks/useAuth";
+import { useAuthContext } from "@/src/context/AuthContext";
 import StarRating from "./StarRating";
 import { Review, Business } from "@/src/types";
 import {
@@ -20,6 +20,7 @@ import {
   Image as ImageIcon,
 } from "lucide-react-native";
 import { reviewService } from "@/src/services/reviewService";
+import auth from "@react-native-firebase/auth"; // ADD THIS
 
 interface ReviewCardProps {
   review: Review;
@@ -37,15 +38,36 @@ const ReviewCard = memo(
     onDelete,
     isUsersReview = false,
   }: ReviewCardProps) => {
-    const { user: authUser } = useAuth();
+    const { user: authUser } = useAuthContext();
+    const [currentUser, setCurrentUser] = useState(auth().currentUser); // ADD THIS
     const [showMenu, setShowMenu] = useState(false);
     const [imageModalVisible, setImageModalVisible] = useState(false);
     const [selectedImageIndex, setSelectedImageIndex] = useState(0);
     const [isHelpful, setIsHelpful] = useState(false);
     const [helpfulCount, setHelpfulCount] = useState(review.helpful || 0);
 
+    // ADD THIS: Direct Firebase auth listener as backup
+    useEffect(() => {
+      const unsubscribe = auth().onAuthStateChanged((user) => {
+        setCurrentUser(user);
+      });
+      return unsubscribe;
+    }, []);
+
     const isOwnReview = authUser?.uid === review.userId;
     const hasImages = review.images && review.images.length > 0;
+
+    // UPDATE THIS: Use direct Firebase user first, then fall back to context
+    const getAvatarUrl = () => {
+      // Use direct Firebase user first (more up-to-date), then fall back to context
+      const user = currentUser || authUser;
+      if (user?.uid === review.userId && user?.photoURL) {
+        return user.photoURL;
+      }
+      return review.userAvatar;
+    };
+
+    const avatarUrl = getAvatarUrl();
 
     useEffect(() => {
       const checkExistingVote = async () => {
@@ -148,9 +170,9 @@ const ReviewCard = memo(
         <View style={styles.header}>
           <View style={styles.userInfo}>
             {/* ✅ UPDATED: Use userAvatar from review data directly */}
-            {review.userAvatar ? (
+            {avatarUrl ? (
               <Image
-                source={{ uri: review.userAvatar }}
+                source={{ uri: avatarUrl }}
                 style={styles.avatar}
                 onError={() => console.log("Failed to load profile image")}
               />
@@ -190,11 +212,19 @@ const ReviewCard = memo(
         {/* ✅ KEEP: Dropdown menu */}
         {showMenu && (
           <View style={styles.menu}>
-            <TouchableOpacity style={styles.menuItem} onPress={handleEdit}>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={handleEdit}
+              testID="edit-menu-item" // ← ADD THIS
+            >
               <Edit size={16} color="#666" />
               <Text style={styles.menuText}>Edit</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem} onPress={handleDelete}>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={handleDelete}
+              testID="delete-menu-item" // ← ADD THIS
+            >
               <Trash2 size={16} color="#FF6B6B" />
               <Text style={[styles.menuText, { color: "#FF6B6B" }]}>
                 Delete

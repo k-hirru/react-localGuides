@@ -9,13 +9,12 @@ import { PRICE_LEVELS } from "../constants/categories";
 interface BusinessCardProps {
   business: Business;
   onPress: (businessId: string) => void;
-  customHeartAction?: () => void; // ✅ NEW: Optional custom heart action
+  customHeartAction?: () => void;
 }
 
 const BusinessCard = memo(({ business, onPress, customHeartAction }: BusinessCardProps) => {
   const { toggleFavorite, isFavorite } = useAppStore();
   
-  // ✅ Use the isFavorite function instead of checking favorites array directly
   const favorite = isFavorite(business.id);
   const priceSymbol =
     PRICE_LEVELS.find((p) => p.level === business.priceLevel)?.symbol || "$";
@@ -25,7 +24,6 @@ const BusinessCard = memo(({ business, onPress, customHeartAction }: BusinessCar
     onPress(business.id);
   };
 
-  // ✅ Handle heart press - use custom action if provided, otherwise default
   const handleFavoritePress = () => {
     if (customHeartAction) {
       console.log('❤️ Using custom heart action');
@@ -37,40 +35,51 @@ const BusinessCard = memo(({ business, onPress, customHeartAction }: BusinessCar
   };
 
   return (
-    <TouchableOpacity style={styles.card} onPress={handlePress}>
+    <TouchableOpacity 
+      style={styles.card} 
+      onPress={handlePress}
+      testID="business-card" // ✅ ADDED
+    >
       <Image
         source={{ uri: business.imageUrl }}
         style={styles.image}
         resizeMode="cover"
         fadeDuration={300}
+        testID="business-image" // ✅ ADDED
       />
 
       <TouchableOpacity
         style={styles.favoriteButton}
         onPress={handleFavoritePress}
         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        testID="favorite-button" // ✅ ADDED
       >
         <Heart
           size={20}
           fill={favorite ? "#FF6B6B" : "transparent"}
           color={favorite ? "#FF6B6B" : "#FFF"}
+          testID="heart-icon" // ✅ ADDED
         />
       </TouchableOpacity>
 
       <View style={styles.content}>
-        <Text style={styles.name} numberOfLines={1}>
+        <Text style={styles.name} numberOfLines={1} testID="business-name">
           {business.name}
         </Text>
 
-        <View style={styles.ratingRow}>
+        <View style={styles.ratingRow} testID="rating-row">
           <StarRating rating={business.rating} size={14} />
-          <Text style={styles.reviewCount}>({business.reviewCount})</Text>
-          <Text style={styles.price}>{priceSymbol}</Text>
+          <Text style={styles.reviewCount} testID="review-count">
+            ({business.reviewCount})
+          </Text>
+          <Text style={styles.price} testID="price-level">
+            {priceSymbol}
+          </Text>
         </View>
 
-        <View style={styles.locationRow}>
-          <MapPin size={12} color="#666" />
-          <Text style={styles.address} numberOfLines={1}>
+        <View style={styles.locationRow} testID="location-row">
+          <MapPin size={12} color="#666" testID="map-pin-icon" />
+          <Text style={styles.address} numberOfLines={1} testID="business-address">
             {business.address}
           </Text>
         </View>

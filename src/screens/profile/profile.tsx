@@ -34,6 +34,7 @@ import {
   RESULTS,
   openSettings,
 } from "react-native-permissions";
+import { reviewService } from "@/src/services/reviewService";
 
 export default function ProfileScreen() {
   const { favorites, reviews, getBusinessById, refreshReviews } = useAppStore();
@@ -42,6 +43,7 @@ export default function ProfileScreen() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [showImagePicker, setShowImagePicker] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [localAvatarUrl, setLocalAvatarUrl] = useState<string>("");
 
   // Guard against re-entrant refreshes that cause infinite loops
   const inFlightRef = useRef(false);
@@ -220,25 +222,41 @@ export default function ProfileScreen() {
         ? base64
         : `data:image/jpeg;base64,${base64}`;
 
-      if (authUser.photoURL?.includes("firebasestorage.googleapis.com")) {
-        try {
-          await imageService.deleteImage(authUser.photoURL);
-          console.log("🗑️ Old profile picture deleted");
-        } catch (error) {
-          console.warn("Failed to delete old profile picture:", error);
-        }
-      }
-
-      const imageUrl = await imageService.uploadImage(base64WithPrefix, "profile");
+      // Upload new photo
+      const imageUrl = await imageService.uploadImage(
+        base64WithPrefix,
+        "profile"
+      );
       console.log("✅ Profile picture uploaded:", imageUrl);
 
+      // Update local state immediately
+      setLocalAvatarUrl(imageUrl);
+
+      // Update Firebase profile
       await auth().currentUser?.updateProfile({ photoURL: imageUrl });
+
+      // ✅ CRITICAL: Force immediate reload and get updated user
       await auth().currentUser?.reload();
+
+      // ✅ Get the freshly updated user object
+      const updatedUser = auth().currentUser;
+      console.log("🔄 Fresh user photoURL:", updatedUser?.photoURL);
+
+      // ✅ Update all existing reviews with new avatar
+      try {
+        await reviewService.updateUserAvatarInReviews(authUser.uid, imageUrl);
+        console.log("✅ Updated avatar in all existing reviews");
+      } catch (updateError) {
+        console.warn("⚠️ Could not update reviews:", updateError);
+      }
 
       Alert.alert("Success", "Profile picture updated successfully!");
     } catch (error: any) {
       console.error("❌ Profile picture upload failed:", error);
-      Alert.alert("Upload Failed", error.message || "Failed to update profile picture.");
+      Alert.alert(
+        "Upload Failed",
+        error.message || "Failed to update profile picture."
+      );
     } finally {
       setUploadingAvatar(false);
     }
@@ -259,13 +277,17 @@ export default function ProfileScreen() {
     return (
       <View style={styles.container}>
         <View style={styles.notLoggedInContainer}>
-          <Text style={styles.notLoggedInText}>Please log in to view your profile</Text>
+          <Text style={styles.notLoggedInText}>
+            Please log in to view your profile
+          </Text>
         </View>
       </View>
     );
   }
 
-  const userReviews = reviews.filter((review) => review.userId === authUser.uid);
+  const userReviews = reviews.filter(
+    (review) => review.userId === authUser.uid
+  );
 
   return (
     <>
@@ -283,8 +305,13 @@ export default function ProfileScreen() {
       >
         <View style={styles.header}>
           <View style={styles.avatarContainer}>
-            {authUser.photoURL ? (
-              <Image source={{ uri: authUser.photoURL }} style={styles.avatar} />
+            {localAvatarUrl || authUser.photoURL ? (
+              <Image
+                source={{
+                  uri: (localAvatarUrl || authUser.photoURL) as string,
+                }}
+                style={styles.avatar}
+              />
             ) : (
               <View style={styles.avatarPlaceholder}>
                 <Text style={styles.avatarPlaceholderText}>
@@ -329,7 +356,10 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.menuContainer}>
-          <TouchableOpacity style={styles.menuItem} onPress={handleNavigateToFavorites}>
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={handleNavigateToFavorites}
+          >
             <Heart size={20} color="#666" />
             <Text style={styles.menuText}>Favorite Places</Text>
             <Text style={styles.menuBadge}>{favorites.length}</Text>
@@ -364,7 +394,9 @@ export default function ProfileScreen() {
                 <TouchableOpacity
                   key={review.id}
                   style={styles.activityItem}
-                  onPress={() => handleNavigateToReview(review.id, review.businessId)}
+                  onPress={() =>
+                    handleNavigateToReview(review.id, review.businessId)
+                  }
                 >
                   <MessageSquare size={16} color="#007AFF" />
                   <View style={styles.activityContent}>
@@ -381,7 +413,9 @@ export default function ProfileScreen() {
                   </View>
                   <View style={styles.activityRating}>
                     <Star size={12} color="#FFD700" fill="#FFD700" />
-                    <Text style={styles.activityRatingText}>{review.rating}</Text>
+                    <Text style={styles.activityRatingText}>
+                      {review.rating}
+                    </Text>
                   </View>
                 </TouchableOpacity>
               );
@@ -411,7 +445,10 @@ export default function ProfileScreen() {
               <Text style={styles.modalOptionText}>Take Photo</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.modalOption} onPress={pickFromLibrary}>
+            <TouchableOpacity
+              style={styles.modalOption}
+              onPress={pickFromLibrary}
+            >
               <ImageIcon size={24} color="#007AFF" />
               <Text style={styles.modalOptionText}>Choose from Library</Text>
             </TouchableOpacity>
@@ -431,7 +468,12 @@ export default function ProfileScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F8F9FA" },
-  notLoggedInContainer: { flex: 1, justifyContent: "center", alignItems: "center", padding: 20 },
+  notLoggedInContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
   notLoggedInText: { fontSize: 18, color: "#666", textAlign: "center" },
   header: {
     backgroundColor: "#FFF",
@@ -442,7 +484,12 @@ const styles = StyleSheet.create({
     borderBottomColor: "#E0E0E0",
   },
   avatarContainer: { position: "relative", marginBottom: 16 },
-  avatar: { width: 100, height: 100, borderRadius: 50, backgroundColor: "#E5E7EB" },
+  avatar: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: "#E5E7EB",
+  },
   avatarPlaceholder: {
     width: 100,
     height: 100,
@@ -454,7 +501,10 @@ const styles = StyleSheet.create({
   avatarPlaceholderText: { fontSize: 40, fontWeight: "600", color: "#FFF" },
   uploadingOverlay: {
     position: "absolute",
-    top: 0, left: 0, right: 0, bottom: 0,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: "rgba(0, 0, 0, 0.5)",
     borderRadius: 50,
     justifyContent: "center",
@@ -470,7 +520,12 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
   },
-  editButtonText: { fontSize: 14, color: "#007AFF", marginLeft: 6, fontWeight: "500" },
+  editButtonText: {
+    fontSize: 14,
+    color: "#007AFF",
+    marginLeft: 6,
+    fontWeight: "500",
+  },
   statsContainer: {
     flexDirection: "row",
     backgroundColor: "#FFF",
@@ -480,7 +535,13 @@ const styles = StyleSheet.create({
     borderBottomColor: "#E0E0E0",
   },
   statItem: { flex: 1, alignItems: "center" },
-  statNumber: { fontSize: 20, fontWeight: "bold", color: "#333", marginTop: 8, marginBottom: 4 },
+  statNumber: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#333",
+    marginTop: 8,
+    marginBottom: 4,
+  },
   statLabel: { fontSize: 14, color: "#666" },
   menuContainer: {
     backgroundColor: "#FFF",
@@ -516,9 +577,20 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     marginBottom: 20,
   },
-  sectionTitle: { fontSize: 18, fontWeight: "600", color: "#333", marginBottom: 16 },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 16,
+  },
   emptyState: { alignItems: "center", paddingVertical: 40 },
-  emptyStateText: { fontSize: 16, fontWeight: "600", color: "#666", marginTop: 16, marginBottom: 4 },
+  emptyStateText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#666",
+    marginTop: 16,
+    marginBottom: 4,
+  },
   emptyStateSubtext: { fontSize: 14, color: "#999", textAlign: "center" },
   activityItem: {
     flexDirection: "row",
@@ -528,7 +600,12 @@ const styles = StyleSheet.create({
     borderBottomColor: "#F0F0F0",
   },
   activityContent: { flex: 1, marginLeft: 12 },
-  activityText: { fontSize: 14, fontWeight: "500", color: "#333", marginBottom: 2 },
+  activityText: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#333",
+    marginBottom: 2,
+  },
   activityDate: { fontSize: 12, color: "#666" },
   activityRating: {
     flexDirection: "row",
@@ -538,16 +615,34 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 12,
   },
-  activityRatingText: { fontSize: 12, fontWeight: "600", color: "#333", marginLeft: 4 },
-  modalOverlay: { flex: 1, backgroundColor: "rgba(0, 0, 0, 0.5)", justifyContent: "flex-end" },
+  activityRatingText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#333",
+    marginLeft: 4,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
+  },
   modalContent: {
     backgroundColor: "#FFF",
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingBottom: Platform.OS === "android" ? 20 : 34,
   },
-  modalHeader: { padding: 20, borderBottomWidth: 1, borderBottomColor: "#E5E7EB" },
-  modalTitle: { fontSize: 18, fontWeight: "600", color: "#333", textAlign: "center" },
+  modalHeader: {
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E7EB",
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#333",
+    textAlign: "center",
+  },
   modalOption: {
     flexDirection: "row",
     alignItems: "center",

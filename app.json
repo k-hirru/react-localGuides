@@ -5,12 +5,12 @@
     "slug": "local-guide-review-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/BiteSpotLogotransparent.png",
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/splash-icon.png",
+      "image": "./assets/images/BiteSpotLogotransparent.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -24,7 +24,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "foregroundImage": "./assets/images/BiteSpotLogotransparent.png",
         "backgroundColor": "#ffffff",
         "permissions": [
           "android.permission.ACCESS_FINE_LOCATION",
@@ -34,7 +34,7 @@
       "package": "com.khirrucapstone.localguide"
     },
     "web": {
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/BiteSpotLogotransparent.png"
     },
     "plugins": [
       [
