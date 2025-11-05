@@ -76,7 +76,7 @@ export default function TabLayout() {
         component={ProfileScreen}
         options={{
           title: "Profile",
-          headerTitle: "My Profile",
+          headerShown: false,
           tabBarIcon: ({ color, size }) => <User color={color} size={size * 0.9} />,
           tabBarLabel: ({ color, focused }) => (
             <AnimatedTabLabel label="Profile" color={color} focused={focused} />

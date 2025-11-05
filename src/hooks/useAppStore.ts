@@ -18,7 +18,9 @@ export const useAppStore = () => {
   const { user: authUser } = useAuth();
   const { userLocation, refreshLocation } = useLocation();
 
-  const [businesses, setBusinesses] = useState<Business[]>(globalState.businesses);
+  const [businesses, setBusinesses] = useState<Business[]>(
+    globalState.businesses
+  );
   const [reviews, setReviews] = useState<Review[]>([]);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [favoriteBusinesses, setFavoriteBusinesses] = useState<Business[]>([]);
@@ -48,7 +50,7 @@ export const useAppStore = () => {
   // ✅ Notify all listeners
   const notifyBusinessUpdate = useCallback((newBusinesses: Business[]) => {
     globalState.businesses = newBusinesses;
-    globalState.listeners.forEach(listener => listener(newBusinesses));
+    globalState.listeners.forEach((listener) => listener(newBusinesses));
   }, []);
 
   // ✅ Load favorites from Firebase
@@ -76,12 +78,12 @@ export const useAppStore = () => {
         return;
       }
 
-      const localFavorites = businesses.filter(business =>
+      const localFavorites = businesses.filter((business) =>
         favorites.includes(business.id)
       );
 
-      const missingIds = favorites.filter(id =>
-        !businesses.some(business => business.id === id)
+      const missingIds = favorites.filter(
+        (id) => !businesses.some((business) => business.id === id)
       );
 
       if (missingIds.length === 0) {
@@ -135,7 +137,11 @@ export const useAppStore = () => {
     }
 
     // Use cached data if available and not forcing refresh
-    if (globalState.hasLoaded && !forceRefresh && globalState.businesses.length > 0) {
+    if (
+      globalState.hasLoaded &&
+      !forceRefresh &&
+      globalState.businesses.length > 0
+    ) {
       console.log("📦 Using cached businesses");
       return;
     }
@@ -162,7 +168,6 @@ export const useAppStore = () => {
 
       globalState.hasLoaded = true;
       notifyBusinessUpdate(nearbyBusinesses);
-
     } catch (error) {
       console.error("❌ Failed to load businesses:", error);
     } finally {
@@ -262,26 +267,34 @@ export const useAppStore = () => {
   }, []);
 
   // ✅ Update business ratings after review changes
-  const updateBusinessRatings = useCallback(async (businessId: string) => {
-    try {
-      const reviews = await reviewService.getReviewsForBusiness(businessId);
-      const rating = reviews.length > 0
-        ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
-        : 0;
+  const updateBusinessRatings = useCallback(
+    async (businessId: string) => {
+      try {
+        const reviews = await reviewService.getReviewsForBusiness(businessId);
+        const rating =
+          reviews.length > 0
+            ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+            : 0;
 
-      // Update the business in the global state
-      const updatedBusinesses = globalState.businesses.map(b =>
-        b.id === businessId
-          ? { ...b, rating, reviewCount: reviews.length }
-          : b
-      );
+        // Update the business in the global state
+        const updatedBusinesses = globalState.businesses.map((b) =>
+          b.id === businessId
+            ? { ...b, rating, reviewCount: reviews.length }
+            : b
+        );
 
-      notifyBusinessUpdate(updatedBusinesses);
-      console.log("✅ Updated business ratings:", { businessId, rating, reviewCount: reviews.length });
-    } catch (error) {
-      console.error("Error updating business ratings:", error);
-    }
-  }, [notifyBusinessUpdate]);
+        notifyBusinessUpdate(updatedBusinesses);
+        console.log("✅ Updated business ratings:", {
+          businessId,
+          rating,
+          reviewCount: reviews.length,
+        });
+      } catch (error) {
+        console.error("Error updating business ratings:", error);
+      }
+    },
+    [notifyBusinessUpdate]
+  );
 
   // ✅ Review management with auto-refresh
   const addReview = async (
@@ -308,7 +321,7 @@ export const useAppStore = () => {
       // Refresh user reviews and business ratings
       await loadAllReviews();
       await updateBusinessRatings(reviewData.businessId);
-      
+
       return reviewId;
     } catch (error) {
       console.error("Error adding review:", error);
@@ -320,9 +333,9 @@ export const useAppStore = () => {
     try {
       await reviewService.updateReview(reviewId, updates);
       await loadAllReviews();
-      
+
       // Find which business this review belongs to and update ratings
-      const review = reviews.find(r => r.id === reviewId);
+      const review = reviews.find((r) => r.id === reviewId);
       if (review) {
         await updateBusinessRatings(review.businessId);
       }
@@ -335,11 +348,11 @@ export const useAppStore = () => {
   const deleteReview = async (reviewId: string) => {
     try {
       // Get business ID before deleting
-      const review = reviews.find(r => r.id === reviewId);
-      
+      const review = reviews.find((r) => r.id === reviewId);
+
       await reviewService.deleteReview(reviewId);
       await loadAllReviews();
-      
+
       // Update business ratings
       if (review) {
         await updateBusinessRatings(review.businessId);
@@ -349,6 +362,10 @@ export const useAppStore = () => {
       throw error;
     }
   };
+
+  const refreshReviews = useCallback(async () => {
+    await loadAllReviews();
+  }, [loadAllReviews]);
 
   // ✅ Favorite management
   const toggleFavorite = async (businessId: string) => {
@@ -360,20 +377,24 @@ export const useAppStore = () => {
     try {
       const currentlyFavorite = favorites.includes(businessId);
 
-      setFavorites(prev =>
+      setFavorites((prev) =>
         currentlyFavorite
-          ? prev.filter(id => id !== businessId)
+          ? prev.filter((id) => id !== businessId)
           : [...prev, businessId]
       );
 
-      await favoriteService.toggleFavorite(authUser.uid, businessId, currentlyFavorite);
+      await favoriteService.toggleFavorite(
+        authUser.uid,
+        businessId,
+        currentlyFavorite
+      );
     } catch (error) {
       console.error("Error toggling favorite:", error);
 
-      setFavorites(prev =>
+      setFavorites((prev) =>
         favorites.includes(businessId)
           ? [...prev, businessId]
-          : prev.filter(id => id !== businessId)
+          : prev.filter((id) => id !== businessId)
       );
 
       alert("Failed to update favorite. Please try again.");
@@ -485,6 +506,7 @@ export const useAppStore = () => {
     refreshBusinesses,
     loadNearbyBusinesses,
     loadAllReviews,
+    refreshReviews,
     searchResults,
     searchLoading,
     searchBusinessesWithAPI,

@@ -16,6 +16,7 @@ import {
   Alert,
   ActivityIndicator,
   Dimensions,
+  RefreshControl,
 } from "react-native";
 import {
   useNavigation,
@@ -37,16 +38,15 @@ import { reviewService } from "@/src/services/reviewService";
 import StarRating from "@/src/components/StarRating";
 import ReviewCard from "@/src/components/ReviewCard";
 import { PRICE_LEVELS } from "@/src/constants/categories";
+import { useAuth } from "@/src/hooks/useAuth";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 export default function BusinessDetailsScreen() {
   const route = useRoute();
   const navigation = useNavigation();
-  const { id, highlightReviewId } = route.params as {
-    id: string;
-    highlightReviewId?: string;
-  };
+  const { user: authUser } = useAuth();
+  const { id } = route.params as { id: string };
 
   const {
     getBusinessById,
@@ -58,14 +58,14 @@ export default function BusinessDetailsScreen() {
 
   const [business, setBusiness] = useState<Business | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [userReview, setUserReview] = useState<Review | null>(null);
   const [loading, setLoading] = useState(true);
   const [reviewsLoading, setReviewsLoading] = useState(true);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
 
   const scrollViewRef = useRef<ScrollView | null>(null);
-  const reviewRefs = useRef<{ [key: string]: View | null }>({});
 
-  // ✅ Calculate rating from reviews
   const calculateRatingFromReviews = useCallback((reviewList: Review[]) => {
     if (reviewList.length === 0) return 0;
     const sum = reviewList.reduce((acc, review) => acc + review.rating, 0);
@@ -92,32 +92,78 @@ export default function BusinessDetailsScreen() {
     }
   };
 
-  // ✅ FIXED: Refresh business data when reviews change
+  const checkUserReview = useCallback(
+    (reviewsList: Review[]) => {
+      if (!authUser) return null;
+      const userReview = reviewsList.find(
+        (review) => review.userId === authUser.uid
+      );
+      return userReview || null;
+    },
+    [authUser]
+  );
+
+  // Define refreshBusinessData first so handleRefresh can depend on it
   const refreshBusinessData = useCallback(async () => {
     console.log("🔄 Refreshing business data...");
-    
-    const businessData = await loadBusinessData();
-    const businessReviews = await loadBusinessReviews();
-    
-    if (businessData && businessReviews) {
-      // Update rating based on current reviews
-      const updatedRating = calculateRatingFromReviews(businessReviews);
-      const updatedBusiness = {
-        ...businessData,
-        rating: updatedRating,
-        reviewCount: businessReviews.length,
-      };
-      
-      setBusiness(updatedBusiness);
-      setReviews(businessReviews);
-      console.log("✅ Business data refreshed:", {
-        rating: updatedRating,
-        reviewCount: businessReviews.length
-      });
-    }
-  }, [id, calculateRatingFromReviews]);
+    try {
+      const [businessData, businessReviews] = await Promise.all([
+        loadBusinessData(),
+        loadBusinessReviews(),
+      ]);
 
-  // ✅ Initial load
+      if (businessData && businessReviews) {
+        const updatedRating = calculateRatingFromReviews(businessReviews);
+        const updatedBusiness = {
+          ...businessData,
+          rating: updatedRating,
+          reviewCount: businessReviews.length,
+        };
+
+        // Resolve userReview for prefill/edit
+        let nextUserReview: Review | null = null;
+        if (authUser) {
+          nextUserReview =
+            businessReviews.find((r) => r.userId === authUser.uid) || null;
+
+          console.log("🔍 User review check:", {
+            userId: authUser.uid,
+            totalReviews: businessReviews.length,
+            userReviewFound: !!nextUserReview,
+            userReviewId: nextUserReview?.id,
+          });
+        }
+
+        setUserReview(nextUserReview);
+        setBusiness(updatedBusiness);
+        setReviews(businessReviews);
+
+        console.log("✅ Business data refreshed:", {
+          rating: updatedRating,
+          reviewCount: businessReviews.length,
+          userReview: nextUserReview ? "exists" : "none",
+          userId: authUser?.uid,
+        });
+      }
+    } catch (error) {
+      console.error("❌ Error refreshing business data:", error);
+    }
+  }, [calculateRatingFromReviews, authUser, id]);
+
+  // Pull-to-refresh
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      console.log("🔄 Manual refresh triggered for business details");
+      await refreshBusinessData();
+    } catch (error) {
+      console.error("❌ Manual refresh failed:", error);
+      Alert.alert("Refresh Error", "Failed to refresh data. Please try again.");
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refreshBusinessData]);
+
   useEffect(() => {
     let isMounted = true;
 
@@ -132,8 +178,10 @@ export default function BusinessDetailsScreen() {
 
         if (isMounted) {
           if (businessData) {
-            // Update with fresh review stats
             const updatedRating = calculateRatingFromReviews(businessReviews);
+            const foundUserReview = checkUserReview(businessReviews);
+            setUserReview(foundUserReview);
+
             setBusiness({
               ...businessData,
               rating: updatedRating,
@@ -141,6 +189,7 @@ export default function BusinessDetailsScreen() {
             });
           }
           if (businessReviews) setReviews(businessReviews);
+
           setLoading(false);
           setReviewsLoading(false);
         }
@@ -154,43 +203,11 @@ export default function BusinessDetailsScreen() {
     };
 
     loadData();
-
     return () => {
       isMounted = false;
     };
-  }, [id]);
+  }, [id, checkUserReview, calculateRatingFromReviews]);
 
-  // ✅ Scroll to highlighted review
-  useEffect(() => {
-    if (highlightReviewId && reviews.length > 0) {
-      const timer = setTimeout(() => {
-        const reviewElement = reviewRefs.current[highlightReviewId];
-        if (reviewElement && scrollViewRef.current) {
-          try {
-            (reviewElement as any).measureLayout(
-              (scrollViewRef.current as any).getInnerViewNode(),
-              (x: number, y: number) => {
-                (scrollViewRef.current as any)?.scrollTo({
-                  y: y - 100,
-                  animated: true,
-                });
-                console.log("Scrolling to highlighted review:", highlightReviewId);
-              },
-              (err: any) => {
-                console.log("Error measuring review layout", err);
-              }
-            );
-          } catch (e) {
-            console.log("Error trying to measure/scroll to review:", e);
-          }
-        }
-      }, 500);
-
-      return () => clearTimeout(timer);
-    }
-  }, [highlightReviewId, reviews]);
-
-  // ✅ FIXED: Refresh when screen comes back into focus (after adding review)
   useFocusEffect(
     useCallback(() => {
       console.log("🎯 Screen focused, refreshing business data");
@@ -207,30 +224,22 @@ export default function BusinessDetailsScreen() {
   };
 
   const handleDelete = async (reviewId: string) => {
-    Alert.alert(
-      "Delete Review",
-      "Are you sure you want to delete this review?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await deleteReview(reviewId);
-              // Refresh data after deletion
-              await refreshBusinessData();
-            } catch (error) {
-              console.error("Error deleting review:", error);
-              Alert.alert(
-                "Error",
-                "Failed to delete review. Please try again."
-              );
-            }
-          },
+    Alert.alert("Delete Review", "Are you sure you want to delete this review?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await deleteReview(reviewId);
+            await refreshBusinessData();
+          } catch (error) {
+            console.error("Error deleting review:", error);
+            Alert.alert("Error", "Failed to delete review. Please try again.");
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   useLayoutEffect(() => {
@@ -256,7 +265,7 @@ export default function BusinessDetailsScreen() {
         ),
       });
     }
-  }, [navigation, business, isFavorite]);
+  }, [navigation, business, isFavorite, toggleFavorite]);
 
   if (loading) {
     return (
@@ -271,7 +280,7 @@ export default function BusinessDetailsScreen() {
     return (
       <View style={styles.errorContainer}>
         <Text style={styles.errorText}>Business not found</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={loadBusinessData}>
+        <TouchableOpacity style={styles.retryButton} onPress={refreshBusinessData}>
           <Text style={styles.retryButtonText}>Try Again</Text>
         </TouchableOpacity>
       </View>
@@ -281,10 +290,10 @@ export default function BusinessDetailsScreen() {
   const priceSymbol =
     PRICE_LEVELS.find((p) => p.level === business.priceLevel)?.symbol || "$";
 
-  // ✅ FIXED: Ensure photos array exists and has items
-  const businessPhotos = business.photos && business.photos.length > 0 
-    ? business.photos 
-    : [business.imageUrl]; // Fallback to single imageUrl
+  const businessPhotos =
+    business.photos && business.photos.length > 0
+      ? business.photos
+      : [business.imageUrl];
 
   const handleCall = () => {
     if (business.phone) {
@@ -303,22 +312,25 @@ export default function BusinessDetailsScreen() {
   };
 
   const handleDirections = () => {
-    (navigation as any).navigate("BusinessMap", {
-      id: id,
-      business: business,
-    });
+    (navigation as any).navigate("BusinessMap", { id: id, business: business });
   };
 
   const handleShare = () => {
     Alert.alert("Share", `Share ${business.name} with friends`);
   };
 
-  const handleAddReview = () => {
+  const handleAddOrEditReview = () => {
     if (!business) return;
-    (navigation as any).navigate("AddReview", {
-      id: id,
-      business: business,
-    });
+
+    if (userReview) {
+      (navigation as any).navigate("AddReview", {
+        id: id,
+        review: userReview,
+        business: business,
+      });
+    } else {
+      (navigation as any).navigate("AddReview", { id: id, business: business });
+    }
   };
 
   return (
@@ -326,8 +338,15 @@ export default function BusinessDetailsScreen() {
       style={styles.container}
       showsVerticalScrollIndicator={false}
       ref={scrollViewRef}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+          colors={["#007AFF"]}
+          tintColor="#007AFF"
+        />
+      }
     >
-      {/* ✅ FIXED: Photo Gallery with proper image handling */}
       <View style={styles.photoContainer}>
         <ScrollView
           horizontal
@@ -341,11 +360,11 @@ export default function BusinessDetailsScreen() {
           }}
         >
           {businessPhotos.map((photo, index) => (
-            <Image 
-              key={index} 
-              source={{ uri: photo }} 
+            <Image
+              key={index}
+              source={{ uri: photo }}
               style={styles.photo}
-              defaultSource={require('@/src/assets/images/icon.png')}
+              defaultSource={require("@/src/assets/images/icon.png")}
             />
           ))}
         </ScrollView>
@@ -359,22 +378,18 @@ export default function BusinessDetailsScreen() {
         )}
       </View>
 
-      {/* Business Info */}
       <View style={styles.infoContainer}>
         <Text style={styles.businessName}>{business.name}</Text>
 
         <View style={styles.ratingRow}>
           <StarRating rating={business.rating} size={16} />
           <Text style={styles.ratingText}>{business.rating.toFixed(1)}</Text>
-          <Text style={styles.reviewCount}>
-            ({business.reviewCount} reviews)
-          </Text>
+          <Text style={styles.reviewCount}>({business.reviewCount} reviews)</Text>
           <Text style={styles.price}>{priceSymbol}</Text>
         </View>
 
         <Text style={styles.description}>{business.description}</Text>
 
-        {/* Features */}
         {business.features.length > 0 && (
           <View style={styles.featuresContainer}>
             {business.features.map((feature, index) => (
@@ -386,17 +401,13 @@ export default function BusinessDetailsScreen() {
         )}
       </View>
 
-      {/* Action Buttons */}
       <View style={styles.actionButtons}>
         <TouchableOpacity style={styles.actionButton} onPress={handleCall}>
           <Phone size={20} color="#007AFF" />
           <Text style={styles.actionButtonText}>Call</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={handleDirections}
-        >
+        <TouchableOpacity style={styles.actionButton} onPress={handleDirections}>
           <MapPin size={20} color="#007AFF" />
           <Text style={styles.actionButtonText}>Directions</Text>
         </TouchableOpacity>
@@ -409,7 +420,6 @@ export default function BusinessDetailsScreen() {
         )}
       </View>
 
-      {/* Contact Info */}
       <View style={styles.contactContainer}>
         <View style={styles.contactItem}>
           <MapPin size={16} color="#666" />
@@ -436,18 +446,22 @@ export default function BusinessDetailsScreen() {
         </View>
       </View>
 
-      {/* Reviews Section */}
       <View style={styles.reviewsContainer}>
         <View style={styles.reviewsHeader}>
           <Text style={styles.reviewsTitle}>
             Reviews ({reviewsLoading ? "..." : reviews.length})
           </Text>
           <TouchableOpacity
-            style={styles.addReviewButton}
-            onPress={handleAddReview}
+            style={[
+              styles.reviewButton,
+              userReview ? styles.editReviewButton : styles.addReviewButton,
+            ]}
+            onPress={handleAddOrEditReview}
           >
             <MessageSquare size={16} color="#FFF" />
-            <Text style={styles.addReviewText}>Add Review</Text>
+            <Text style={styles.reviewButtonText}>
+              {userReview ? "Edit Review" : "Add Review"}
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -464,19 +478,15 @@ export default function BusinessDetailsScreen() {
           </View>
         ) : (
           reviews.map((review) => (
-            <View
+            <ReviewCard
               key={review.id}
-              ref={(ref) => {
-                if (ref) reviewRefs.current[review.id] = ref;
-              }}
-            >
-              <ReviewCard
-                review={review}
-                business={business}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-              />
-            </View>
+              review={review}
+              business={business}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+              // 🔧 FIX: determine ownership by userId, not by matching the one cached userReview
+              isUsersReview={review.userId === authUser?.uid}
+            />
           ))
         )}
       </View>
@@ -485,59 +495,17 @@ export default function BusinessDetailsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#F8F9FA",
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: "#666",
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-  },
-  errorText: {
-    fontSize: 18,
-    color: "#666",
-    marginBottom: 16,
-  },
-  retryButton: {
-    backgroundColor: "#007AFF",
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    color: "#FFF",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  headerButtons: {
-    flexDirection: "row",
-  },
-  headerButton: {
-    marginLeft: 16,
-  },
-  photoContainer: {
-    height: 250,
-    position: "relative",
-    backgroundColor: "#E5E7EB",
-  },
-  photo: {
-    width: SCREEN_WIDTH,
-    height: 250,
-    resizeMode: "cover",
-  },
+  container: { flex: 1, backgroundColor: "#F8F9FA" },
+  loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center", padding: 20 },
+  loadingText: { marginTop: 12, fontSize: 16, color: "#666" },
+  errorContainer: { flex: 1, justifyContent: "center", alignItems: "center", padding: 20 },
+  errorText: { fontSize: 18, color: "#666", marginBottom: 16 },
+  retryButton: { backgroundColor: "#007AFF", paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
+  retryButtonText: { color: "#FFF", fontSize: 16, fontWeight: "600" },
+  headerButtons: { flexDirection: "row" },
+  headerButton: { marginLeft: 16 },
+  photoContainer: { height: 250, position: "relative", backgroundColor: "#E5E7EB" },
+  photo: { width: SCREEN_WIDTH, height: 250, resizeMode: "cover" },
   photoIndicator: {
     position: "absolute",
     bottom: 12,
@@ -547,54 +515,15 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 12,
   },
-  photoIndicatorText: {
-    color: "#FFF",
-    fontSize: 12,
-    fontWeight: "500",
-  },
-  infoContainer: {
-    backgroundColor: "#FFF",
-    padding: 20,
-    marginBottom: 12,
-  },
-  businessName: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#333",
-    marginBottom: 12,
-  },
-  ratingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  ratingText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#333",
-    marginLeft: 8,
-  },
-  reviewCount: {
-    fontSize: 14,
-    color: "#666",
-    marginLeft: 8,
-  },
-  price: {
-    fontSize: 16,
-    color: "#4CAF50",
-    fontWeight: "600",
-    marginLeft: "auto",
-  },
-  description: {
-    fontSize: 16,
-    color: "#333",
-    lineHeight: 24,
-    marginBottom: 16,
-  },
-  featuresContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-  },
+  photoIndicatorText: { color: "#FFF", fontSize: 12, fontWeight: "500" },
+  infoContainer: { backgroundColor: "#FFF", padding: 20, marginBottom: 12 },
+  businessName: { fontSize: 24, fontWeight: "bold", color: "#333", marginBottom: 12 },
+  ratingRow: { flexDirection: "row", alignItems: "center", marginBottom: 16 },
+  ratingText: { fontSize: 16, fontWeight: "600", color: "#333", marginLeft: 8 },
+  reviewCount: { fontSize: 14, color: "#666", marginLeft: 8 },
+  price: { fontSize: 16, color: "#4CAF50", fontWeight: "600", marginLeft: "auto" },
+  description: { fontSize: 16, color: "#333", lineHeight: 24, marginBottom: 16 },
+  featuresContainer: { flexDirection: "row", flexWrap: "wrap" },
   featureTag: {
     backgroundColor: "#F0F8FF",
     paddingHorizontal: 12,
@@ -603,11 +532,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
     marginBottom: 8,
   },
-  featureText: {
-    fontSize: 12,
-    color: "#007AFF",
-    fontWeight: "500",
-  },
+  featureText: { fontSize: 12, color: "#007AFF", fontWeight: "500" },
   actionButtons: {
     flexDirection: "row",
     backgroundColor: "#FFF",
@@ -616,53 +541,16 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     justifyContent: "space-around",
   },
-  actionButton: {
-    alignItems: "center",
-    flex: 1,
-  },
-  actionButtonText: {
-    fontSize: 12,
-    color: "#007AFF",
-    marginTop: 4,
-    fontWeight: "500",
-  },
-  contactContainer: {
-    backgroundColor: "#FFF",
-    padding: 20,
-    marginBottom: 12,
-  },
-  contactItem: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    marginBottom: 16,
-  },
-  contactText: {
-    fontSize: 16,
-    color: "#333",
-    marginLeft: 12,
-    flex: 1,
-  },
-  hoursContainer: {
-    marginLeft: 12,
-    flex: 1,
-  },
-  hoursRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 4,
-  },
-  dayText: {
-    fontSize: 14,
-    color: "#333",
-    fontWeight: "500",
-  },
-  hoursText: {
-    fontSize: 14,
-    color: "#666",
-  },
-  reviewsContainer: {
-    marginBottom: 20,
-  },
+  actionButton: { alignItems: "center", flex: 1 },
+  actionButtonText: { fontSize: 12, color: "#007AFF", marginTop: 4, fontWeight: "500" },
+  contactContainer: { backgroundColor: "#FFF", padding: 20, marginBottom: 12 },
+  contactItem: { flexDirection: "row", alignItems: "flex-start", marginBottom: 16 },
+  contactText: { fontSize: 16, color: "#333", marginLeft: 12, flex: 1 },
+  hoursContainer: { marginLeft: 12, flex: 1 },
+  hoursRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 4 },
+  dayText: { fontSize: 14, color: "#333", fontWeight: "500" },
+  hoursText: { fontSize: 14, color: "#666" },
+  reviewsContainer: { marginBottom: 20 },
   reviewsHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -672,32 +560,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF",
     marginBottom: 8,
   },
-  reviewsTitle: {
-    fontSize: 20,
-    fontWeight: "600",
-    color: "#333",
-  },
-  addReviewButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#007AFF",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  addReviewText: {
-    color: "#FFF",
-    fontSize: 14,
-    fontWeight: "500",
-    marginLeft: 6,
-  },
-  noReviewsContainer: {
-    padding: 20,
-    alignItems: "center",
-  },
-  noReviewsText: {
-    fontSize: 16,
-    color: "#666",
-    textAlign: "center",
-  },
+  reviewsTitle: { fontSize: 20, fontWeight: "600", color: "#333" },
+  reviewButton: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 },
+  addReviewButton: { backgroundColor: "#007AFF" },
+  editReviewButton: { backgroundColor: "#FFA500" },
+  reviewButtonText: { color: "#FFF", fontSize: 14, fontWeight: "500", marginLeft: 6 },
+  noReviewsContainer: { padding: 20, alignItems: "center" },
+  noReviewsText: { fontSize: 16, color: "#666", textAlign: "center" },
 });

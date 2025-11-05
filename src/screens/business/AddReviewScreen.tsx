@@ -1,3 +1,4 @@
+// src/screens/business/AddReviewScreen.tsx
 import React, { useState, useEffect } from 'react';
 import { 
   View, 
@@ -11,6 +12,7 @@ import {
   ActivityIndicator,
   Platform,
   Modal,
+  Linking,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAppStore } from '../../hooks/useAppStore';
@@ -21,6 +23,7 @@ import { KeyboardAvoidingScrollView } from '@/src/components/KeyboardAvoidingScr
 import { Camera, X, Image as ImageIcon } from 'lucide-react-native';
 import { imageService } from '../../services/imageService';
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
+import { check, request, PERMISSIONS, RESULTS, openSettings } from 'react-native-permissions';
 
 export default function AddReviewScreen() {
   const route = useRoute();
@@ -44,7 +47,6 @@ export default function AddReviewScreen() {
 
   const isEditMode = !!existingReview;
   
-  // ✅ Load business data
   useEffect(() => {
     const loadBusiness = async () => {
       if (routeBusiness) {
@@ -88,10 +90,82 @@ export default function AddReviewScreen() {
     });
   }, [isEditMode, navigation]);
 
-  // ✅ CROSS-PLATFORM: Show image picker options
+  // ✅ NEW: Request Camera Permission
+  const requestCameraPermission = async (): Promise<boolean> => {
+    try {
+      const permission = Platform.OS === 'ios' 
+        ? PERMISSIONS.IOS.CAMERA 
+        : PERMISSIONS.ANDROID.CAMERA;
+
+      const result = await check(permission);
+
+      if (result === RESULTS.GRANTED) {
+        return true;
+      }
+
+      if (result === RESULTS.DENIED) {
+        const requestResult = await request(permission);
+        return requestResult === RESULTS.GRANTED;
+      }
+
+      if (result === RESULTS.BLOCKED) {
+        Alert.alert(
+          'Camera Permission Required',
+          'Please enable camera access in your device settings to take photos.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Open Settings', onPress: () => openSettings() }
+          ]
+        );
+        return false;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Error requesting camera permission:', error);
+      return false;
+    }
+  };
+
+  // ✅ NEW: Request Photo Library Permission
+  const requestPhotoLibraryPermission = async (): Promise<boolean> => {
+    try {
+      const permission = Platform.OS === 'ios' 
+        ? PERMISSIONS.IOS.PHOTO_LIBRARY 
+        : PERMISSIONS.ANDROID.READ_MEDIA_IMAGES || PERMISSIONS.ANDROID.READ_EXTERNAL_STORAGE;
+
+      const result = await check(permission);
+
+      if (result === RESULTS.GRANTED) {
+        return true;
+      }
+
+      if (result === RESULTS.DENIED) {
+        const requestResult = await request(permission);
+        return requestResult === RESULTS.GRANTED;
+      }
+
+      if (result === RESULTS.BLOCKED) {
+        Alert.alert(
+          'Photo Library Permission Required',
+          'Please enable photo library access in your device settings to select photos.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Open Settings', onPress: () => openSettings() }
+          ]
+        );
+        return false;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Error requesting photo library permission:', error);
+      return false;
+    }
+  };
+
   const handleShowImagePicker = () => {
     if (Platform.OS === 'ios') {
-      // iOS: Use native Alert
       Alert.alert(
         'Add Photo',
         'Choose a photo source',
@@ -103,91 +177,148 @@ export default function AddReviewScreen() {
         { cancelable: true }
       );
     } else {
-      // Android: Use custom modal
       setShowImagePicker(true);
     }
   };
 
-  // ✅ Take photo with camera
+  // ✅ Take photo with permission check
   const takePhoto = async () => {
     setShowImagePicker(false);
     
-    try {
-      const result = await launchCamera({
-        mediaType: 'photo',
-        quality: 0.8,
-        maxWidth: 1200,
-        maxHeight: 1200,
-        includeBase64: true,
-        saveToPhotos: false,
-      });
-
-      if (result.didCancel) return;
-
-      if (result.errorCode) {
-        console.error('Camera error:', result.errorMessage);
-        Alert.alert('Camera Error', 'Unable to access camera. Please check permissions.');
+    // Small delay to ensure modal closes smoothly
+    setTimeout(async () => {
+      // Request camera permission first
+      const hasPermission = await requestCameraPermission();
+      if (!hasPermission) {
+        console.log('Camera permission denied');
         return;
       }
 
-      if (result.assets?.[0]?.base64) {
-        await uploadImage(result.assets[0].base64);
+      try {
+        console.log('📸 Opening camera...');
+        
+        const result = await launchCamera({
+          mediaType: 'photo',
+          quality: 0.8,
+          maxWidth: 1200,
+          maxHeight: 1200,
+          includeBase64: true,
+          saveToPhotos: false,
+        });
+
+        console.log('📸 Camera result:', { 
+          didCancel: result.didCancel, 
+          errorCode: result.errorCode,
+          hasAssets: !!result.assets?.length 
+        });
+
+        if (result.didCancel) {
+          console.log('User cancelled camera');
+          return;
+        }
+
+        if (result.errorCode) {
+          console.error('Camera error:', result.errorCode, result.errorMessage);
+          if (result.errorCode === 'camera_unavailable') {
+            Alert.alert('Camera Unavailable', 'Your device camera is not available.');
+          } else if (result.errorCode === 'permission') {
+            Alert.alert('Permission Denied', 'Camera permission is required to take photos.');
+          } else {
+            Alert.alert('Camera Error', 'Unable to access camera. Please try again.');
+          }
+          return;
+        }
+
+        if (result.assets?.[0]?.base64) {
+          await uploadImage(result.assets[0].base64);
+        } else {
+          console.warn('No image data received from camera');
+        }
+      } catch (error) {
+        console.error('Camera launch error:', error);
+        Alert.alert('Error', 'Failed to open camera. Please try again.');
       }
-    } catch (error) {
-      console.error('Camera launch error:', error);
-      Alert.alert('Error', 'Failed to open camera. Please try again.');
-    }
+    }, 100);
   };
 
-  // ✅ Pick from photo library
+  // ✅ Pick from library - let react-native-image-picker handle permissions
   const pickFromLibrary = async () => {
     setShowImagePicker(false);
     
-    try {
-      const result = await launchImageLibrary({
-        mediaType: 'photo',
-        quality: 0.8,
-        maxWidth: 1200,
-        maxHeight: 1200,
-        includeBase64: true,
-        selectionLimit: 1,
-      });
+    // Small delay to ensure modal closes smoothly
+    setTimeout(async () => {
+      try {
+        console.log('📸 Opening image library...');
+        
+        const result = await launchImageLibrary({
+          mediaType: 'photo',
+          quality: 0.8,
+          maxWidth: 1200,
+          maxHeight: 1200,
+          includeBase64: true,
+          selectionLimit: 1,
+        });
 
-      if (result.didCancel) return;
+        console.log('📸 Image picker result:', { 
+          didCancel: result.didCancel, 
+          errorCode: result.errorCode,
+          hasAssets: !!result.assets?.length 
+        });
 
-      if (result.errorCode) {
-        console.error('Gallery error:', result.errorMessage);
-        Alert.alert('Gallery Error', 'Unable to access photo library.');
-        return;
+        if (result.didCancel) {
+          console.log('User cancelled image picker');
+          return;
+        }
+
+        if (result.errorCode) {
+          console.error('Gallery error:', result.errorCode, result.errorMessage);
+          if (result.errorCode === 'permission') {
+            Alert.alert('Permission Denied', 'Photo library permission is required to select photos.');
+          } else {
+            Alert.alert('Gallery Error', 'Unable to access photo library.');
+          }
+          return;
+        }
+
+        if (result.assets?.[0]?.base64) {
+          await uploadImage(result.assets[0].base64);
+        } else {
+          console.warn('No image data received from picker');
+        }
+      } catch (error) {
+        console.error('Gallery launch error:', error);
+        Alert.alert('Error', 'Failed to open photo library. Please try again.');
       }
-
-      if (result.assets?.[0]?.base64) {
-        await uploadImage(result.assets[0].base64);
-      }
-    } catch (error) {
-      console.error('Gallery launch error:', error);
-      Alert.alert('Error', 'Failed to open photo library. Please try again.');
-    }
+    }, 100);
   };
 
-  // ✅ Upload image helper
   const uploadImage = async (base64: string) => {
     setUploadingImages(true);
     try {
-      console.log('📤 Uploading photo...');
-      const imageUrl = await imageService.uploadImage(base64);
-      console.log('✅ Photo uploaded:', imageUrl);
+      console.log('📤 Uploading photo to Firebase Storage...');
+      
+      const base64WithPrefix = base64.startsWith('data:') 
+        ? base64 
+        : `data:image/jpeg;base64,${base64}`;
+      
+      const imageUrl = await imageService.uploadImage(base64WithPrefix, 'review');
+      console.log('✅ Photo uploaded to Firebase:', imageUrl);
+      
       setSelectedImages(prev => [...prev, imageUrl]);
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Photo upload failed:', error);
-      Alert.alert('Upload Failed', 'Failed to upload photo. Please try again.');
+      Alert.alert(
+        'Upload Failed', 
+        error.message || 'Failed to upload photo. Please try again.'
+      );
     } finally {
       setUploadingImages(false);
     }
   };
 
-  // ✅ Remove image
   const removeImage = (index: number) => {
+    const imageUrl = selectedImages[index];
+    
     Alert.alert(
       'Remove Photo',
       'Are you sure you want to remove this photo?',
@@ -196,15 +327,23 @@ export default function AddReviewScreen() {
         { 
           text: 'Remove', 
           style: 'destructive',
-          onPress: () => {
+          onPress: async () => {
             setSelectedImages(prev => prev.filter((_, i) => i !== index));
+            
+            if (!isEditMode || !existingReview?.images?.includes(imageUrl)) {
+              try {
+                await imageService.deleteImage(imageUrl);
+                console.log('✅ Image deleted from Firebase Storage');
+              } catch (error) {
+                console.error('Failed to delete image from storage:', error);
+              }
+            }
           }
         },
       ]
     );
   };
 
-  // ✅ Submit review
   const handleSubmit = async () => {
     if (rating === 0) {
       Alert.alert('Rating Required', 'Please select a star rating');
@@ -221,6 +360,16 @@ export default function AddReviewScreen() {
     try {
       if (isEditMode && existingReview) {
         console.log('✏️ Updating review:', existingReview.id);
+        
+        const removedImages = existingReview.images?.filter(
+          url => !selectedImages.includes(url)
+        ) || [];
+        
+        if (removedImages.length > 0) {
+          console.log('🗑️ Cleaning up removed images:', removedImages.length);
+          await imageService.deleteImages(removedImages);
+        }
+        
         await updateReview(existingReview.id, {
           rating,
           text: reviewText.trim(),
@@ -258,6 +407,13 @@ export default function AddReviewScreen() {
     } catch (error: any) {
       console.error('❌ Review submission error:', error);
       Alert.alert('Error', error.message || 'Failed to submit review. Please try again.');
+      
+      if (!isEditMode && selectedImages.length > 0) {
+        console.log('🗑️ Cleaning up uploaded images after failed submission');
+        await imageService.deleteImages(selectedImages).catch(err => 
+          console.error('Failed to clean up images:', err)
+        );
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -304,7 +460,6 @@ export default function AddReviewScreen() {
     <>
       <KeyboardAvoidingScrollView style={styles.container}>
         <View style={styles.content}>
-          {/* Business Info */}
           <View style={styles.businessInfo}>
             <Image 
               source={{ uri: business.imageUrl }} 
@@ -320,7 +475,6 @@ export default function AddReviewScreen() {
             </View>
           </View>
 
-          {/* Rating Section */}
           <View style={styles.ratingSection}>
             <Text style={styles.sectionTitle}>How was your experience?</Text>
             <View style={styles.ratingContainer}>
@@ -336,7 +490,6 @@ export default function AddReviewScreen() {
             </View>
           </View>
 
-          {/* Photo Section */}
           <View style={styles.photoSection}>
             <Text style={styles.sectionTitle}>Add Photos (Optional)</Text>
             <Text style={styles.photoSubtitle}>
@@ -389,7 +542,6 @@ export default function AddReviewScreen() {
             )}
           </View>
 
-          {/* Review Text Section */}
           <View style={styles.reviewSection}>
             <Text style={styles.sectionTitle}>
               {isEditMode ? 'Edit your review' : 'Write your review'}
@@ -413,7 +565,6 @@ export default function AddReviewScreen() {
             </Text>
           </View>
 
-          {/* Submit Button */}
           <TouchableOpacity
             style={[
               styles.submitButton,
@@ -434,7 +585,6 @@ export default function AddReviewScreen() {
         </View>
       </KeyboardAvoidingScrollView>
 
-      {/* ✅ ANDROID: Custom Image Picker Modal */}
       <Modal
         visible={showImagePicker}
         transparent
@@ -481,294 +631,50 @@ export default function AddReviewScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F8F9FA',
-  },
-  content: {
-    flex: 1,
-    padding: 16,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F8F9FA',
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: '#666',
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-    backgroundColor: '#F8F9FA',
-  },
-  errorText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  errorSubtext: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 24,
-  },
-  retryButton: {
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    color: '#FFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  businessInfo: {
-    backgroundColor: '#FFF',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  businessImage: {
-    width: 60,
-    height: 60,
-    borderRadius: 8,
-    marginRight: 12,
-    backgroundColor: '#E5E7EB',
-  },
-  businessTextInfo: {
-    flex: 1,
-  },
-  businessName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 4,
-  },
-  businessAddress: {
-    fontSize: 13,
-    color: '#666',
-    lineHeight: 18,
-  },
-  ratingSection: {
-    backgroundColor: '#FFF',
-    padding: 20,
-    borderRadius: 12,
-    marginBottom: 16,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  sectionTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 16,
-  },
-  ratingContainer: {
-    alignItems: 'center',
-  },
-  ratingText: {
-    fontSize: 15,
-    color: '#666',
-    marginTop: 12,
-  },
-  photoSection: {
-    backgroundColor: '#FFF',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  photoSubtitle: {
-    fontSize: 13,
-    color: '#666',
-    marginBottom: 12,
-  },
-  photoScroll: {
-    marginHorizontal: -4,
-  },
-  photoScrollContent: {
-    paddingHorizontal: 4,
-  },
-  photoWrapper: {
-    position: 'relative',
-    marginRight: 12,
-  },
-  photo: {
-    width: 100,
-    height: 100,
-    borderRadius: 8,
-    backgroundColor: '#E5E7EB',
-  },
-  removePhotoButton: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    backgroundColor: '#FF6B6B',
-    borderRadius: 12,
-    width: 24,
-    height: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-    elevation: 4,
-  },
-  addPhotoButton: {
-    width: 100,
-    height: 100,
-    borderWidth: 2,
-    borderColor: '#007AFF',
-    borderStyle: 'dashed',
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F0F8FF',
-  },
-  addPhotoContent: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  uploadingContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  addPhotoText: {
-    fontSize: 12,
-    color: '#007AFF',
-    marginTop: 6,
-    fontWeight: '500',
-  },
-  uploadingText: {
-    fontSize: 12,
-    color: '#007AFF',
-    marginTop: 6,
-  },
-  photoCount: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 8,
-    textAlign: 'center',
-  },
-  reviewSection: {
-    backgroundColor: '#FFF',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  reviewInput: {
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 15,
-    color: '#333',
-    minHeight: 140,
-    marginBottom: 8,
-  },
-  characterCount: {
-    fontSize: 12,
-    color: '#666',
-    textAlign: 'right',
-  },
-  characterCountWarning: {
-    color: '#FF6B6B',
-    fontWeight: '500',
-  },
-  submitButton: {
-    backgroundColor: '#007AFF',
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginBottom: 20,
-    shadowColor: '#007AFF',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  submitButtonDisabled: {
-    backgroundColor: '#CCC',
-    shadowOpacity: 0,
-    elevation: 0,
-  },
-  submitButtonText: {
-    color: '#FFF',
-    fontSize: 17,
-    fontWeight: '600',
-  },
-  // ✅ Modal Styles for Android
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#FFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingBottom: Platform.OS === 'android' ? 20 : 34,
-  },
-  modalHeader: {
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    textAlign: 'center',
-  },
-  modalOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  modalOptionText: {
-    fontSize: 16,
-    color: '#333',
-    marginLeft: 16,
-  },
-  modalCancelButton: {
-    padding: 20,
-    alignItems: 'center',
-  },
-  modalCancelText: {
-    fontSize: 16,
-    color: '#FF6B6B',
-    fontWeight: '600',
-  },
+  container: { flex: 1, backgroundColor: '#F8F9FA' },
+  content: { flex: 1, padding: 16 },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F8F9FA' },
+  loadingText: { marginTop: 12, fontSize: 16, color: '#666' },
+  errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20, backgroundColor: '#F8F9FA' },
+  errorText: { fontSize: 18, fontWeight: '600', color: '#333', textAlign: 'center', marginBottom: 8 },
+  errorSubtext: { fontSize: 14, color: '#666', textAlign: 'center', marginBottom: 24 },
+  retryButton: { backgroundColor: '#007AFF', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 },
+  retryButtonText: { color: '#FFF', fontSize: 16, fontWeight: '600' },
+  businessInfo: { backgroundColor: '#FFF', padding: 16, borderRadius: 12, marginBottom: 16, flexDirection: 'row', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
+  businessImage: { width: 60, height: 60, borderRadius: 8, marginRight: 12, backgroundColor: '#E5E7EB' },
+  businessTextInfo: { flex: 1 },
+  businessName: { fontSize: 16, fontWeight: '600', color: '#333', marginBottom: 4 },
+  businessAddress: { fontSize: 13, color: '#666', lineHeight: 18 },
+  ratingSection: { backgroundColor: '#FFF', padding: 20, borderRadius: 12, marginBottom: 16, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
+  sectionTitle: { fontSize: 17, fontWeight: '600', color: '#333', marginBottom: 16 },
+  ratingContainer: { alignItems: 'center' },
+  ratingText: { fontSize: 15, color: '#666', marginTop: 12 },
+  photoSection: { backgroundColor: '#FFF', padding: 16, borderRadius: 12, marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
+  photoSubtitle: { fontSize: 13, color: '#666', marginBottom: 12 },
+  photoScroll: { marginHorizontal: -4 },
+  photoScrollContent: { paddingHorizontal: 4 },
+  photoWrapper: { position: 'relative', marginRight: 12 },
+  photo: { width: 100, height: 100, borderRadius: 8, backgroundColor: '#E5E7EB' },
+  removePhotoButton: { position: 'absolute', top: 4, right: 4, backgroundColor: '#FF6B6B', borderRadius: 12, width: 24, height: 24, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 3, elevation: 4 },
+  addPhotoButton: { width: 100, height: 100, borderWidth: 2, borderColor: '#007AFF', borderStyle: 'dashed', borderRadius: 8, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F0F8FF' },
+  addPhotoContent: { justifyContent: 'center', alignItems: 'center' },
+  uploadingContainer: { justifyContent: 'center', alignItems: 'center' },
+  addPhotoText: { fontSize: 12, color: '#007AFF', marginTop: 6, fontWeight: '500' },
+  uploadingText: { fontSize: 12, color: '#007AFF', marginTop: 6 },
+  photoCount: { fontSize: 12, color: '#666', marginTop: 8, textAlign: 'center' },
+  reviewSection: { backgroundColor: '#FFF', padding: 16, borderRadius: 12, marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
+  reviewInput: { borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 8, padding: 12, fontSize: 15, color: '#333', minHeight: 140, marginBottom: 8 },
+  characterCount: { fontSize: 12, color: '#666', textAlign: 'right' },
+  characterCountWarning: { color: '#FF6B6B', fontWeight: '500' },
+  submitButton: { backgroundColor: '#007AFF', paddingVertical: 16, borderRadius: 12, alignItems: 'center', marginBottom: 20, shadowColor: '#007AFF', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
+  submitButtonDisabled: { backgroundColor: '#CCC', shadowOpacity: 0, elevation: 0 },
+  submitButtonText: { color: '#FFF', fontSize: 17, fontWeight: '600' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'flex-end' },
+  modalContent: { backgroundColor: '#FFF', borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: Platform.OS === 'android' ? 20 : 34 },
+  modalHeader: { padding: 20, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
+  modalTitle: { fontSize: 18, fontWeight: '600', color: '#333', textAlign: 'center' },
+  modalOption: { flexDirection: 'row', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
+  modalOptionText: { fontSize: 16, color: '#333', marginLeft: 16 },
+  modalCancelButton: { padding: 20, alignItems: 'center' },
+  modalCancelText: { fontSize: 16, color: '#FF6B6B', fontWeight: '600' },
 });

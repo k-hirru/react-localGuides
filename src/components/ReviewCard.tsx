@@ -26,10 +26,17 @@ interface ReviewCardProps {
   business: Business;
   onEdit?: (review: Review, business: Business) => void;
   onDelete?: (reviewId: string) => void;
+  isUsersReview?: boolean;
 }
 
 const ReviewCard = memo(
-  ({ review, business, onEdit, onDelete }: ReviewCardProps) => {
+  ({
+    review,
+    business,
+    onEdit,
+    onDelete,
+    isUsersReview = false,
+  }: ReviewCardProps) => {
     const { user: authUser } = useAuth();
     const [showMenu, setShowMenu] = useState(false);
     const [imageModalVisible, setImageModalVisible] = useState(false);
@@ -38,15 +45,7 @@ const ReviewCard = memo(
     const [helpfulCount, setHelpfulCount] = useState(review.helpful || 0);
 
     const isOwnReview = authUser?.uid === review.userId;
-
     const hasImages = review.images && review.images.length > 0;
-
-    console.log("🔍 ReviewCard Debug:");
-    console.log("   - Review ID:", review.id);
-    console.log("   - Has images field:", "images" in review);
-    console.log("   - Images array:", review.images);
-    console.log("   - Images length:", review.images?.length);
-    console.log("   - First image URL:", review.images?.[0]);
 
     useEffect(() => {
       const checkExistingVote = async () => {
@@ -83,7 +82,6 @@ const ReviewCard = memo(
       );
     };
 
-    // Handle helpful button press
     const handleHelpfulPress = async () => {
       if (!authUser) {
         Alert.alert(
@@ -103,15 +101,11 @@ const ReviewCard = memo(
 
       try {
         if (isHelpful) {
-          // Remove helpful vote
           await reviewService.removeHelpfulVote(review.id, authUser.uid);
           setHelpfulCount((prev) => prev - 1);
           setIsHelpful(false);
-
-          // Also decrement the review's helpful count in Firestore
           await reviewService.updateReviewHelpfulCount(review.id, -1);
         } else {
-          // Add helpful vote - this will trigger the Cloud Function
           await reviewService.addHelpfulVote({
             reviewId: review.id,
             reviewOwnerId: review.userId,
@@ -120,8 +114,6 @@ const ReviewCard = memo(
           });
           setHelpfulCount((prev) => prev + 1);
           setIsHelpful(true);
-
-          // Also increment the review's helpful count in Firestore
           await reviewService.updateReviewHelpfulCount(review.id, 1);
         }
       } catch (error) {
@@ -138,31 +130,64 @@ const ReviewCard = memo(
       setImageModalVisible(true);
     };
 
+    const getUserInitials = () => {
+      if (review.userName) {
+        const names = review.userName.split(" ");
+        if (names.length >= 2) {
+          return `${names[0][0]}${names[1][0]}`.toUpperCase();
+        }
+        return review.userName.charAt(0).toUpperCase();
+      }
+      return "U";
+    };
+
     return (
-      <View style={styles.container}>
+      <View
+        style={[styles.container, isUsersReview && styles.usersReviewContainer]}
+      >
         <View style={styles.header}>
           <View style={styles.userInfo}>
+            {/* ✅ UPDATED: Use userAvatar from review data directly */}
             {review.userAvatar ? (
               <Image
                 source={{ uri: review.userAvatar }}
                 style={styles.avatar}
+                onError={() => console.log("Failed to load profile image")}
               />
             ) : (
-              <UserCircle size={40} color="#666" />
+              <View style={styles.avatarPlaceholder}>
+                <Text style={styles.avatarPlaceholderText}>
+                  {getUserInitials()}
+                </Text>
+              </View>
             )}
+
             <View style={styles.userDetails}>
-              <Text style={styles.userName}>{review.userName}</Text>
+              <View style={styles.nameRow}>
+                <Text style={styles.userName}>{review.userName}</Text>
+                {/* ✅ MOVED: Your Review badge to the left side */}
+                {isUsersReview && (
+                  <View style={styles.yourReviewBadge}>
+                    <Text style={styles.yourReviewText}>Your Review</Text>
+                  </View>
+                )}
+              </View>
               <Text style={styles.date}>{review.date}</Text>
             </View>
           </View>
 
+          {/* ✅ KEEP: Menu button on the right side */}
           {isOwnReview && (
-            <TouchableOpacity onPress={() => setShowMenu(!showMenu)}>
+            <TouchableOpacity
+              onPress={() => setShowMenu(!showMenu)}
+              style={styles.menuButton}
+            >
               <MoreVertical size={20} color="#666" />
             </TouchableOpacity>
           )}
         </View>
 
+        {/* ✅ KEEP: Dropdown menu */}
         {showMenu && (
           <View style={styles.menu}>
             <TouchableOpacity style={styles.menuItem} onPress={handleEdit}>
@@ -184,7 +209,6 @@ const ReviewCard = memo(
 
         <Text style={styles.reviewText}>{review.text}</Text>
 
-        {/* ✅ IMAGE GALLERY SECTION */}
         {hasImages && (
           <View style={styles.imagesSection}>
             <Text style={styles.imagesTitle}>
@@ -239,7 +263,6 @@ const ReviewCard = memo(
           </TouchableOpacity>
         </View>
 
-        {/* ✅ SIMPLE IMAGE MODAL */}
         {imageModalVisible && (
           <TouchableOpacity
             style={styles.imageModal}
@@ -280,6 +303,15 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
+  usersReviewContainer: {
+    borderLeftWidth: 4,
+    borderLeftColor: "#007AFF",
+    backgroundColor: "#F8F9FA",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3,
+  },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -297,19 +329,56 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 20,
     marginRight: 12,
+    backgroundColor: "#E5E7EB",
+  },
+  avatarPlaceholder: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#007AFF",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  avatarPlaceholderText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#FFF",
   },
   userDetails: {
     flex: 1,
+  },
+  nameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    marginBottom: 2,
   },
   userName: {
     fontSize: 16,
     fontWeight: "600",
     color: "#333",
-    marginBottom: 2,
+    marginRight: 8,
+  },
+  // ✅ UPDATED: Your Review badge styles
+  yourReviewBadge: {
+    backgroundColor: "#007AFF",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    alignSelf: "flex-start",
+  },
+  yourReviewText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: "#FFF",
   },
   date: {
     fontSize: 12,
     color: "#666",
+  },
+  menuButton: {
+    padding: 4, // Add padding for better touch area
   },
   menu: {
     position: "absolute",
@@ -345,7 +414,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: 12,
   },
-  // ✅ NEW STYLES FOR IMAGES
   imagesSection: {
     marginBottom: 12,
   },
@@ -373,7 +441,6 @@ const styles = StyleSheet.create({
     height: 120,
     borderRadius: 8,
   },
-  // ✅ IMAGE MODAL STYLES
   imageModal: {
     position: "absolute",
     top: 0,
