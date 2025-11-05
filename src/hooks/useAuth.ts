@@ -1,95 +1,116 @@
-import { useState, useEffect } from "react";
-import auth, { FirebaseAuthTypes } from "@react-native-firebase/auth";
-import firestore, {
-  FirebaseFirestoreTypes,
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { 
+  getAuth, 
+  onAuthStateChanged, 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  signOut, 
+  sendPasswordResetEmail, 
+  updateProfile,
+  FirebaseAuthTypes
+} from "@react-native-firebase/auth";
+import { 
+  getFirestore, 
+  doc, 
+  getDoc, 
+  setDoc, 
+  updateDoc, 
+  serverTimestamp, 
+  arrayUnion,
+  FieldValue
 } from "@react-native-firebase/firestore";
 import { notificationService } from "@/src/services/notificationService";
+
+type User = FirebaseAuthTypes.User;
 
 interface UserDocument {
   name: string;
   email: string;
   fcmTokens?: string[];
-  createdAt: FirebaseFirestoreTypes.FieldValue;
-  updatedAt: FirebaseFirestoreTypes.FieldValue;
+  createdAt: FieldValue;
+  updatedAt: FieldValue;
 }
 
+// Global refs to prevent multiple initializations
+let globalAuthInitialized = false;
+let initialUser: User | null = null;
+
 export const useAuth = () => {
-  const [user, setUser] = useState<FirebaseAuthTypes.User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(initialUser);
+  const [loading, setLoading] = useState(!initialUser);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const unsubscribe = auth().onAuthStateChanged((user) => {
-      setUser(user);
-      setLoading(false);
-    });
+  const auth = getAuth();
+  const firestore = getFirestore();
 
-    return unsubscribe;
-  }, []);
-
-  const updateUserFcmToken = async (
-    user: FirebaseAuthTypes.User,
-    token: string | null
-  ) => {
+  const updateUserFcmToken = useCallback(async (user: User, token: string | null) => {
     if (!token) return;
 
     try {
-      const userRef = firestore().collection("users").doc(user.uid);
-      const userDoc = await userRef.get();
+      const userRef = doc(firestore, "users", user.uid);
+      const userDoc = await getDoc(userRef);
 
       const userData: Partial<UserDocument> = {
         name: user.displayName || "",
         email: user.email || "",
-        updatedAt: firestore.FieldValue.serverTimestamp(),
+        updatedAt: serverTimestamp(),
       };
 
       if (userDoc.exists()) {
-        // Update existing user, add token if not present
-        await userRef.update({
-          ...userData,
-          fcmTokens: firestore.FieldValue.arrayUnion(token),
-        });
+        const existingData = userDoc.data() as UserDocument;
+        const existingTokens = existingData.fcmTokens || [];
+        
+        if (!existingTokens.includes(token)) {
+          await updateDoc(userRef, {
+            ...userData,
+            fcmTokens: arrayUnion(token),
+          });
+        }
       } else {
-        // Create new user document
-        await userRef.set({
+        await setDoc(userRef, {
           ...userData,
           fcmTokens: [token],
-          createdAt: firestore.FieldValue.serverTimestamp(),
+          createdAt: serverTimestamp(),
         });
       }
-
-      console.log("FCM token stored for user:", user.uid);
     } catch (error) {
       console.error("Error storing FCM token:", error);
     }
-  };
+  }, [firestore]);
 
   useEffect(() => {
-    const unsubscribe = auth().onAuthStateChanged(async (user) => {
-      setUser(user);
+    if (globalAuthInitialized) {
+      setLoading(false);
+      return;
+    }
 
+    globalAuthInitialized = true;
+
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      initialUser = user;
+      setUser(user);
+      
       if (user) {
-        // Get FCM token and store it for the user
         const token = await notificationService.requestPermissionAndGetToken();
         await updateUserFcmToken(user, token);
+      } else {
+        notificationService.clearCachedToken();
       }
-
+      
       setLoading(false);
     });
 
     return unsubscribe;
-  }, []);
+  }, [auth, updateUserFcmToken]);
 
-  const login = async (email: string, password: string) => {
+  const login = useCallback(async (email: string, password: string) => {
     try {
       setError(null);
       setLoading(true);
-      const userCredential = await auth().signInWithEmailAndPassword(
-        email,
-        password
-      );
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
       
-      const token = await notificationService.requestPermissionAndGetToken();
+      const existingToken = notificationService.getCurrentToken();
+      const token = existingToken || await notificationService.requestPermissionAndGetToken();
       await updateUserFcmToken(userCredential.user, token);
 
       return userCredential.user;
@@ -119,23 +140,18 @@ export const useAuth = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [auth, updateUserFcmToken]);
 
-  const signup = async (email: string, password: string, fullName: string) => {
+  const signup = useCallback(async (email: string, password: string, fullName: string) => {
     try {
       setError(null);
       setLoading(true);
-      const userCredential = await auth().createUserWithEmailAndPassword(
-        email,
-        password
-      );
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
 
-      // Update profile with display name
-      await userCredential.user.updateProfile({
+      await updateProfile(userCredential.user, {
         displayName: fullName,
       });
 
-      // Store FCM token for new user
       const token = await notificationService.requestPermissionAndGetToken();
       await updateUserFcmToken(userCredential.user, token);
 
@@ -163,28 +179,29 @@ export const useAuth = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [auth, updateUserFcmToken]);
 
-  const logoutAndCleanup = async () => {
+  const logoutAndCleanup = useCallback(async () => {
     try {
-      await auth().signOut();
+      notificationService.clearCachedToken();
+      await signOut(auth);
       return true;
     } catch (error: any) {
       setError(error.message);
       throw error;
     }
-  };
+  }, [auth]);
 
-  const resetPassword = async (email: string) => {
+  const resetPassword = useCallback(async (email: string) => {
     try {
-      await auth().sendPasswordResetEmail(email);
+      await sendPasswordResetEmail(auth, email);
     } catch (error: any) {
       setError(error.message);
       throw error;
     }
-  };
+  }, [auth]);
 
-  return {
+  const authValue = useMemo(() => ({
     user,
     loading,
     error,
@@ -192,5 +209,7 @@ export const useAuth = () => {
     signup,
     logout: logoutAndCleanup,
     resetPassword,
-  };
+  }), [user, loading, error, login, signup, logoutAndCleanup, resetPassword]);
+
+  return authValue;
 };

@@ -2,14 +2,14 @@ import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar } from 'react-native';
 import { Heart, LogIn } from 'lucide-react-native';
 import { useAppStore } from '@/src/hooks/useAppStore';
-import { useAuth } from '@/src/hooks/useAuth';
+import { useAuthContext } from '@/src/context/AuthContext';
 import BusinessCard from '@/src/components/BusinessCard';
 import { useNavigation } from '@react-navigation/native';
 
 export default function FavoritesScreen() {
   const navigation = useNavigation();
   const { getFavoriteBusinesses, toggleFavorite, isFavorite } = useAppStore();
-  const { user } = useAuth();
+  const { user } = useAuthContext();
   
   const [optimisticallyRemoved, setOptimisticallyRemoved] = useState<string[]>([]);
   

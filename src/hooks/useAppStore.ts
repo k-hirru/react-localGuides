@@ -5,6 +5,7 @@ import { favoriteService } from "@/src/services/favoriteService";
 import { useAuth } from "./useAuth";
 import { useLocation } from "./useLocation";
 import { Review, Business, SearchFilters } from "@/src/types";
+import { useProtectedAction } from '@/src/hooks/useProtectedAction';
 
 // ✅ Global state for business loading coordination
 const globalState = {
@@ -15,6 +16,7 @@ const globalState = {
 };
 
 export const useAppStore = () => {
+  const { protectedAction } = useProtectedAction();
   const { user: authUser } = useAuth();
   const { userLocation, refreshLocation } = useLocation();
 
@@ -96,7 +98,10 @@ export const useAppStore = () => {
 
         for (const placeId of missingIds) {
           try {
-            const business = await businessService.getBusinessById(placeId);
+            const business = await protectedAction(
+              async () => await businessService.getBusinessById(placeId),
+              { actionName: 'Loading favorite business', retry: false }
+            );
             if (business) {
               fetchedBusinesses.push(business);
             }
@@ -113,7 +118,7 @@ export const useAppStore = () => {
     };
 
     updateFavoriteBusinesses();
-  }, [favorites, businesses, authUser]);
+  }, [favorites, businesses, authUser, protectedAction]);
 
   // ✅ FIXED: Auto-load businesses when location is available
   useEffect(() => {
@@ -130,50 +135,59 @@ export const useAppStore = () => {
     categories: string[] = [],
     forceRefresh = false
   ) => {
-    // Skip if already loading
-    if (globalState.isLoading && !forceRefresh) {
-      console.log("⏳ Already loading businesses, skipping...");
-      return;
-    }
+    return protectedAction(
+      async () => {
+        // Skip if already loading
+        if (globalState.isLoading && !forceRefresh) {
+          console.log("⏳ Already loading businesses, skipping...");
+          return;
+        }
 
-    // Use cached data if available and not forcing refresh
-    if (
-      globalState.hasLoaded &&
-      !forceRefresh &&
-      globalState.businesses.length > 0
-    ) {
-      console.log("📦 Using cached businesses");
-      return;
-    }
+        // Use cached data if available and not forcing refresh
+        if (
+          globalState.hasLoaded &&
+          !forceRefresh &&
+          globalState.businesses.length > 0
+        ) {
+          console.log("📦 Using cached businesses");
+          return;
+        }
 
-    if (!userLocation) {
-      console.log("❌ No location available");
-      return;
-    }
+        if (!userLocation) {
+          console.log("❌ No location available");
+          return;
+        }
 
-    try {
-      globalState.isLoading = true;
-      setLoading(true);
-      console.log("🔄 Loading businesses...");
+        try {
+          globalState.isLoading = true;
+          setLoading(true);
+          console.log("🔄 Loading businesses...");
 
-      const nearbyBusinesses = await businessService.getNearbyBusinesses(
-        userLocation.latitude,
-        userLocation.longitude,
-        5000,
-        categories,
-        forceRefresh
-      );
+          const nearbyBusinesses = await businessService.getNearbyBusinesses(
+            userLocation.latitude,
+            userLocation.longitude,
+            5000,
+            categories,
+            forceRefresh
+          );
 
-      console.log("✅ Loaded businesses:", nearbyBusinesses.length);
+          console.log("✅ Loaded businesses:", nearbyBusinesses.length);
 
-      globalState.hasLoaded = true;
-      notifyBusinessUpdate(nearbyBusinesses);
-    } catch (error) {
-      console.error("❌ Failed to load businesses:", error);
-    } finally {
-      globalState.isLoading = false;
-      setLoading(false);
-    }
+          globalState.hasLoaded = true;
+          notifyBusinessUpdate(nearbyBusinesses);
+        } catch (error) {
+          console.error("❌ Failed to load businesses:", error);
+          throw error;
+        } finally {
+          globalState.isLoading = false;
+          setLoading(false);
+        }
+      },
+      { 
+        actionName: 'Loading nearby businesses',
+        retry: true 
+      }
+    );
   };
 
   // ✅ Load user reviews
@@ -183,13 +197,24 @@ export const useAppStore = () => {
       return;
     }
 
-    try {
-      const userReviews = await reviewService.getUserReviews(authUser.uid);
-      setReviews(userReviews);
-    } catch (error) {
-      console.error("Error loading reviews:", error);
-    }
-  }, [authUser]);
+    const result = await protectedAction(
+      async () => {
+        try {
+          const userReviews = await reviewService.getUserReviews(authUser.uid);
+          setReviews(userReviews);
+        } catch (error) {
+          console.error("Error loading reviews:", error);
+          throw error;
+        }
+      },
+      { 
+        actionName: 'Loading reviews',
+        retry: false 
+      }
+    );
+
+    return result !== false;
+  }, [authUser, protectedAction]);
 
   useEffect(() => {
     loadAllReviews();
@@ -202,22 +227,42 @@ export const useAppStore = () => {
   );
 
   const fetchBusinessById = useCallback(async (id: string) => {
-    try {
-      return await businessService.getBusinessById(id);
-    } catch (error) {
-      console.error("Error fetching business:", error);
-      return null;
-    }
-  }, []);
+    const result = await protectedAction(
+      async () => {
+        try {
+          return await businessService.getBusinessById(id);
+        } catch (error) {
+          console.error("Error fetching business:", error);
+          throw error;
+        }
+      },
+      { 
+        actionName: 'Loading business details',
+        retry: true 
+      }
+    );
+
+    return result === false ? null : result;
+  }, [protectedAction]);
 
   const getReviewsForBusiness = useCallback(async (businessId: string) => {
-    try {
-      return await reviewService.getReviewsForBusiness(businessId);
-    } catch (error) {
-      console.error("Error getting business reviews:", error);
-      return [];
-    }
-  }, []);
+    const result = await protectedAction(
+      async () => {
+        try {
+          return await reviewService.getReviewsForBusiness(businessId);
+        } catch (error) {
+          console.error("Error getting business reviews:", error);
+          throw error;
+        }
+      },
+      { 
+        actionName: 'Loading business reviews',
+        retry: true 
+      }
+    );
+
+    return result === false ? [] : result;
+  }, [protectedAction]);
 
   // ✅ Search with API
   const searchBusinessesWithAPI = async (
@@ -225,40 +270,50 @@ export const useAppStore = () => {
     categories: string[] = [],
     forceRefresh: boolean = false
   ) => {
-    if (!userLocation || !query.trim()) {
-      return searchBusinesses(query, { category: categories[0] || "all" });
-    }
+    const result = await protectedAction(
+      async () => {
+        if (!userLocation || !query.trim()) {
+          return searchBusinesses(query, { category: categories[0] || "all" });
+        }
 
-    try {
-      setSearchLoading(true);
+        try {
+          setSearchLoading(true);
 
-      let results = await businessService.searchBusinessesWithQuery(
-        query,
-        userLocation.latitude,
-        userLocation.longitude,
-        5000,
-        categories,
-        forceRefresh
-      );
+          let results = await businessService.searchBusinessesWithQuery(
+            query,
+            userLocation.latitude,
+            userLocation.longitude,
+            5000,
+            categories,
+            forceRefresh
+          );
 
-      if (results.length === 0) {
-        results = searchBusinesses(query, {
-          category: categories[0] || "all",
-        });
+          if (results.length === 0) {
+            results = searchBusinesses(query, {
+              category: categories[0] || "all",
+            });
+          }
+
+          setSearchResults(results);
+          return results;
+        } catch (error) {
+          console.error("Search failed:", error);
+          const localResults = searchBusinesses(query, {
+            category: categories[0] || "all",
+          });
+          setSearchResults(localResults);
+          return localResults;
+        } finally {
+          setSearchLoading(false);
+        }
+      },
+      { 
+        actionName: 'Searching businesses',
+        retry: true 
       }
+    );
 
-      setSearchResults(results);
-      return results;
-    } catch (error) {
-      console.error("Search failed:", error);
-      const localResults = searchBusinesses(query, {
-        category: categories[0] || "all",
-      });
-      setSearchResults(localResults);
-      return localResults;
-    } finally {
-      setSearchLoading(false);
-    }
+    return result === false ? [] : result;
   };
 
   // ✅ Clear search
@@ -269,31 +324,42 @@ export const useAppStore = () => {
   // ✅ Update business ratings after review changes
   const updateBusinessRatings = useCallback(
     async (businessId: string) => {
-      try {
-        const reviews = await reviewService.getReviewsForBusiness(businessId);
-        const rating =
-          reviews.length > 0
-            ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
-            : 0;
+      const result = await protectedAction(
+        async () => {
+          try {
+            const reviews = await reviewService.getReviewsForBusiness(businessId);
+            const rating =
+              reviews.length > 0
+                ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+                : 0;
 
-        // Update the business in the global state
-        const updatedBusinesses = globalState.businesses.map((b) =>
-          b.id === businessId
-            ? { ...b, rating, reviewCount: reviews.length }
-            : b
-        );
+            // Update the business in the global state
+            const updatedBusinesses = globalState.businesses.map((b) =>
+              b.id === businessId
+                ? { ...b, rating, reviewCount: reviews.length }
+                : b
+            );
 
-        notifyBusinessUpdate(updatedBusinesses);
-        console.log("✅ Updated business ratings:", {
-          businessId,
-          rating,
-          reviewCount: reviews.length,
-        });
-      } catch (error) {
-        console.error("Error updating business ratings:", error);
-      }
+            notifyBusinessUpdate(updatedBusinesses);
+            console.log("✅ Updated business ratings:", {
+              businessId,
+              rating,
+              reviewCount: reviews.length,
+            });
+          } catch (error) {
+            console.error("Error updating business ratings:", error);
+            throw error;
+          }
+        },
+        { 
+          actionName: 'Updating ratings',
+          retry: false 
+        }
+      );
+
+      return result !== false;
     },
-    [notifyBusinessUpdate]
+    [notifyBusinessUpdate, protectedAction]
   );
 
   // ✅ Review management with auto-refresh
@@ -302,103 +368,159 @@ export const useAppStore = () => {
   ) => {
     if (!authUser) throw new Error("User must be logged in");
 
-    try {
-      const existing = await reviewService.getUserReviewForBusiness(
-        authUser.uid,
-        reviewData.businessId
-      );
-      if (existing) throw new Error("You have already reviewed this business");
+    const result = await protectedAction(
+      async () => {
+        try {
+          const existing = await reviewService.getUserReviewForBusiness(
+            authUser.uid,
+            reviewData.businessId
+          );
+          if (existing) throw new Error("You have already reviewed this business");
 
-      const reviewId = await reviewService.addReview({
-        ...reviewData,
-        userId: authUser.uid,
-        userName: authUser.displayName || "Anonymous User",
-        userAvatar:
-          authUser.photoURL ||
-          "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100",
-      });
+          const reviewId = await reviewService.addReview({
+            ...reviewData,
+            userId: authUser.uid,
+            userName: authUser.displayName || "Anonymous User",
+            userAvatar:
+              authUser.photoURL ||
+              "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100",
+          });
 
-      // Refresh user reviews and business ratings
-      await loadAllReviews();
-      await updateBusinessRatings(reviewData.businessId);
+          // Refresh user reviews and business ratings
+          await loadAllReviews();
+          await updateBusinessRatings(reviewData.businessId);
 
-      return reviewId;
-    } catch (error) {
-      console.error("Error adding review:", error);
-      throw error;
+          return reviewId;
+        } catch (error) {
+          console.error("Error adding review:", error);
+          throw error;
+        }
+      },
+      { 
+        actionName: 'Adding review',
+        retry: false 
+      }
+    );
+
+    if (result === false) {
+      throw new Error("No internet connection");
     }
+
+    return result;
   };
 
   const updateReview = async (reviewId: string, updates: Partial<Review>) => {
-    try {
-      await reviewService.updateReview(reviewId, updates);
-      await loadAllReviews();
+    const result = await protectedAction(
+      async () => {
+        try {
+          await reviewService.updateReview(reviewId, updates);
+          await loadAllReviews();
 
-      // Find which business this review belongs to and update ratings
-      const review = reviews.find((r) => r.id === reviewId);
-      if (review) {
-        await updateBusinessRatings(review.businessId);
+          // Find which business this review belongs to and update ratings
+          const review = reviews.find((r) => r.id === reviewId);
+          if (review) {
+            await updateBusinessRatings(review.businessId);
+          }
+        } catch (error) {
+          console.error("Error updating review:", error);
+          throw error;
+        }
+      },
+      { 
+        actionName: 'Updating review',
+        retry: false 
       }
-    } catch (error) {
-      console.error("Error updating review:", error);
-      throw error;
-    }
+    );
+
+    return result !== false;
   };
 
   const deleteReview = async (reviewId: string) => {
-    try {
-      // Get business ID before deleting
-      const review = reviews.find((r) => r.id === reviewId);
+    const result = await protectedAction(
+      async () => {
+        try {
+          // Get business ID before deleting
+          const review = reviews.find((r) => r.id === reviewId);
 
-      await reviewService.deleteReview(reviewId);
-      await loadAllReviews();
+          await reviewService.deleteReview(reviewId);
+          await loadAllReviews();
 
-      // Update business ratings
-      if (review) {
-        await updateBusinessRatings(review.businessId);
+          // Update business ratings
+          if (review) {
+            await updateBusinessRatings(review.businessId);
+          }
+        } catch (error) {
+          console.error("Error deleting review:", error);
+          throw error;
+        }
+      },
+      { 
+        actionName: 'Deleting review',
+        retry: false 
       }
-    } catch (error) {
-      console.error("Error deleting review:", error);
-      throw error;
-    }
+    );
+
+    return result !== false;
   };
 
   const refreshReviews = useCallback(async () => {
-    await loadAllReviews();
-  }, [loadAllReviews]);
+    const result = await protectedAction(
+      async () => {
+        await loadAllReviews();
+      },
+      { 
+        actionName: 'Refreshing reviews',
+        retry: true 
+      }
+    );
+
+    return result !== false;
+  }, [loadAllReviews, protectedAction]);
 
   // ✅ Favorite management
   const toggleFavorite = async (businessId: string) => {
     if (!authUser) {
       alert("Please sign in to save favorites");
-      return;
+      return false;
     }
 
-    try {
-      const currentlyFavorite = favorites.includes(businessId);
+    const result = await protectedAction(
+      async () => {
+        try {
+          const currentlyFavorite = favorites.includes(businessId);
 
-      setFavorites((prev) =>
-        currentlyFavorite
-          ? prev.filter((id) => id !== businessId)
-          : [...prev, businessId]
-      );
+          setFavorites((prev) =>
+            currentlyFavorite
+              ? prev.filter((id) => id !== businessId)
+              : [...prev, businessId]
+          );
 
-      await favoriteService.toggleFavorite(
-        authUser.uid,
-        businessId,
-        currentlyFavorite
-      );
-    } catch (error) {
-      console.error("Error toggling favorite:", error);
+          await favoriteService.toggleFavorite(
+            authUser.uid,
+            businessId,
+            currentlyFavorite
+          );
+          return true;
+        } catch (error) {
+          console.error("Error toggling favorite:", error);
 
-      setFavorites((prev) =>
-        favorites.includes(businessId)
-          ? [...prev, businessId]
-          : prev.filter((id) => id !== businessId)
-      );
+          setFavorites((prev) =>
+            favorites.includes(businessId)
+              ? [...prev, businessId]
+              : prev.filter((id) => id !== businessId)
+          );
 
-      alert("Failed to update favorite. Please try again.");
-    }
+          alert("Failed to update favorite. Please try again.");
+          throw error;
+        }
+      },
+      { 
+        actionName: 'Saving favorite',
+        retry: false 
+      }
+    );
+
+    return result !== false;
   };
 
   const getFavoriteBusinesses = useCallback(() => {
@@ -413,7 +535,7 @@ export const useAppStore = () => {
     [authUser, favorites]
   );
 
-  // ✅ Local search and filter
+  // ✅ Local search and filter (no internet needed)
   const searchBusinesses = useCallback(
     (query: string, filters?: Partial<SearchFilters>) => {
       let filtered = businesses;
@@ -461,16 +583,27 @@ export const useAppStore = () => {
     categories: string[] = [],
     forceRefresh: boolean = true
   ) => {
-    try {
-      if (forceRefresh) {
-        globalState.hasLoaded = false;
-      }
+    const result = await protectedAction(
+      async () => {
+        try {
+          if (forceRefresh) {
+            globalState.hasLoaded = false;
+          }
 
-      await refreshLocation(true);
-      await loadNearbyBusinesses(categories, forceRefresh);
-    } catch (error) {
-      console.error("Refresh failed:", error);
-    }
+          await refreshLocation(true);
+          await loadNearbyBusinesses(categories, forceRefresh);
+        } catch (error) {
+          console.error("Refresh failed:", error);
+          throw error;
+        }
+      },
+      { 
+        actionName: 'Refreshing businesses',
+        retry: true 
+      }
+    );
+
+    return result !== false;
   };
 
   // ✅ User state

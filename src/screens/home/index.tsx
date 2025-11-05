@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from "react";
+import React, { useState, useCallback, useMemo, useEffect, memo } from "react";
 import {
   View,
   Text,
@@ -7,51 +7,80 @@ import {
   FlatList,
   SafeAreaView,
   RefreshControl,
-  ActivityIndicator,
   ListRenderItemInfo,
   Platform,
   TouchableOpacity,
+  Animated,
 } from "react-native";
-import { Search, TrendingUp, Award, MapPin, Coffee } from "lucide-react-native";
+import {
+  Search,
+  TrendingUp,
+  Award,
+  MapPin,
+  Coffee,
+  WifiOff,
+} from "lucide-react-native";
 import { useAppStore } from "@/src/hooks/useAppStore";
-import { useAuth } from "@/src/hooks/useAuth";
+import { useAuthContext } from "@/src/context/AuthContext";
 import BusinessCard from "@/src/components/BusinessCard";
 import CategoryFilter from "@/src/components/CategoryFilter";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
+import FindingPlacesLoader from "@/src/components/findingPlacesLoader";
 import { Business } from "../../types";
+import { useInternetConnectivity } from "@/src/hooks/useInternetConnectivity";
 
-export default function HomeScreen() {
-  const { businesses, searchBusinesses, refreshBusinesses, loading } = useAppStore();
+// ✅ Use React.memo to prevent unnecessary re-renders
+const HomeScreen = memo(function HomeScreen() {
+  const { businesses, searchBusinesses, refreshBusinesses, loading } =
+    useAppStore();
   const [searchQuery, setSearchQuery] = useState("");
-  const { user } = useAuth();
+  const { user } = useAuthContext();
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [refreshing, setRefreshing] = useState(false);
-  const navigation = useNavigation();
-  const userName = user?.displayName?.split(" ")[0] || "there";
-
-  // ✅ Track if initial load has been triggered
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [hasTriggeredLoad, setHasTriggeredLoad] = useState(false);
 
-  // ✅ FIXED: Trigger initial load on mount and on focus
-  useFocusEffect(
-    useCallback(() => {
-      // Always attempt to load if we have no businesses
-      if (businesses.length === 0 && !loading && !hasTriggeredLoad) {
-        console.log("🚀 HOME - Triggering initial load");
-        setHasTriggeredLoad(true);
-        refreshBusinesses([], true);
-      }
-    }, [businesses.length, loading, hasTriggeredLoad, refreshBusinesses])
+  const { isConnected, showOfflineAlert } = useInternetConnectivity();
+
+  const navigation = useNavigation();
+
+  // ✅ Memoize user-dependent values
+  const userName = useMemo(
+    () => user?.displayName?.split(" ")[0] || "there",
+    [user?.displayName]
   );
 
-  // ✅ Also trigger on mount as a fallback
+  // ✅ FIXED: Show loading immediately, don't wait for trigger
+
   useEffect(() => {
-    if (businesses.length === 0 && !loading && !hasTriggeredLoad) {
-      console.log("🚀 HOME - Mount: Triggering initial load");
+    if (!hasTriggeredLoad) {
+      console.log("🚀 HOME - Triggering first refresh");
       setHasTriggeredLoad(true);
-      refreshBusinesses([], true);
+      refreshBusinesses([], true).finally(() => {
+        setHasLoadedOnce(true);
+      });
     }
-  }, []);
+  }, [hasTriggeredLoad, refreshBusinesses]);
+
+  // 👇 Refined logic
+  const isInitialLoading =
+    (!hasLoadedOnce && (loading || businesses.length === 0)) ||
+    (loading && businesses.length === 0);
+
+  const showEmptyState =
+    hasLoadedOnce && !loading && !refreshing && businesses.length === 0;
+
+  const hasContent = businesses.length > 0;
+
+  const [fadeAnim] = useState(new Animated.Value(0));
+
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: isInitialLoading ? 1 : 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  }, [isInitialLoading]);
 
   // ✅ OPTIMIZED: Efficient filtering with memoization
   const filteredBusinesses = useMemo(() => {
@@ -59,7 +88,9 @@ export default function HomeScreen() {
 
     // Apply category filter first
     if (selectedCategory !== "all") {
-      result = result.filter(business => business.category === selectedCategory);
+      result = result.filter(
+        (business) => business.category === selectedCategory
+      );
     }
 
     // Apply search filter if needed
@@ -73,7 +104,7 @@ export default function HomeScreen() {
   // ✅ OPTIMIZED: Derived data with proper dependencies
   const topRatedBusinesses = useMemo(() => {
     return filteredBusinesses
-      .filter(b => b.rating >= 4.0)
+      .filter((b) => b.rating >= 4.0)
       .sort((a, b) => b.rating - a.rating)
       .slice(0, 3);
   }, [filteredBusinesses]);
@@ -84,8 +115,12 @@ export default function HomeScreen() {
       .slice(0, 3);
   }, [filteredBusinesses]);
 
-  // ✅ FIXED: Refresh without flickering
   const handleRefresh = useCallback(async () => {
+    if (!isConnected) {
+      showOfflineAlert();
+      return;
+    }
+
     setRefreshing(true);
     try {
       await refreshBusinesses([], true);
@@ -94,7 +129,7 @@ export default function HomeScreen() {
     } finally {
       setRefreshing(false);
     }
-  }, [refreshBusinesses]);
+  }, [refreshBusinesses, isConnected, showOfflineAlert]);
 
   // ✅ Category change without side effects
   const handleCategoryChange = useCallback((category: string) => {
@@ -120,11 +155,6 @@ export default function HomeScreen() {
     [handleBusinessPress]
   );
 
-  // ✅ FIXED: Better loading state logic
-  const isInitialLoading = loading && businesses.length === 0 && !refreshing;
-  const hasContent = businesses.length > 0;
-  const showEmptyState = !loading && !refreshing && businesses.length === 0 && hasTriggeredLoad;
-
   console.log("🏠 HOME - State:", {
     loading,
     refreshing,
@@ -135,33 +165,51 @@ export default function HomeScreen() {
     showEmptyState,
   });
 
-  // ✅ NEW: Beautiful Empty State Component
+  // ✅ FIXED: Empty State Component (without useMemo)
   const EmptyStateView = () => (
     <View style={styles.emptyStateContainer}>
       <View style={styles.emptyStateIconContainer}>
-        <MapPin size={64} color="#CBD5E1" strokeWidth={1.5} />
-        <Coffee 
-          size={32} 
-          color="#94A3B8" 
-          strokeWidth={2}
-          style={styles.emptyStateSecondaryIcon}
-        />
+        {!isConnected ? (
+          <WifiOff size={64} color="#CBD5E1" strokeWidth={1.5} />
+        ) : (
+          <>
+            <MapPin size={64} color="#CBD5E1" strokeWidth={1.5} />
+            <Coffee
+              size={32}
+              color="#94A3B8"
+              strokeWidth={2}
+              style={styles.emptyStateSecondaryIcon}
+            />
+          </>
+        )}
       </View>
       <Text style={styles.emptyStateTitle}>
-        {selectedCategory === "all" 
-          ? "No Places Found Nearby" 
-          : `No ${selectedCategory.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())} Found`}
+        {!isConnected
+          ? "No Internet Connection"
+          : selectedCategory === "all"
+            ? "No Places Found Nearby"
+            : `No ${selectedCategory.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())} Found`}
       </Text>
       <Text style={styles.emptyStateMessage}>
-        {selectedCategory === "all"
-          ? "We couldn't find any businesses in your area. Try adjusting your location or pull down to refresh."
-          : "Try selecting a different category or pull down to refresh."}
+        {!isConnected
+          ? "Please check your internet connection and pull down to refresh."
+          : selectedCategory === "all"
+            ? "We couldn't find any businesses in your area. Try adjusting your location or pull down to refresh."
+            : "Try selecting a different category or pull down to refresh."}
       </Text>
-      <TouchableOpacity 
-        style={styles.emptyStateButton}
+      <TouchableOpacity
+        style={[styles.emptyStateButton, !isConnected && styles.disabledButton]}
         onPress={handleRefresh}
+        disabled={!isConnected}
       >
-        <Text style={styles.emptyStateButtonText}>Refresh Now</Text>
+        <Text
+          style={[
+            styles.emptyStateButtonText,
+            !isConnected && styles.disabledButtonText,
+          ]}
+        >
+          {!isConnected ? "Offline" : "Refresh Now"}
+        </Text>
       </TouchableOpacity>
     </View>
   );
@@ -172,8 +220,8 @@ export default function HomeScreen() {
         style={styles.container}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl 
-            refreshing={refreshing} 
+          <RefreshControl
+            refreshing={refreshing}
             onRefresh={handleRefresh}
             colors={["#007AFF"]}
             tintColor="#007AFF"
@@ -209,8 +257,9 @@ export default function HomeScreen() {
         {/* ✅ FIXED: Better conditional rendering */}
         {isInitialLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#007AFF" />
-            <Text style={styles.loadingText}>Finding nearby places...</Text>
+            <Animated.View style={{ opacity: fadeAnim }}>
+              <FindingPlacesLoader />
+            </Animated.View>
           </View>
         ) : showEmptyState ? (
           <EmptyStateView />
@@ -223,8 +272,8 @@ export default function HomeScreen() {
                   <Award size={20} color="#FFD700" />
                   <Text style={styles.sectionTitle}>Top Rated</Text>
                 </View>
-                <ScrollView 
-                  horizontal 
+                <ScrollView
+                  horizontal
                   showsHorizontalScrollIndicator={false}
                   contentContainerStyle={styles.horizontalScrollContent}
                 >
@@ -241,28 +290,30 @@ export default function HomeScreen() {
             )}
 
             {/* Popular Nearby Section */}
-            {!searchQuery && selectedCategory === "all" && trendingBusinesses.length > 0 && (
-              <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <TrendingUp size={20} color="#FF6B6B" />
-                  <Text style={styles.sectionTitle}>Popular Nearby</Text>
+            {!searchQuery &&
+              selectedCategory === "all" &&
+              trendingBusinesses.length > 0 && (
+                <View style={styles.section}>
+                  <View style={styles.sectionHeader}>
+                    <TrendingUp size={20} color="#FF6B6B" />
+                    <Text style={styles.sectionTitle}>Popular Nearby</Text>
+                  </View>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.horizontalScrollContent}
+                  >
+                    {trendingBusinesses.map((business) => (
+                      <View key={business.id} style={styles.horizontalCard}>
+                        <BusinessCard
+                          business={business}
+                          onPress={() => handleBusinessPress(business.id)}
+                        />
+                      </View>
+                    ))}
+                  </ScrollView>
                 </View>
-                <ScrollView 
-                  horizontal 
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.horizontalScrollContent}
-                >
-                  {trendingBusinesses.map((business) => (
-                    <View key={business.id} style={styles.horizontalCard}>
-                      <BusinessCard
-                        business={business}
-                        onPress={() => handleBusinessPress(business.id)}
-                      />
-                    </View>
-                  ))}
-                </ScrollView>
-              </View>
-            )}
+              )}
 
             {/* Main Business List */}
             <View style={styles.section}>
@@ -277,7 +328,7 @@ export default function HomeScreen() {
                   <Text style={styles.noResultsText}>
                     No places match your current filters.
                   </Text>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={styles.clearFiltersButton}
                     onPress={() => setSelectedCategory("all")}
                   >
@@ -305,7 +356,7 @@ export default function HomeScreen() {
       </ScrollView>
     </SafeAreaView>
   );
-}
+});
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: "#F8F9FA" },
@@ -357,19 +408,19 @@ const styles = StyleSheet.create({
   horizontalScrollContent: {
     paddingHorizontal: 8,
   },
-  horizontalCard: { 
-    width: 280, 
+  horizontalCard: {
+    width: 280,
     marginHorizontal: 8,
   },
-  loadingContainer: { 
+  loadingContainer: {
     padding: 60,
     alignItems: "center",
     justifyContent: "center",
     minHeight: 300,
   },
-  loadingText: { 
-    marginTop: 16, 
-    fontSize: 16, 
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
     color: "#666",
     fontWeight: "500",
   },
@@ -427,7 +478,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
-  // ✅ NEW: No results in filtered view
+  disabledButton: {
+    backgroundColor: "#C0C0C0",
+    shadowColor: "#C0C0C0",
+  },
+  disabledButtonText: {
+    color: "#666666",
+  },
   noResultsContainer: {
     padding: 40,
     alignItems: "center",
@@ -451,3 +508,5 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 });
+
+export default HomeScreen;

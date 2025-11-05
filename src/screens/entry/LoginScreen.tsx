@@ -6,9 +6,18 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
+  Image,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-import { LogIn, Mail, Lock, Apple, Smartphone, Eye, EyeOff } from "lucide-react-native";
+import {
+  LogIn,
+  Mail,
+  Lock,
+  Apple,
+  Smartphone,
+  Eye,
+  EyeOff,
+} from "lucide-react-native";
 
 import { StyledInput } from "@/src/components/StyledInput";
 import { SocialButton } from "@/src/components/SocialButton";
@@ -59,7 +68,7 @@ export default function LoginScreen() {
             setResetLoading(true);
             await resetPassword(email);
             Alert.alert(
-              "Check Your Email", 
+              "Check Your Email",
               "Password reset email sent! Please check your inbox/spam and follow the instructions."
             );
           } catch (error: any) {
@@ -83,9 +92,13 @@ export default function LoginScreen() {
     <KeyboardAvoidingScrollView contentContainerStyle={styles.mainContent}>
       {/* Application Header/Logo */}
       <View style={styles.headerContainer}>
-        <LogIn size={48} color={Colors.light.primary} strokeWidth={2.5} />
+        <Image
+          source={require("@/src/assets/images/BiteSpotLogotransparent.png")}
+          style={styles.logo}
+          resizeMode="contain" // keeps aspect ratio
+        />
         <Text style={[styles.title, { color: Colors.light.text }]}>
-          Yelpify
+          BiteSpot
         </Text>
         <Text style={styles.subtitle}>Discover local. Log in to guide.</Text>
       </View>
@@ -100,7 +113,7 @@ export default function LoginScreen() {
           keyboardType="email-address"
           autoCapitalize="none"
         />
-        
+
         {/* ✅ FIXED: Password Input with Visibility Toggle */}
         <View style={styles.passwordContainer}>
           <StyledInput
@@ -110,7 +123,7 @@ export default function LoginScreen() {
             onChangeText={setPassword}
             isPassword={!showPassword} // ✅ Use isPassword instead of secureTextEntry
           />
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.visibilityToggle}
             onPress={togglePasswordVisibility}
           >
@@ -206,10 +219,10 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   passwordContainer: {
-    position: 'relative',
+    position: "relative",
   },
   visibilityToggle: {
-    position: 'absolute',
+    position: "absolute",
     right: 16,
     top: 16,
     zIndex: 10,
@@ -220,7 +233,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
     marginBottom: 24,
     height: 20,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   linkText: {
     color: Colors.light.primary,
@@ -272,5 +285,9 @@ const styles = StyleSheet.create({
   signUpText: {
     fontSize: 16,
     color: Colors.light.gray[500],
+  },
+  logo: {
+    width: 60,
+    height: 60,
   },
 });

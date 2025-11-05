@@ -1,31 +1,30 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { AppState, Platform, PermissionsAndroid } from 'react-native';
 import { notificationService, NotificationData } from '@/src/services/notificationService';
-import { useAuth } from './useAuth';
+import { useAuthContext } from '@/src/context/AuthContext';
 
 export const useNotifications = (onNotificationPress: (data: NotificationData) => void) => {
-  const { user } = useAuth();
+  const { user } = useAuthContext();
   const appState = useRef(AppState.currentState);
 
-  // Request Android notification permission
-  const requestAndroidPermission = async (): Promise<boolean> => {
+  // ✅ Memoize the permission request function
+  const requestAndroidPermission = useCallback(async (): Promise<boolean> => {
     try {
       if (Platform.OS === 'android' && Platform.Version >= 33) {
-        // Android 13+ uses new permission system
         const granted = await PermissionsAndroid.request(
           PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
         );
         return granted === PermissionsAndroid.RESULTS.GRANTED;
       }
-      return true; // Android 12 and below don't require this permission
+      return true;
     } catch (error) {
       console.error('Error requesting notification permission:', error);
       return false;
     }
-  };
+  }, []);
 
-  // Request notification permissions and setup FCM
-  const setupNotifications = async () => {
+  // ✅ Memoize the setup function
+  const setupNotifications = useCallback(async () => {
     try {
       // Request Android permissions if needed
       if (Platform.OS === 'android') {
@@ -47,7 +46,7 @@ export const useNotifications = (onNotificationPress: (data: NotificationData) =
     } catch (error) {
       console.error('Error setting up notifications:', error);
     }
-  };
+  }, [user, requestAndroidPermission]);
 
   useEffect(() => {
     setupNotifications();
@@ -76,5 +75,5 @@ export const useNotifications = (onNotificationPress: (data: NotificationData) =
       unsubscribeForeground();
       subscription.remove();
     };
-  }, [user, onNotificationPress]);
+  }, [setupNotifications, onNotificationPress, user]); // ✅ Proper dependencies
 };

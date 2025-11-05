@@ -3,7 +3,10 @@ import notifee, {
   AndroidImportance,
   EventType,
 } from '@notifee/react-native';
-import messaging from '@react-native-firebase/messaging';
+import messaging, { 
+  FirebaseMessagingTypes,
+  getIsHeadless 
+} from '@react-native-firebase/messaging';
 
 export interface NotificationData {
   reviewId: string;
@@ -13,33 +16,76 @@ export interface NotificationData {
 
 class NotificationService {
   private isInitialized = false;
+  private tokenRequestInProgress = false;
+  private cachedToken: string | null = null;
+  private lastTokenRequestTime = 0;
+  private readonly TOKEN_REQUEST_COOLDOWN = 30000; // 30 seconds
 
-  // Request permission and get FCM token
+  // Request permission and get FCM token with debouncing
   async requestPermissionAndGetToken(): Promise<string | null> {
+    // Prevent duplicate simultaneous requests
+    if (this.tokenRequestInProgress) {
+      console.log('⏳ FCM token request already in progress, returning cached token');
+      return this.cachedToken;
+    }
+
+    // Rate limiting - don't request token more than once every 30 seconds
+    const now = Date.now();
+    if (now - this.lastTokenRequestTime < this.TOKEN_REQUEST_COOLDOWN && this.cachedToken) {
+      console.log('⏳ Using cached FCM token (rate limited)');
+      return this.cachedToken;
+    }
+
+    this.tokenRequestInProgress = true;
+    this.lastTokenRequestTime = now;
+
     try {
+      console.log('🔐 Requesting FCM permission...');
+      
       const authStatus = await messaging().requestPermission();
       const enabled =
         authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
         authStatus === messaging.AuthorizationStatus.PROVISIONAL;
 
+      console.log('FCM Authorization status:', authStatus);
+
       if (enabled) {
-        console.log('FCM Authorization status:', authStatus);
         const token = await messaging().getToken();
-        console.log('FCM Token:', token);
+        console.log('✅ FCM Token received:', token);
+        this.cachedToken = token;
         return token;
       } else {
-        console.log('FCM Permission denied');
+        console.log('❌ FCM Permission denied');
+        this.cachedToken = null;
         return null;
       }
     } catch (error) {
-      console.error('Error getting FCM token:', error);
+      console.error('❌ Error getting FCM token:', error);
+      this.cachedToken = null;
       return null;
+    } finally {
+      this.tokenRequestInProgress = false;
     }
+  }
+
+  // Clear cached token (useful on logout)
+  clearCachedToken(): void {
+    this.cachedToken = null;
+    this.lastTokenRequestTime = 0;
+    console.log('🗑️ Cleared cached FCM token');
+  }
+
+  // Get current token without requesting new one
+  getCurrentToken(): string | null {
+    return this.cachedToken;
   }
 
   // Initialize notification channels (Android)
   async initializeNotificationChannels() {
-    if (this.isInitialized) return;
+    if (this.isInitialized) {
+      console.log('📱 Notification channels already initialized');
+      return;
+    }
 
     try {
       await notifee.createChannel({
@@ -55,9 +101,9 @@ class NotificationService {
       });
 
       this.isInitialized = true;
-      console.log('Notification channels initialized');
+      console.log('✅ Notification channels initialized');
     } catch (error) {
-      console.error('Error initializing notification channels:', error);
+      console.error('❌ Error initializing notification channels:', error);
     }
   }
 
@@ -73,7 +119,6 @@ class NotificationService {
       await notifee.displayNotification({
         title,
         body,
-        // Cast data to Record<string, string> to satisfy Notifee types
         data: data as unknown as Record<string, string>,
         android: {
           channelId: 'reviews',
@@ -86,8 +131,10 @@ class NotificationService {
           },
         },
       });
+      
+      console.log('📲 Notification displayed:', title);
     } catch (error) {
-      console.error('Error displaying notification:', error);
+      console.error('❌ Error displaying notification:', error);
     }
   }
 
@@ -95,8 +142,8 @@ class NotificationService {
   setupForegroundHandler(
     onNotificationPress: (data: NotificationData) => void
   ) {
-    return messaging().onMessage(async (remoteMessage) => {
-      console.log('FCM Message received in foreground:', remoteMessage);
+    return messaging().onMessage(async (remoteMessage: FirebaseMessagingTypes.RemoteMessage) => {
+      console.log('📨 FCM Message received in foreground:', remoteMessage);
 
       const { notification, data } = remoteMessage;
 
@@ -118,7 +165,7 @@ class NotificationService {
     return notifee.onBackgroundEvent(async ({ type, detail }) => {
       if (type === EventType.PRESS) {
         console.log(
-          'Notification pressed in background:',
+          '👆 Notification pressed in background:',
           detail.notification?.data
         );
         const data = detail.notification?.data as

@@ -1,6 +1,6 @@
 // src/services/imageService.ts
-import storage from '@react-native-firebase/storage';
-import auth from '@react-native-firebase/auth';
+import { getStorage, ref, uploadString, getDownloadURL, deleteObject } from '@react-native-firebase/storage';
+import { getAuth } from '@react-native-firebase/auth';
 
 export const imageService = {
   /**
@@ -14,7 +14,7 @@ export const imageService = {
     type: 'review' | 'profile' = 'review'
   ): Promise<string> {
     try {
-      const user = auth().currentUser;
+      const user = getAuth().currentUser;
       
       if (!user) {
         throw new Error('User must be authenticated to upload images');
@@ -36,17 +36,17 @@ export const imageService = {
       console.log('📤 Uploading image to:', storagePath);
       
       // Create reference to storage location
-      const reference = storage().ref(storagePath);
+      const storageRef = ref(getStorage(), storagePath);
       
       // Upload the base64 string
-      await reference.putString(base64Data, 'base64', {
+      await uploadString(storageRef, base64Data, 'base64', {
         contentType: 'image/jpeg',
       });
       
       console.log('✅ Image uploaded successfully');
       
       // Get download URL
-      const downloadURL = await reference.getDownloadURL();
+      const downloadURL = await getDownloadURL(storageRef);
       console.log('🔗 Download URL:', downloadURL);
       
       return downloadURL;
@@ -73,18 +73,18 @@ export const imageService = {
    */
   async deleteImage(imageUrl: string): Promise<void> {
     try {
-      const user = auth().currentUser;
+      const user = getAuth().currentUser;
       
       if (!user) {
         throw new Error('User must be authenticated to delete images');
       }
 
       // Extract the storage path from the URL
-      const reference = storage().refFromURL(imageUrl);
+      const storageRef = ref(getStorage(), imageUrl);
       
-      console.log('🗑️ Deleting image:', reference.fullPath);
+      console.log('🗑️ Deleting image:', storageRef.fullPath);
       
-      await reference.delete();
+      await deleteObject(storageRef);
       
       console.log('✅ Image deleted successfully');
       

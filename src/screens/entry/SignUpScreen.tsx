@@ -56,7 +56,7 @@ export default function SignUpScreen() {
         {/* Application Header */}
         <View style={styles.headerContainer}>
           <Text style={[styles.title, { color: Colors.light.text }]}>
-            Join Yelpify
+            Join BiteSpot
           </Text>
           <Text style={styles.subtitle}>
             Create an account and start sharing your local gems.

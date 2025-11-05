@@ -1,5 +1,8 @@
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
-import * as admin from "firebase-admin";
+import { getFirestore, FieldValue } from "firebase-admin/firestore";
+import { getMessaging } from "firebase-admin/messaging";
+// REMOVE THIS LINE - app is already initialized in index.ts
+// initializeApp();
 
 interface HelpfulData {
   reviewId: string;
@@ -27,8 +30,11 @@ export const sendHelpfulNotification = onDocumentCreated(
     }
 
     try {
+      // Get Firestore instance
+      const db = getFirestore();
+      
       // Get the review owner's FCM tokens
-      const userDoc = await admin.firestore().collection("users").doc(reviewOwnerId).get();
+      const userDoc = await db.collection("users").doc(reviewOwnerId).get();
 
       if (!userDoc.exists) {
         console.log("User document not found:", reviewOwnerId);
@@ -44,15 +50,18 @@ export const sendHelpfulNotification = onDocumentCreated(
       }
 
       // Get the user who voted
-      const voterDoc = await admin.firestore().collection("users").doc(taggedBy).get();
+      const voterDoc = await db.collection("users").doc(taggedBy).get();
       const voterName = voterDoc.data()?.name || "Someone";
 
       // Get review details for the notification
-      const reviewDoc = await admin.firestore().collection("reviews").doc(reviewId).get();
+      const reviewDoc = await db.collection("reviews").doc(reviewId).get();
       const reviewText = reviewDoc.data()?.text || "";
 
+      // Get Messaging instance
+      const messaging = getMessaging();
+      
       // Prepare notification payload
-      const message: admin.messaging.MulticastMessage = {
+      const message = {
         notification: {
           title: "Your review was helpful!",
           body: `${voterName} found your review helpful: "${reviewText.substring(0, 60)}${
@@ -71,7 +80,7 @@ export const sendHelpfulNotification = onDocumentCreated(
       };
 
       // Send notification
-      const response = await admin.messaging().sendEachForMulticast(message);
+      const response = await messaging.sendEachForMulticast(message);
 
       console.log("Notification sent successfully");
       console.log("Success count:", response.successCount);
@@ -89,12 +98,11 @@ export const sendHelpfulNotification = onDocumentCreated(
 
         // Remove failed tokens from user document
         if (failedTokens.length > 0) {
-          await admin
-            .firestore()
+          await db
             .collection("users")
             .doc(reviewOwnerId)
             .update({
-              fcmTokens: admin.firestore.FieldValue.arrayRemove(...failedTokens),
+              fcmTokens: FieldValue.arrayRemove(...failedTokens),
             });
           console.log("Removed invalid FCM tokens:", failedTokens.length);
         }

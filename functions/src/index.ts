@@ -1,7 +1,8 @@
 import { setGlobalOptions } from "firebase-functions/v2";
-import * as admin from 'firebase-admin';
+import { initializeApp } from "firebase-admin/app";
 
-admin.initializeApp();
+// Initialize Firebase Admin with modular syntax
+initializeApp();
 
 // Set global options
 setGlobalOptions({ 

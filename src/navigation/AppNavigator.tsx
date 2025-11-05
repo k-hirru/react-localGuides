@@ -1,12 +1,16 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { NavigationContainer, useNavigationContainerRef } from "@react-navigation/native";
+import {
+  NavigationContainer,
+  useNavigationContainerRef,
+} from "@react-navigation/native";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { useAuth } from "@/src/hooks/useAuth";
+import { AuthProvider, useAuthContext } from "@/src/context/AuthContext"; // ← CHANGE THIS
 import { useNotifications } from "@/src/hooks/useNotification";
 import { NotificationData } from "@/src/services/notificationService";
+import { OfflineBanner } from "@/src/components/OfflineBanner";
 
 import TabNavigator from "./TabNavigator";
 import BusinessDetailsScreen from "../screens/business/BusinessDetailsScreen";
@@ -21,17 +25,17 @@ const queryClient = new QueryClient();
 const Stack = createNativeStackNavigator();
 
 function AuthNavigator() {
-  const { user, loading } = useAuth();
+  const { user, loading } = useAuthContext(); // ← USE CONTEXT INSTEAD
   const navigationRef = useNavigationContainerRef();
 
   // Handle notification press - navigate to business details with review highlight
   const handleNotificationPress = (data: NotificationData) => {
-    console.log('Notification pressed with data:', data);
+    console.log("Notification pressed with data:", data);
     if (data.reviewId && data.businessId) {
       // Navigate to BusinessDetailsScreen with the reviewId to highlight
       (navigationRef.current as any)?.navigate("BusinessDetails", {
         id: data.businessId,
-        highlightReviewId: data.reviewId 
+        highlightReviewId: data.reviewId,
       });
     }
   };
@@ -113,12 +117,15 @@ function AuthNavigator() {
 
 export default function AppNavigator() {
   return (
-    <NavigationContainer>
+    <AuthProvider>
       <QueryClientProvider client={queryClient}>
-        <GestureHandlerRootView style={{ flex: 1 }}>
-          <AuthNavigator />
-        </GestureHandlerRootView>
+        <NavigationContainer>
+          <GestureHandlerRootView style={{ flex: 1 }}>
+            <OfflineBanner />
+            <AuthNavigator />
+          </GestureHandlerRootView>
+        </NavigationContainer>
       </QueryClientProvider>
-    </NavigationContainer>
+    </AuthProvider>
   );
 }
