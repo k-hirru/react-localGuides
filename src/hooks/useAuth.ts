@@ -1,6 +1,17 @@
 import { useState, useEffect } from "react";
-import auth from "@react-native-firebase/auth";
-import { FirebaseAuthTypes } from "@react-native-firebase/auth";
+import auth, { FirebaseAuthTypes } from "@react-native-firebase/auth";
+import firestore, {
+  FirebaseFirestoreTypes,
+} from "@react-native-firebase/firestore";
+import { notificationService } from "@/src/services/notificationService";
+
+interface UserDocument {
+  name: string;
+  email: string;
+  fcmTokens?: string[];
+  createdAt: FirebaseFirestoreTypes.FieldValue;
+  updatedAt: FirebaseFirestoreTypes.FieldValue;
+}
 
 export const useAuth = () => {
   const [user, setUser] = useState<FirebaseAuthTypes.User | null>(null);
@@ -16,6 +27,59 @@ export const useAuth = () => {
     return unsubscribe;
   }, []);
 
+  const updateUserFcmToken = async (
+    user: FirebaseAuthTypes.User,
+    token: string | null
+  ) => {
+    if (!token) return;
+
+    try {
+      const userRef = firestore().collection("users").doc(user.uid);
+      const userDoc = await userRef.get();
+
+      const userData: Partial<UserDocument> = {
+        name: user.displayName || "",
+        email: user.email || "",
+        updatedAt: firestore.FieldValue.serverTimestamp(),
+      };
+
+      if (userDoc.exists()) {
+        // Update existing user, add token if not present
+        await userRef.update({
+          ...userData,
+          fcmTokens: firestore.FieldValue.arrayUnion(token),
+        });
+      } else {
+        // Create new user document
+        await userRef.set({
+          ...userData,
+          fcmTokens: [token],
+          createdAt: firestore.FieldValue.serverTimestamp(),
+        });
+      }
+
+      console.log("FCM token stored for user:", user.uid);
+    } catch (error) {
+      console.error("Error storing FCM token:", error);
+    }
+  };
+
+  useEffect(() => {
+    const unsubscribe = auth().onAuthStateChanged(async (user) => {
+      setUser(user);
+
+      if (user) {
+        // Get FCM token and store it for the user
+        const token = await notificationService.requestPermissionAndGetToken();
+        await updateUserFcmToken(user, token);
+      }
+
+      setLoading(false);
+    });
+
+    return unsubscribe;
+  }, []);
+
   const login = async (email: string, password: string) => {
     try {
       setError(null);
@@ -24,6 +88,10 @@ export const useAuth = () => {
         email,
         password
       );
+      
+      const token = await notificationService.requestPermissionAndGetToken();
+      await updateUserFcmToken(userCredential.user, token);
+
       return userCredential.user;
     } catch (error: any) {
       let errorMessage = "Login failed. Please try again.";
@@ -66,6 +134,10 @@ export const useAuth = () => {
       await userCredential.user.updateProfile({
         displayName: fullName,
       });
+
+      // Store FCM token for new user
+      const token = await notificationService.requestPermissionAndGetToken();
+      await updateUserFcmToken(userCredential.user, token);
 
       return userCredential.user;
     } catch (error: any) {

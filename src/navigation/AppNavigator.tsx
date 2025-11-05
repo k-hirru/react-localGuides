@@ -1,10 +1,12 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { NavigationContainer } from "@react-navigation/native";
+import { NavigationContainer, useNavigationContainerRef } from "@react-navigation/native";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useAuth } from "@/src/hooks/useAuth";
+import { useNotifications } from "@/src/hooks/useNotification";
+import { NotificationData } from "@/src/services/notificationService";
 
 import TabNavigator from "./TabNavigator";
 import BusinessDetailsScreen from "../screens/business/BusinessDetailsScreen";
@@ -20,6 +22,22 @@ const Stack = createNativeStackNavigator();
 
 function AuthNavigator() {
   const { user, loading } = useAuth();
+  const navigationRef = useNavigationContainerRef();
+
+  // Handle notification press - navigate to business details with review highlight
+  const handleNotificationPress = (data: NotificationData) => {
+    console.log('Notification pressed with data:', data);
+    if (data.reviewId && data.businessId) {
+      // Navigate to BusinessDetailsScreen with the reviewId to highlight
+      (navigationRef.current as any)?.navigate("BusinessDetails", {
+        id: data.businessId,
+        highlightReviewId: data.reviewId 
+      });
+    }
+  };
+
+  // Setup notifications
+  useNotifications(handleNotificationPress);
 
   useEffect(() => {
     if (!loading) {
@@ -28,7 +46,7 @@ function AuthNavigator() {
   }, [loading]);
 
   if (loading) {
-    return null; // Show nothing while checking auth state
+    return null;
   }
 
   return (
@@ -64,7 +82,7 @@ function AuthNavigator() {
           <Stack.Screen
             name="BusinessDetails"
             component={BusinessDetailsScreen}
-            options={({ route }) => ({
+            options={({ route }: any) => ({
               title: "Business Details",
               headerShown: true,
             })}

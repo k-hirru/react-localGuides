@@ -1,4 +1,4 @@
-import React, { useState, memo } from "react";
+import React, { useState, memo, useEffect } from "react";
 import {
   View,
   Text,
@@ -19,6 +19,7 @@ import {
   ThumbsUp,
   Image as ImageIcon,
 } from "lucide-react-native";
+import { reviewService } from "@/src/services/reviewService";
 
 interface ReviewCardProps {
   review: Review;
@@ -33,6 +34,9 @@ const ReviewCard = memo(
     const [showMenu, setShowMenu] = useState(false);
     const [imageModalVisible, setImageModalVisible] = useState(false);
     const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+    const [isHelpful, setIsHelpful] = useState(false);
+    const [helpfulCount, setHelpfulCount] = useState(review.helpful || 0);
+
     const isOwnReview = authUser?.uid === review.userId;
 
     const hasImages = review.images && review.images.length > 0;
@@ -43,6 +47,20 @@ const ReviewCard = memo(
     console.log("   - Images array:", review.images);
     console.log("   - Images length:", review.images?.length);
     console.log("   - First image URL:", review.images?.[0]);
+
+    useEffect(() => {
+      const checkExistingVote = async () => {
+        if (authUser && !isOwnReview) {
+          const hasVoted = await reviewService.hasUserVoted(
+            review.id,
+            authUser.uid
+          );
+          setIsHelpful(hasVoted);
+        }
+      };
+
+      checkExistingVote();
+    }, [authUser, review.id, isOwnReview]);
 
     const handleEdit = () => {
       setShowMenu(false);
@@ -63,6 +81,56 @@ const ReviewCard = memo(
           },
         ]
       );
+    };
+
+    // Handle helpful button press
+    const handleHelpfulPress = async () => {
+      if (!authUser) {
+        Alert.alert(
+          "Sign In Required",
+          "Please sign in to mark reviews as helpful."
+        );
+        return;
+      }
+
+      if (isOwnReview) {
+        Alert.alert(
+          "Not Allowed",
+          "You cannot mark your own review as helpful."
+        );
+        return;
+      }
+
+      try {
+        if (isHelpful) {
+          // Remove helpful vote
+          await reviewService.removeHelpfulVote(review.id, authUser.uid);
+          setHelpfulCount((prev) => prev - 1);
+          setIsHelpful(false);
+
+          // Also decrement the review's helpful count in Firestore
+          await reviewService.updateReviewHelpfulCount(review.id, -1);
+        } else {
+          // Add helpful vote - this will trigger the Cloud Function
+          await reviewService.addHelpfulVote({
+            reviewId: review.id,
+            reviewOwnerId: review.userId,
+            taggedBy: authUser.uid,
+            businessId: business.id,
+          });
+          setHelpfulCount((prev) => prev + 1);
+          setIsHelpful(true);
+
+          // Also increment the review's helpful count in Firestore
+          await reviewService.updateReviewHelpfulCount(review.id, 1);
+        }
+      } catch (error) {
+        console.error("Error with helpful vote:", error);
+        Alert.alert(
+          "Error",
+          "Failed to update helpful vote. Please try again."
+        );
+      }
     };
 
     const openImage = (index: number) => {
@@ -147,9 +215,27 @@ const ReviewCard = memo(
         )}
 
         <View style={styles.helpfulContainer}>
-          <TouchableOpacity style={styles.helpfulButton}>
-            <ThumbsUp size={14} color="#666" />
-            <Text style={styles.helpfulText}>Helpful ({review.helpful})</Text>
+          <TouchableOpacity
+            style={[
+              styles.helpfulButton,
+              isHelpful && styles.helpfulButtonActive,
+            ]}
+            onPress={handleHelpfulPress}
+            disabled={isOwnReview}
+          >
+            <ThumbsUp
+              size={14}
+              color={isHelpful ? "#007AFF" : "#666"}
+              fill={isHelpful ? "#007AFF" : "transparent"}
+            />
+            <Text
+              style={[
+                styles.helpfulText,
+                isHelpful && styles.helpfulTextActive,
+              ]}
+            >
+              Helpful ({helpfulCount})
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -326,10 +412,20 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     alignSelf: "flex-start",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  helpfulButtonActive: {
+    backgroundColor: "#F0F8FF",
   },
   helpfulText: {
     fontSize: 12,
     color: "#666",
     marginLeft: 6,
+  },
+  helpfulTextActive: {
+    color: "#007AFF",
+    fontWeight: "500",
   },
 });

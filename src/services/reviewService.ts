@@ -1,8 +1,15 @@
 import firestore from "@react-native-firebase/firestore";
 import { Review } from "@/src/types";
 
-// Get Firestore instance
 const db = firestore();
+
+export interface HelpfulVote {
+  reviewId: string;
+  reviewOwnerId: string;
+  taggedBy: string;
+  businessId: string;
+  createdAt: any;
+}
 
 export const reviewService = {
   // Add a new review
@@ -32,12 +39,10 @@ export const reviewService = {
 
     const result = new Map();
 
-    // Initialize with zero values
     businessIds.forEach((id) => {
       result.set(id, { rating: 0, reviewCount: 0, totalScore: 0 });
     });
 
-    // Firestore can only handle 10 'in' queries, so we batch
     for (let i = 0; i < businessIds.length; i += 10) {
       const batchIds = businessIds.slice(i, i + 10);
 
@@ -47,7 +52,6 @@ export const reviewService = {
           .where("businessId", "in", batchIds)
           .get();
 
-        // Aggregate review data
         querySnapshot.forEach((doc) => {
           const review = doc.data();
           const businessData = result.get(review.businessId);
@@ -58,11 +62,9 @@ export const reviewService = {
         });
       } catch (error) {
         console.error("Error fetching batch reviews:", error);
-        // Continue with other batches
       }
     }
 
-    // Calculate averages
     const finalResult = new Map();
     result.forEach((data, businessId) => {
       finalResult.set(businessId, {
@@ -85,19 +87,12 @@ export const reviewService = {
         .orderBy("date", "desc")
         .get();
 
-      console.log(
-        "✅ Reviews query successful, found:",
-        querySnapshot.size,
-        "reviews"
-      );
+      console.log("✅ Reviews query successful, found:", querySnapshot.size, "reviews");
 
       const reviews: Review[] = [];
 
       querySnapshot.forEach((doc) => {
         const data = doc.data();
-        console.log("📝 Review data:", data);
-        console.log("🖼️ Review images:", data.images); // ✅ Debug images
-
         reviews.push({
           id: doc.id,
           businessId: data.businessId,
@@ -106,7 +101,7 @@ export const reviewService = {
           userAvatar: data.userAvatar,
           rating: data.rating,
           text: data.text,
-          images: data.images || [], // ✅ CRITICAL: Include images field
+          images: data.images || [],
           helpful: data.helpful || 0,
           date:
             data.date?.toDate().toISOString().split("T")[0] ||
@@ -118,16 +113,7 @@ export const reviewService = {
 
       return reviews;
     } catch (error: unknown) {
-      if (error instanceof Error) {
-        console.error("❌ Error fetching reviews:", error);
-        console.error("Error details:", {
-          message: error.message,
-          businessId,
-        });
-      } else {
-        console.error("❌ Unknown error fetching reviews:", error);
-      }
-
+      console.error("❌ Error fetching reviews:", error);
       throw new Error("Failed to fetch reviews");
     }
   },
@@ -153,7 +139,7 @@ export const reviewService = {
           userAvatar: data.userAvatar,
           rating: data.rating,
           text: data.text,
-          images: data.images || [], // ✅ CRITICAL: Include images field
+          images: data.images || [],
           helpful: data.helpful || 0,
           date:
             data.date?.toDate().toISOString().split("T")[0] ||
@@ -199,7 +185,72 @@ export const reviewService = {
     }
   },
 
-  // Check if user has already reviewed a business
+  // ✅ NEW: Update helpful count (for manual increment/decrement)
+  async updateReviewHelpfulCount(reviewId: string, delta: number): Promise<void> {
+    try {
+      const reviewRef = db.collection("reviews").doc(reviewId);
+      await reviewRef.update({
+        helpful: firestore.FieldValue.increment(delta),
+      });
+      console.log(`✅ Updated helpful count for review ${reviewId} by ${delta}`);
+    } catch (error) {
+      console.error("Error updating helpful count:", error);
+      throw error;
+    }
+  },
+
+  async addHelpfulVote(voteData: Omit<HelpfulVote, 'createdAt'>): Promise<void> {
+    try {
+      const helpfulRef = firestore().collection('helpfuls').doc();
+      
+      await helpfulRef.set({
+        ...voteData,
+        createdAt: firestore.FieldValue.serverTimestamp(),
+      });
+
+      console.log('Helpful vote added:', voteData.reviewId);
+    } catch (error) {
+      console.error('Error adding helpful vote:', error);
+      throw error;
+    }
+  },
+
+  async removeHelpfulVote(reviewId: string, userId: string): Promise<void> {
+    try {
+      const helpfulQuery = await firestore()
+        .collection('helpfuls')
+        .where('reviewId', '==', reviewId)
+        .where('taggedBy', '==', userId)
+        .get();
+
+      if (!helpfulQuery.empty) {
+        const batch = firestore().batch();
+        helpfulQuery.docs.forEach(doc => {
+          batch.delete(doc.ref);
+        });
+        await batch.commit();
+      }
+    } catch (error) {
+      console.error('Error removing helpful vote:', error);
+      throw error;
+    }
+  },
+
+  async hasUserVoted(reviewId: string, userId: string): Promise<boolean> {
+    try {
+      const voteQuery = await firestore()
+        .collection('helpfuls')
+        .where('reviewId', '==', reviewId)
+        .where('taggedBy', '==', userId)
+        .get();
+
+      return !voteQuery.empty;
+    } catch (error) {
+      console.error('Error checking user vote:', error);
+      return false;
+    }
+  },
+
   async getUserReviewForBusiness(
     userId: string,
     businessId: string
@@ -224,7 +275,7 @@ export const reviewService = {
         userAvatar: data.userAvatar,
         rating: data.rating,
         text: data.text,
-        images: data.images || [], // ✅ CRITICAL: Include images field
+        images: data.images || [],
         helpful: data.helpful || 0,
         date:
           data.date?.toDate().toISOString().split("T")[0] ||

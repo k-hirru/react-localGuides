@@ -3,6 +3,7 @@ import React, {
   useLayoutEffect,
   useEffect,
   useCallback,
+  useRef,
 } from "react";
 import {
   View,
@@ -14,6 +15,7 @@ import {
   Linking,
   Alert,
   ActivityIndicator,
+  Dimensions,
 } from "react-native";
 import {
   useNavigation,
@@ -36,10 +38,16 @@ import StarRating from "@/src/components/StarRating";
 import ReviewCard from "@/src/components/ReviewCard";
 import { PRICE_LEVELS } from "@/src/constants/categories";
 
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+
 export default function BusinessDetailsScreen() {
   const route = useRoute();
   const navigation = useNavigation();
-  const { id } = route.params as { id: string };
+  const { id, highlightReviewId } = route.params as {
+    id: string;
+    highlightReviewId?: string;
+  };
+
   const {
     getBusinessById,
     fetchBusinessById,
@@ -53,6 +61,16 @@ export default function BusinessDetailsScreen() {
   const [loading, setLoading] = useState(true);
   const [reviewsLoading, setReviewsLoading] = useState(true);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
+
+  const scrollViewRef = useRef<ScrollView | null>(null);
+  const reviewRefs = useRef<{ [key: string]: View | null }>({});
+
+  // ✅ Calculate rating from reviews
+  const calculateRatingFromReviews = useCallback((reviewList: Review[]) => {
+    if (reviewList.length === 0) return 0;
+    const sum = reviewList.reduce((acc, review) => acc + review.rating, 0);
+    return sum / reviewList.length;
+  }, []);
 
   const loadBusinessData = async () => {
     try {
@@ -74,6 +92,32 @@ export default function BusinessDetailsScreen() {
     }
   };
 
+  // ✅ FIXED: Refresh business data when reviews change
+  const refreshBusinessData = useCallback(async () => {
+    console.log("🔄 Refreshing business data...");
+    
+    const businessData = await loadBusinessData();
+    const businessReviews = await loadBusinessReviews();
+    
+    if (businessData && businessReviews) {
+      // Update rating based on current reviews
+      const updatedRating = calculateRatingFromReviews(businessReviews);
+      const updatedBusiness = {
+        ...businessData,
+        rating: updatedRating,
+        reviewCount: businessReviews.length,
+      };
+      
+      setBusiness(updatedBusiness);
+      setReviews(businessReviews);
+      console.log("✅ Business data refreshed:", {
+        rating: updatedRating,
+        reviewCount: businessReviews.length
+      });
+    }
+  }, [id, calculateRatingFromReviews]);
+
+  // ✅ Initial load
   useEffect(() => {
     let isMounted = true;
 
@@ -84,16 +128,18 @@ export default function BusinessDetailsScreen() {
 
       try {
         const businessData = await loadBusinessData();
-        console.log(
-          "📊 Business data loaded:",
-          businessData ? "Found" : "Not found"
-        );
-
         const businessReviews = await loadBusinessReviews();
-        console.log("💬 Reviews loaded:", businessReviews?.length || 0);
 
         if (isMounted) {
-          if (businessData) setBusiness(businessData);
+          if (businessData) {
+            // Update with fresh review stats
+            const updatedRating = calculateRatingFromReviews(businessReviews);
+            setBusiness({
+              ...businessData,
+              rating: updatedRating,
+              reviewCount: businessReviews.length,
+            });
+          }
           if (businessReviews) setReviews(businessReviews);
           setLoading(false);
           setReviewsLoading(false);
@@ -114,30 +160,49 @@ export default function BusinessDetailsScreen() {
     };
   }, [id]);
 
+  // ✅ Scroll to highlighted review
+  useEffect(() => {
+    if (highlightReviewId && reviews.length > 0) {
+      const timer = setTimeout(() => {
+        const reviewElement = reviewRefs.current[highlightReviewId];
+        if (reviewElement && scrollViewRef.current) {
+          try {
+            (reviewElement as any).measureLayout(
+              (scrollViewRef.current as any).getInnerViewNode(),
+              (x: number, y: number) => {
+                (scrollViewRef.current as any)?.scrollTo({
+                  y: y - 100,
+                  animated: true,
+                });
+                console.log("Scrolling to highlighted review:", highlightReviewId);
+              },
+              (err: any) => {
+                console.log("Error measuring review layout", err);
+              }
+            );
+          } catch (e) {
+            console.log("Error trying to measure/scroll to review:", e);
+          }
+        }
+      }, 500);
+
+      return () => clearTimeout(timer);
+    }
+  }, [highlightReviewId, reviews]);
+
+  // ✅ FIXED: Refresh when screen comes back into focus (after adding review)
   useFocusEffect(
     useCallback(() => {
-      let isMounted = true;
-
-      const fetchReviews = async () => {
-        const updatedReviews = await loadBusinessReviews();
-        if (isMounted && updatedReviews) {
-          setReviews(updatedReviews);
-        }
-      };
-
-      fetchReviews();
-
-      return () => {
-        isMounted = false;
-      };
-    }, [id])
+      console.log("🎯 Screen focused, refreshing business data");
+      refreshBusinessData();
+    }, [refreshBusinessData])
   );
 
   const handleEdit = (review: Review) => {
     (navigation as any).navigate("AddReview", {
       id: id,
       review: review,
-      business: business
+      business: business,
     });
   };
 
@@ -153,7 +218,8 @@ export default function BusinessDetailsScreen() {
           onPress: async () => {
             try {
               await deleteReview(reviewId);
-              await loadBusinessReviews();
+              // Refresh data after deletion
+              await refreshBusinessData();
             } catch (error) {
               console.error("Error deleting review:", error);
               Alert.alert(
@@ -215,6 +281,11 @@ export default function BusinessDetailsScreen() {
   const priceSymbol =
     PRICE_LEVELS.find((p) => p.level === business.priceLevel)?.symbol || "$";
 
+  // ✅ FIXED: Ensure photos array exists and has items
+  const businessPhotos = business.photos && business.photos.length > 0 
+    ? business.photos 
+    : [business.imageUrl]; // Fallback to single imageUrl
+
   const handleCall = () => {
     if (business.phone) {
       Linking.openURL(`tel:${business.phone}`);
@@ -251,8 +322,12 @@ export default function BusinessDetailsScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* Photo Gallery */}
+    <ScrollView
+      style={styles.container}
+      showsVerticalScrollIndicator={false}
+      ref={scrollViewRef}
+    >
+      {/* ✅ FIXED: Photo Gallery with proper image handling */}
       <View style={styles.photoContainer}>
         <ScrollView
           horizontal
@@ -260,21 +335,25 @@ export default function BusinessDetailsScreen() {
           showsHorizontalScrollIndicator={false}
           onMomentumScrollEnd={(event) => {
             const index = Math.round(
-              event.nativeEvent.contentOffset.x /
-                event.nativeEvent.layoutMeasurement.width
+              event.nativeEvent.contentOffset.x / SCREEN_WIDTH
             );
             setSelectedPhotoIndex(index);
           }}
         >
-          {business.photos.map((photo, index) => (
-            <Image key={index} source={{ uri: photo }} style={styles.photo} />
+          {businessPhotos.map((photo, index) => (
+            <Image 
+              key={index} 
+              source={{ uri: photo }} 
+              style={styles.photo}
+              defaultSource={require('@/src/assets/images/icon.png')}
+            />
           ))}
         </ScrollView>
 
-        {business.photos.length > 1 && (
+        {businessPhotos.length > 1 && (
           <View style={styles.photoIndicator}>
             <Text style={styles.photoIndicatorText}>
-              {selectedPhotoIndex + 1} / {business.photos.length}
+              {selectedPhotoIndex + 1} / {businessPhotos.length}
             </Text>
           </View>
         )}
@@ -385,13 +464,19 @@ export default function BusinessDetailsScreen() {
           </View>
         ) : (
           reviews.map((review) => (
-            <ReviewCard
+            <View
               key={review.id}
-              review={review}
-              business={business}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-            />
+              ref={(ref) => {
+                if (ref) reviewRefs.current[review.id] = ref;
+              }}
+            >
+              <ReviewCard
+                review={review}
+                business={business}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+              />
+            </View>
           ))
         )}
       </View>
@@ -446,10 +531,12 @@ const styles = StyleSheet.create({
   photoContainer: {
     height: 250,
     position: "relative",
+    backgroundColor: "#E5E7EB",
   },
   photo: {
-    width: "100%",
+    width: SCREEN_WIDTH,
     height: 250,
+    resizeMode: "cover",
   },
   photoIndicator: {
     position: "absolute",

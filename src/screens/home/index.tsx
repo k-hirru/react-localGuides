@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TextInput,
   FlatList,
   SafeAreaView,
   RefreshControl,
@@ -13,97 +12,94 @@ import {
   Platform,
   TouchableOpacity,
 } from "react-native";
-import { Search, TrendingUp, Award } from "lucide-react-native";
+import { Search, TrendingUp, Award, MapPin, Coffee } from "lucide-react-native";
 import { useAppStore } from "@/src/hooks/useAppStore";
 import { useAuth } from "@/src/hooks/useAuth";
 import BusinessCard from "@/src/components/BusinessCard";
 import CategoryFilter from "@/src/components/CategoryFilter";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { Business } from "../../types";
 
 export default function HomeScreen() {
-  const { businesses, searchBusinesses, refreshBusinesses, loading } =
-    useAppStore();
+  const { businesses, searchBusinesses, refreshBusinesses, loading } = useAppStore();
   const [searchQuery, setSearchQuery] = useState("");
-  const [localBusinesses, setLocalBusinesses] = useState<Business[]>([]);
   const { user } = useAuth();
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [refreshing, setRefreshing] = useState(false);
   const navigation = useNavigation();
   const userName = user?.displayName?.split(" ")[0] || "there";
 
-  // ✅ Memoized business lists
-  useEffect(() => {
-    console.log(
-      "🔄 HOME - Syncing businesses to local state:",
-      businesses.length
-    );
-    setLocalBusinesses(businesses);
-  }, [businesses]);
+  // ✅ Track if initial load has been triggered
+  const [hasTriggeredLoad, setHasTriggeredLoad] = useState(false);
 
-  // ✅ Force an initial load if no businesses
+  // ✅ FIXED: Trigger initial load on mount and on focus
+  useFocusEffect(
+    useCallback(() => {
+      // Always attempt to load if we have no businesses
+      if (businesses.length === 0 && !loading && !hasTriggeredLoad) {
+        console.log("🚀 HOME - Triggering initial load");
+        setHasTriggeredLoad(true);
+        refreshBusinesses([], true);
+      }
+    }, [businesses.length, loading, hasTriggeredLoad, refreshBusinesses])
+  );
+
+  // ✅ Also trigger on mount as a fallback
   useEffect(() => {
-    if (businesses.length === 0 && !loading) {
-      console.log("🚀 HOME - No businesses, triggering refresh...");
+    if (businesses.length === 0 && !loading && !hasTriggeredLoad) {
+      console.log("🚀 HOME - Mount: Triggering initial load");
+      setHasTriggeredLoad(true);
       refreshBusinesses([], true);
     }
-  }, [businesses.length, loading]);
+  }, []);
 
-  console.log("🏠 HOME SCREEN - Local businesses:", localBusinesses.length);
-  console.log("🏠 HOME SCREEN - Global businesses:", businesses.length);
-
-  // ✅ FIXED: Proper filtering logic with correct category property
+  // ✅ OPTIMIZED: Efficient filtering with memoization
   const filteredBusinesses = useMemo(() => {
-    if (searchQuery) {
-      // When searching, use the search function with category filter
-      return searchBusinesses(searchQuery, { category: selectedCategory });
-    } else {
-      // When not searching, just filter the local businesses by category
-      if (selectedCategory === "all") {
-        return localBusinesses;
-      }
-      // ✅ CORRECTED: business.category is a string, not an array
-      return localBusinesses.filter(
-        (business) => business.category === selectedCategory
-      );
-    }
-  }, [searchQuery, localBusinesses, selectedCategory, searchBusinesses]);
+    let result = businesses;
 
-  // ✅ FIXED: Use filteredBusinesses for topRated and trending to maintain consistency
+    // Apply category filter first
+    if (selectedCategory !== "all") {
+      result = result.filter(business => business.category === selectedCategory);
+    }
+
+    // Apply search filter if needed
+    if (searchQuery.trim()) {
+      result = searchBusinesses(searchQuery, { category: selectedCategory });
+    }
+
+    return result;
+  }, [businesses, searchQuery, selectedCategory, searchBusinesses]);
+
+  // ✅ OPTIMIZED: Derived data with proper dependencies
   const topRatedBusinesses = useMemo(() => {
-    const source =
-      selectedCategory === "all" ? localBusinesses : filteredBusinesses;
-    return [...source]
-      .filter((b) => b.rating >= 4.0)
+    return filteredBusinesses
+      .filter(b => b.rating >= 4.0)
       .sort((a, b) => b.rating - a.rating)
       .slice(0, 3);
-  }, [localBusinesses, filteredBusinesses, selectedCategory]);
+  }, [filteredBusinesses]);
 
   const trendingBusinesses = useMemo(() => {
-    const source =
-      selectedCategory === "all" ? localBusinesses : filteredBusinesses;
-    return [...source]
+    return filteredBusinesses
       .sort((a, b) => b.reviewCount - a.reviewCount)
       .slice(0, 3);
-  }, [localBusinesses, filteredBusinesses, selectedCategory]);
+  }, [filteredBusinesses]);
 
-  // ✅ FIXED: Refresh without category filtering - just get all businesses
+  // ✅ FIXED: Refresh without flickering
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      // Always refresh with empty categories to get all businesses
       await refreshBusinesses([], true);
-      // Reset category to all after refresh
-      setSelectedCategory("all");
+    } catch (error) {
+      console.error("Refresh failed:", error);
     } finally {
       setRefreshing(false);
     }
   }, [refreshBusinesses]);
 
-  // ✅ FIXED: Category change only filters locally, doesn't trigger refresh
+  // ✅ Category change without side effects
   const handleCategoryChange = useCallback((category: string) => {
     setSelectedCategory(category);
-    // No refresh call here - just let the filtering happen
+    setSearchQuery("");
   }, []);
 
   const handleBusinessPress = useCallback(
@@ -113,6 +109,7 @@ export default function HomeScreen() {
     [navigation]
   );
 
+  // ✅ Memoized render item
   const renderBusinessItem = useCallback(
     ({ item }: ListRenderItemInfo<Business>) => (
       <BusinessCard
@@ -123,7 +120,51 @@ export default function HomeScreen() {
     [handleBusinessPress]
   );
 
-  const isLoading = loading && businesses.length === 0;
+  // ✅ FIXED: Better loading state logic
+  const isInitialLoading = loading && businesses.length === 0 && !refreshing;
+  const hasContent = businesses.length > 0;
+  const showEmptyState = !loading && !refreshing && businesses.length === 0 && hasTriggeredLoad;
+
+  console.log("🏠 HOME - State:", {
+    loading,
+    refreshing,
+    hasTriggeredLoad,
+    businessesCount: businesses.length,
+    filteredCount: filteredBusinesses.length,
+    isInitialLoading,
+    showEmptyState,
+  });
+
+  // ✅ NEW: Beautiful Empty State Component
+  const EmptyStateView = () => (
+    <View style={styles.emptyStateContainer}>
+      <View style={styles.emptyStateIconContainer}>
+        <MapPin size={64} color="#CBD5E1" strokeWidth={1.5} />
+        <Coffee 
+          size={32} 
+          color="#94A3B8" 
+          strokeWidth={2}
+          style={styles.emptyStateSecondaryIcon}
+        />
+      </View>
+      <Text style={styles.emptyStateTitle}>
+        {selectedCategory === "all" 
+          ? "No Places Found Nearby" 
+          : `No ${selectedCategory.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())} Found`}
+      </Text>
+      <Text style={styles.emptyStateMessage}>
+        {selectedCategory === "all"
+          ? "We couldn't find any businesses in your area. Try adjusting your location or pull down to refresh."
+          : "Try selecting a different category or pull down to refresh."}
+      </Text>
+      <TouchableOpacity 
+        style={styles.emptyStateButton}
+        onPress={handleRefresh}
+      >
+        <Text style={styles.emptyStateButtonText}>Refresh Now</Text>
+      </TouchableOpacity>
+    </View>
+  );
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -131,7 +172,12 @@ export default function HomeScreen() {
         style={styles.container}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={handleRefresh}
+            colors={["#007AFF"]}
+            tintColor="#007AFF"
+          />
         }
       >
         <View style={styles.header}>
@@ -144,7 +190,6 @@ export default function HomeScreen() {
         <TouchableOpacity
           style={styles.searchContainer}
           onPress={() => {
-            // Navigate to Explore tab
             (navigation as any).navigate("Explore", {
               autoFocus: true,
             });
@@ -161,26 +206,33 @@ export default function HomeScreen() {
           onCategoryChange={handleCategoryChange}
         />
 
-        {isLoading ? (
+        {/* ✅ FIXED: Better conditional rendering */}
+        {isInitialLoading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#007AFF" />
             <Text style={styles.loadingText}>Finding nearby places...</Text>
           </View>
-        ) : (
+        ) : showEmptyState ? (
+          <EmptyStateView />
+        ) : hasContent ? (
           <>
-            {/* Top Rated - Always show when not searching */}
+            {/* Top Rated Section */}
             {!searchQuery && topRatedBusinesses.length > 0 && (
               <View style={styles.section}>
                 <View style={styles.sectionHeader}>
                   <Award size={20} color="#FFD700" />
                   <Text style={styles.sectionTitle}>Top Rated</Text>
                 </View>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  {topRatedBusinesses.map((b) => (
-                    <View key={b.id} style={styles.horizontalCard}>
+                <ScrollView 
+                  horizontal 
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.horizontalScrollContent}
+                >
+                  {topRatedBusinesses.map((business) => (
+                    <View key={business.id} style={styles.horizontalCard}>
                       <BusinessCard
-                        business={b}
-                        onPress={() => handleBusinessPress(b.id)}
+                        business={business}
+                        onPress={() => handleBusinessPress(business.id)}
                       />
                     </View>
                   ))}
@@ -188,29 +240,31 @@ export default function HomeScreen() {
               </View>
             )}
 
-            {/* Popular Nearby - Only show when "all" category is selected */}
-            {!searchQuery &&
-              selectedCategory === "all" &&
-              trendingBusinesses.length > 0 && (
-                <View style={styles.section}>
-                  <View style={styles.sectionHeader}>
-                    <TrendingUp size={20} color="#FF6B6B" />
-                    <Text style={styles.sectionTitle}>Popular Nearby</Text>
-                  </View>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                    {trendingBusinesses.map((b) => (
-                      <View key={b.id} style={styles.horizontalCard}>
-                        <BusinessCard
-                          business={b}
-                          onPress={() => handleBusinessPress(b.id)}
-                        />
-                      </View>
-                    ))}
-                  </ScrollView>
+            {/* Popular Nearby Section */}
+            {!searchQuery && selectedCategory === "all" && trendingBusinesses.length > 0 && (
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <TrendingUp size={20} color="#FF6B6B" />
+                  <Text style={styles.sectionTitle}>Popular Nearby</Text>
                 </View>
-              )}
+                <ScrollView 
+                  horizontal 
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.horizontalScrollContent}
+                >
+                  {trendingBusinesses.map((business) => (
+                    <View key={business.id} style={styles.horizontalCard}>
+                      <BusinessCard
+                        business={business}
+                        onPress={() => handleBusinessPress(business.id)}
+                      />
+                    </View>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
 
-            {/* Full List */}
+            {/* Main Business List */}
             <View style={styles.section}>
               <Text style={styles.nearbyTitle}>
                 {selectedCategory === "all"
@@ -218,28 +272,36 @@ export default function HomeScreen() {
                   : `${selectedCategory.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())} (${filteredBusinesses.length})`}
               </Text>
 
-              <FlatList
-                data={filteredBusinesses}
-                keyExtractor={(item) => item.id}
-                renderItem={renderBusinessItem}
-                scrollEnabled={false}
-                initialNumToRender={8}
-                windowSize={5}
-                maxToRenderPerBatch={8}
-                removeClippedSubviews={Platform.OS === "android"}
-                ListEmptyComponent={
-                  <View style={styles.emptyState}>
-                    <Text style={styles.emptyStateText}>
-                      {selectedCategory === "all"
-                        ? "No places found nearby. Pull to refresh."
-                        : `No ${selectedCategory} places found.`}
+              {filteredBusinesses.length === 0 ? (
+                <View style={styles.noResultsContainer}>
+                  <Text style={styles.noResultsText}>
+                    No places match your current filters.
+                  </Text>
+                  <TouchableOpacity 
+                    style={styles.clearFiltersButton}
+                    onPress={() => setSelectedCategory("all")}
+                  >
+                    <Text style={styles.clearFiltersButtonText}>
+                      Clear Filters
                     </Text>
-                  </View>
-                }
-              />
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <FlatList
+                  data={filteredBusinesses}
+                  keyExtractor={(item) => item.id}
+                  renderItem={renderBusinessItem}
+                  scrollEnabled={false}
+                  initialNumToRender={6}
+                  maxToRenderPerBatch={8}
+                  windowSize={5}
+                  removeClippedSubviews={Platform.OS === "android"}
+                  updateCellsBatchingPeriod={50}
+                />
+              )}
             </View>
           </>
-        )}
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );
@@ -267,7 +329,6 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   searchIcon: { marginRight: 12 },
-  searchInput: { flex: 1, fontSize: 16, color: "#333" },
   searchPlaceholder: {
     flex: 1,
     fontSize: 16,
@@ -291,18 +352,102 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#333",
     marginLeft: 18,
+    marginBottom: 8,
   },
-  horizontalCard: { width: 280, marginRight: 8 },
-  loadingContainer: { padding: 40, alignItems: "center" },
-  loadingText: { marginTop: 12, fontSize: 16, color: "#666" },
-  emptyState: {
+  horizontalScrollContent: {
+    paddingHorizontal: 8,
+  },
+  horizontalCard: { 
+    width: 280, 
+    marginHorizontal: 8,
+  },
+  loadingContainer: { 
+    padding: 60,
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 300,
+  },
+  loadingText: { 
+    marginTop: 16, 
+    fontSize: 16, 
+    color: "#666",
+    fontWeight: "500",
+  },
+  // ✅ NEW: Beautiful Empty State Styles
+  emptyStateContainer: {
+    padding: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 400,
+  },
+  emptyStateIconContainer: {
+    position: "relative",
+    width: 120,
+    height: 120,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 24,
+  },
+  emptyStateSecondaryIcon: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    backgroundColor: "#F1F5F9",
+    borderRadius: 20,
+    padding: 8,
+  },
+  emptyStateTitle: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#1E293B",
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  emptyStateMessage: {
+    fontSize: 16,
+    color: "#64748B",
+    textAlign: "center",
+    lineHeight: 24,
+    marginBottom: 32,
+    paddingHorizontal: 20,
+  },
+  emptyStateButton: {
+    backgroundColor: "#007AFF",
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    borderRadius: 12,
+    shadowColor: "#007AFF",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  emptyStateButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  // ✅ NEW: No results in filtered view
+  noResultsContainer: {
     padding: 40,
     alignItems: "center",
     justifyContent: "center",
   },
-  emptyStateText: {
+  noResultsText: {
     fontSize: 16,
-    color: "#666",
+    color: "#64748B",
     textAlign: "center",
+    marginBottom: 16,
+  },
+  clearFiltersButton: {
+    backgroundColor: "#F1F5F9",
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  clearFiltersButtonText: {
+    color: "#007AFF",
+    fontSize: 14,
+    fontWeight: "600",
   },
 });

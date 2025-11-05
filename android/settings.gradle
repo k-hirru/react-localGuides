@@ -1,4 +1,10 @@
 pluginManagement {
+  repositories {
+    gradlePluginPortal()
+    mavenCentral()
+    google()
+  }
+  
   def reactNativeGradlePlugin = new File(
     providers.exec {
       workingDir(rootDir)
@@ -18,9 +24,20 @@ pluginManagement {
 }
 
 plugins {
-  id("com.facebook.react.settings")
+  id("com.facebook.react.settings") version "0.74.2"
   id("expo-autolinking-settings")
 }
+
+dependencyResolutionManagement {
+  repositories {
+    google()
+    mavenCentral()
+  }
+}
+
+rootProject.name = 'Local Guide & Review App'
+
+include ':app'
 
 extensions.configure(com.facebook.react.ReactSettingsExtension) { ex ->
   if (System.getenv('EXPO_USE_COMMUNITY_AUTOLINKING') == '1') {
@@ -29,11 +46,8 @@ extensions.configure(com.facebook.react.ReactSettingsExtension) { ex ->
     ex.autolinkLibrariesFromCommand(expoAutolinking.rnConfigCommand)
   }
 }
+
 expoAutolinking.useExpoModules()
-
-rootProject.name = 'Local Guide & Review App'
-
 expoAutolinking.useExpoVersionCatalog()
 
-include ':app'
-includeBuild(expoAutolinking.reactNativeGradlePlugin)
+includeBuild(new File(["node", "--print", "require.resolve('@react-native/gradle-plugin/package.json')"].execute(null, rootDir).text.trim()).getParentFile())
