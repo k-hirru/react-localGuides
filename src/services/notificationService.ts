@@ -3,10 +3,16 @@ import notifee, {
   AndroidImportance,
   EventType,
 } from '@notifee/react-native';
-import messaging, { 
+import messaging, {
   FirebaseMessagingTypes,
-  getIsHeadless 
+  getIsHeadless,
 } from '@react-native-firebase/messaging';
+import {
+  SecureStorageKey,
+  getSecureItem,
+  setSecureItem,
+  removeSecureItem,
+} from '@/src/services/secureStorage';
 
 export interface NotificationData {
   reviewId: string;
@@ -21,47 +27,83 @@ class NotificationService {
   private lastTokenRequestTime = 0;
   private readonly TOKEN_REQUEST_COOLDOWN = 30000; // 30 seconds
 
+  /**
+   * Load FCM token from encrypted storage if not already cached.
+   */
+  private async loadTokenFromStorage(): Promise<string | null> {
+    if (this.cachedToken) return this.cachedToken;
+    try {
+      const stored = await getSecureItem<string>(SecureStorageKey.FCM_TOKEN);
+      this.cachedToken = stored;
+      return stored;
+    } catch (error) {
+      console.error('❌ Error loading FCM token from storage:', error);
+      return null;
+    }
+  }
+
   // Request permission and get FCM token with debouncing
   async requestPermissionAndGetToken(): Promise<string | null> {
     // Prevent duplicate simultaneous requests
     if (this.tokenRequestInProgress) {
-      console.log('⏳ FCM token request already in progress, returning cached token');
-      return this.cachedToken;
+      if (__DEV__) {
+        console.log(
+          '⏳ FCM token request already in progress, returning cached token if available'
+        );
+      }
+      if (this.cachedToken) return this.cachedToken;
+      return this.loadTokenFromStorage();
     }
 
     // Rate limiting - don't request token more than once every 30 seconds
     const now = Date.now();
-    if (now - this.lastTokenRequestTime < this.TOKEN_REQUEST_COOLDOWN && this.cachedToken) {
-      console.log('⏳ Using cached FCM token (rate limited)');
-      return this.cachedToken;
+    if (now - this.lastTokenRequestTime < this.TOKEN_REQUEST_COOLDOWN) {
+      const token = this.cachedToken ?? (await this.loadTokenFromStorage());
+      if (token) {
+        if (__DEV__) {
+          console.log('⏳ Using cached FCM token (rate limited)');
+        }
+        return token;
+      }
     }
 
     this.tokenRequestInProgress = true;
     this.lastTokenRequestTime = now;
 
     try {
-      console.log('🔐 Requesting FCM permission...');
-      
+      if (__DEV__) {
+        console.log('🔐 Requesting FCM permission...');
+      }
+
       const authStatus = await messaging().requestPermission();
       const enabled =
         authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
         authStatus === messaging.AuthorizationStatus.PROVISIONAL;
 
-      console.log('FCM Authorization status:', authStatus);
+      if (__DEV__) {
+        console.log('FCM Authorization status:', authStatus);
+      }
 
       if (enabled) {
         const token = await messaging().getToken();
-        console.log('✅ FCM Token received:', token);
+        if (__DEV__) {
+          console.log('✅ FCM token received (redacted)');
+        }
         this.cachedToken = token;
+        await setSecureItem(SecureStorageKey.FCM_TOKEN, token);
         return token;
       } else {
-        console.log('❌ FCM Permission denied');
+        if (__DEV__) {
+          console.log('❌ FCM permission denied');
+        }
         this.cachedToken = null;
+        await removeSecureItem(SecureStorageKey.FCM_TOKEN);
         return null;
       }
     } catch (error) {
       console.error('❌ Error getting FCM token:', error);
       this.cachedToken = null;
+      await removeSecureItem(SecureStorageKey.FCM_TOKEN).catch(() => {});
       return null;
     } finally {
       this.tokenRequestInProgress = false;
@@ -72,7 +114,10 @@ class NotificationService {
   clearCachedToken(): void {
     this.cachedToken = null;
     this.lastTokenRequestTime = 0;
-    console.log('🗑️ Cleared cached FCM token');
+    removeSecureItem(SecureStorageKey.FCM_TOKEN).catch(() => {});
+    if (__DEV__) {
+      console.log('🗑️ Cleared cached FCM token');
+    }
   }
 
   // Get current token without requesting new one
@@ -131,7 +176,7 @@ class NotificationService {
           },
         },
       });
-      
+
       console.log('📲 Notification displayed:', title);
     } catch (error) {
       console.error('❌ Error displaying notification:', error);
@@ -142,19 +187,29 @@ class NotificationService {
   setupForegroundHandler(
     onNotificationPress: (data: NotificationData) => void
   ) {
-    return messaging().onMessage(async (remoteMessage: FirebaseMessagingTypes.RemoteMessage) => {
-      console.log('📨 FCM Message received in foreground:', remoteMessage);
+    return messaging().onMessage(
+      async (remoteMessage: FirebaseMessagingTypes.RemoteMessage) => {
+        if (__DEV__) {
+          console.log(
+            '📨 FCM message received in foreground (metadata only):',
+            {
+              messageId: remoteMessage.messageId,
+              dataKeys: Object.keys(remoteMessage.data || {}),
+            }
+          );
+        }
 
-      const { notification, data } = remoteMessage;
+        const { notification, data } = remoteMessage;
 
-      if (notification && data) {
-        await this.displayNotification(
-          notification.title || 'New Notification',
-          notification.body || '',
-          data as unknown as NotificationData
-        );
+        if (notification && data) {
+          await this.displayNotification(
+            notification.title || 'New Notification',
+            notification.body || '',
+            data as unknown as NotificationData
+          );
+        }
       }
-    });
+    );
   }
 
   // Handle notification taps

@@ -1,7 +1,7 @@
 import Expo
 import React
 import ReactAppDependencyProvider
-import FirebaseCore 
+import FirebaseCore
 import FirebaseMessaging
 import UserNotifications
 
@@ -16,27 +16,27 @@ public class AppDelegate: ExpoAppDelegate {
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
-    
+
     // Initialize Firebase
     // This reads the GoogleService-Info.plist and initializes the default app.
     if FirebaseApp.app() == nil {
-        FirebaseApp.configure()
+      FirebaseApp.configure()
     }
-    
+
     // Set up Firebase Messaging
     Messaging.messaging().delegate = self
-    
+
     // Set up notifications
     UNUserNotificationCenter.current().delegate = self
-    
+
     let authOptions: UNAuthorizationOptions = [.alert, .badge, .sound]
     UNUserNotificationCenter.current().requestAuthorization(
       options: authOptions,
       completionHandler: { _, _ in }
     )
-    
+
     application.registerForRemoteNotifications()
-    
+
     let delegate = ReactNativeDelegate()
     let factory = ExpoReactNativeFactory(delegate: delegate)
     delegate.dependencyProvider = RCTAppDependencyProvider()
@@ -58,8 +58,13 @@ public class AppDelegate: ExpoAppDelegate {
 
   // ✅ ADDED: Handle FCM token updates
   public func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
-    print("🔥 Firebase registration token: \(String(describing: fcmToken))")
-    
+    if let token = fcmToken {
+      let suffix = token.suffix(6)
+      print("🔥 Firebase registration token (redacted): ...\(suffix)")
+    } else {
+      print("🔥 Firebase registration token: nil")
+    }
+
     // You can send this token to your server or store it locally
     let dataDict: [String: String] = ["token": fcmToken ?? ""]
     NotificationCenter.default.post(
@@ -90,7 +95,7 @@ public class AppDelegate: ExpoAppDelegate {
   public func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
     let userInfo = response.notification.request.content.userInfo
     print("📬 Notification tapped with data: \(userInfo)")
-    
+
     // You can handle navigation based on notification data here
     completionHandler()
   }

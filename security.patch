@@ -1,0 +1,314 @@
+diff --git a/.gitignore b/.gitignore
+--- a/.gitignore
++++ b/.gitignore
+@@ -29,8 +29,9 @@
+ .DS_Store
+ *.pem
+ 
+-# local env files
+-.env*.local
++# local env files
++.env
++.env*.local
+ 
+ # typescript
+ *.tsbuildinfo
+diff --git a/.env.example b/.env.example
+new file mode 100644
+--- /dev/null
++++ b/.env.example
+@@ -0,0 +1,11 @@
++# Example environment variables for the React Native app.
++# Copy this file to `.env` and fill in real values for local development.
++
++# Third-party public API keys (safe to be in client, but still rotate/restrict).
++GEOAPIFY_API_KEY=geoapify-example-key
++
++# Optional: base URL for any custom backend you add later.
++API_BASE_URL=https://api.example.com
++
++# Enable extra debug logging in development (never true in production).
++ENABLE_DEBUG_LOGGING=false
+diff --git a/src/config/env.ts b/src/config/env.ts
+new file mode 100644
+--- /dev/null
++++ b/src/config/env.ts
+@@ -0,0 +1,27 @@
++import {
++  GEOAPIFY_API_KEY as GEOAPIFY_API_KEY_ENV,
++  API_BASE_URL as API_BASE_URL_ENV,
++  ENABLE_DEBUG_LOGGING as ENABLE_DEBUG_LOGGING_ENV,
++} from '@env';
++
++const bool = (v: string | undefined, fallback = false) => {
++  if (v === 'true') return true;
++  if (v === 'false') return false;
++  return fallback;
++};
++
++export const Env = {
++  /**
++   * Geoapify API key used by src/services/geoapifyService.ts.
++   * This is still a client-side key, but lives in .env instead of source.
++   */
++  GEOAPIFY_API_KEY: GEOAPIFY_API_KEY_ENV,
++
++  /**
++   * Optional: base URL for any custom backend.
++   */
++  API_BASE_URL: API_BASE_URL_ENV,
++
++  /**
++   * Guard for additional debug logging.
++   */
++  ENABLE_DEBUG_LOGGING: bool(ENABLE_DEBUG_LOGGING_ENV, false),
++};
+diff --git a/src/services/secureStorage.ts b/src/services/secureStorage.ts
+new file mode 100644
+--- /dev/null
++++ b/src/services/secureStorage.ts
+@@ -0,0 +1,40 @@
++import EncryptedStorage from 'react-native-encrypted-storage';
++
++export enum SecureStorageKey {
++  FCM_TOKEN = 'fcm_token',
++  SESSION = 'session',
++  CUSTOM_API_TOKEN = 'custom_api_token',
++}
++
++export async function setSecureItem<T = string>(
++  key: SecureStorageKey,
++  value: T
++): Promise<void> {
++  const serialized =
++    typeof value === 'string' ? value : JSON.stringify(value);
++  await EncryptedStorage.setItem(key, serialized);
++}
++
++export async function getSecureItem<T = string>(
++  key: SecureStorageKey
++): Promise<T | null> {
++  const raw = await EncryptedStorage.getItem(key);
++  if (raw == null) return null;
++
++  try {
++    return JSON.parse(raw) as T;
++  } catch {
++    // Not JSON, return as string
++    return raw as unknown as T;
++  }
++}
++
++export async function removeSecureItem(
++  key: SecureStorageKey
++): Promise<void> {
++  await EncryptedStorage.removeItem(key);
++}
++
++export async function clearAllSecure(): Promise<void> {
++  await EncryptedStorage.clear();
++}
+diff --git a/src/services/geoapifyService.ts b/src/services/geoapifyService.ts
+--- a/src/services/geoapifyService.ts
++++ b/src/services/geoapifyService.ts
+@@ -1,8 +1,9 @@
+ // /src/services/geoapifyService.ts
+ import { GeoapifyPlace } from "@/src/types";
++import { Env } from "@/src/config/env";
+ 
+-const GEOAPIFY_API_KEY = "62f8635ddced4b519caa9d2f13edfc43";
++const GEOAPIFY_API_KEY = Env.GEOAPIFY_API_KEY;
+ const BASE_URL = "https://api.geoapify.com/v2";
+ const URL_SEARCH = " ";
+ 
+diff --git a/src/services/notificationService.ts b/src/services/notificationService.ts
+--- a/src/services/notificationService.ts
++++ b/src/services/notificationService.ts
+@@ -7,6 +7,11 @@
+   FirebaseMessagingTypes,
+   getIsHeadless 
+ } from '@react-native-firebase/messaging';
++import {
++  SecureStorageKey,
++  getSecureItem,
++  setSecureItem,
++  removeSecureItem,
++} from '@/src/services/secureStorage';
+ 
+ export interface NotificationData {
+   reviewId: string;
+@@ -20,6 +25,16 @@
+   private cachedToken: string | null = null;
+   private lastTokenRequestTime = 0;
+   private readonly TOKEN_REQUEST_COOLDOWN = 30000; // 30 seconds
++
++  // Load FCM token from encrypted storage on demand.
++  private async loadTokenFromStorage(): Promise<string | null> {
++    if (this.cachedToken) return this.cachedToken;
++    try {
++      const stored = await getSecureItem<string>(SecureStorageKey.FCM_TOKEN);
++      this.cachedToken = stored;
++      return stored;
++    } catch (error) {
++      console.error('❌ Error loading FCM token from storage:', error);
++      return null;
++    }
++  }
+ 
+   // Request permission and get FCM token with debouncing
+   async requestPermissionAndGetToken(): Promise<string | null> {
+@@ -27,20 +42,32 @@
+     if (this.tokenRequestInProgress) {
+-      console.log('⏳ FCM token request already in progress, returning cached token');
+-      return this.cachedToken;
++      if (__DEV__) {
++        console.log(
++          '⏳ FCM token request already in progress, returning cached token if available'
++        );
++      }
++      if (this.cachedToken) return this.cachedToken;
++      return this.loadTokenFromStorage();
+     }
+ 
+     // Rate limiting - don't request token more than once every 30 seconds
+     const now = Date.now();
+-    if (now - this.lastTokenRequestTime < this.TOKEN_REQUEST_COOLDOWN && this.cachedToken) {
+-      console.log('⏳ Using cached FCM token (rate limited)');
+-      return this.cachedToken;
++    if (now - this.lastTokenRequestTime < this.TOKEN_REQUEST_COOLDOWN) {
++      const token =
++        this.cachedToken ?? (await this.loadTokenFromStorage());
++      if (token) {
++        if (__DEV__) {
++          console.log('⏳ Using cached FCM token (rate limited)');
++        }
++        return token;
++      }
+     }
+ 
+     this.tokenRequestInProgress = true;
+     this.lastTokenRequestTime = now;
+ 
+     try {
+-      console.log('🔐 Requesting FCM permission...');
++      if (__DEV__) {
++        console.log('🔐 Requesting FCM permission...');
++      }
+       
+       const authStatus = await messaging().requestPermission();
+       const enabled =
+@@ -48,19 +75,26 @@
+         authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+ 
+-      console.log('FCM Authorization status:', authStatus);
++      if (__DEV__) {
++        console.log('FCM Authorization status:', authStatus);
++      }
+ 
+       if (enabled) {
+         const token = await messaging().getToken();
+-        console.log('✅ FCM Token received:', token);
++        if (__DEV__) {
++          console.log('✅ FCM token received (redacted)');
++        }
+         this.cachedToken = token;
++        await setSecureItem(SecureStorageKey.FCM_TOKEN, token);
+         return token;
+       } else {
+-        console.log('❌ FCM Permission denied');
++        if (__DEV__) {
++          console.log('❌ FCM permission denied');
++        }
+         this.cachedToken = null;
++        await removeSecureItem(SecureStorageKey.FCM_TOKEN);
+         return null;
+       }
+     } catch (error) {
+       console.error('❌ Error getting FCM token:', error);
+       this.cachedToken = null;
++      await removeSecureItem(SecureStorageKey.FCM_TOKEN).catch(() => {});
+       return null;
+     } finally {
+       this.tokenRequestInProgress = false;
+@@ -71,9 +105,13 @@
+   // Clear cached token (useful on logout)
+   clearCachedToken(): void {
+     this.cachedToken = null;
+     this.lastTokenRequestTime = 0;
+-    console.log('🗑️ Cleared cached FCM token');
++    removeSecureItem(SecureStorageKey.FCM_TOKEN).catch(() => {});
++    if (__DEV__) {
++      console.log('🗑️ Cleared cached FCM token');
++    }
+   }
+@@ -143,7 +181,13 @@
+   setupForegroundHandler(
+     onNotificationPress: (data: NotificationData) => void
+   ) {
+-    return messaging().onMessage(async (remoteMessage: FirebaseMessagingTypes.RemoteMessage) => {
+-      console.log('📨 FCM Message received in foreground:', remoteMessage);
++    return messaging().onMessage(
++      async (remoteMessage: FirebaseMessagingTypes.RemoteMessage) => {
++        if (__DEV__) {
++          console.log('📨 FCM message received in foreground (metadata only):', {
++            messageId: remoteMessage.messageId,
++            dataKeys: Object.keys(remoteMessage.data || {}),
++          });
++        }
+ 
+-      const { notification, data } = remoteMessage;
++        const { notification, data } = remoteMessage;
+diff --git a/src/services/imageService.ts b/src/services/imageService.ts
+--- a/src/services/imageService.ts
++++ b/src/services/imageService.ts
+@@ -34,7 +34,7 @@
+         ? `profile-images/${user.uid}/${filename}`
+         : `review-images/${user.uid}/${filename}`;
+       
+-      console.log('📤 Uploading image to:', storagePath);
++      console.log('📤 Uploading image to:', storagePath);
+       
+       // Create reference to storage location
+       const storageRef = ref(getStorage(), storagePath);
+@@ -44,10 +44,13 @@
+       });
+       
+       console.log('✅ Image uploaded successfully');
+-      
++
+       // Get download URL
+       const downloadURL = await getDownloadURL(storageRef);
+-      console.log('🔗 Download URL:', downloadURL);
++      if (__DEV__) {
++        // Avoid logging full signed URLs in non-dev builds
++        console.log('🔗 Image uploaded (download URL hidden)');
++      }
+       
+       return downloadURL;
+@@ -83,7 +86,7 @@
+       // Extract the storage path from the URL
+       const storageRef = ref(getStorage(), imageUrl);
+       
+-      console.log('🗑️ Deleting image:', storageRef.fullPath);
++      console.log('🗑️ Deleting image:', storageRef.fullPath);
+       
+       await deleteObject(storageRef);
+diff --git a/ios/LocalGuideReviewApp/AppDelegate.swift b/ios/LocalGuideReviewApp/AppDelegate.swift
+--- a/ios/LocalGuideReviewApp/AppDelegate.swift
++++ b/ios/LocalGuideReviewApp/AppDelegate.swift
+@@ -58,8 +58,14 @@
+ 
+   // ✅ ADDED: Handle FCM token updates
+   public func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
+-    print("🔥 Firebase registration token: \(String(describing: fcmToken))")
+-    
++    if let token = fcmToken {
++      let suffix = token.suffix(6)
++      print("🔥 Firebase registration token (redacted): ...\(suffix)")
++    } else {
++      print("🔥 Firebase registration token: nil")
++    }
++
+     // You can send this token to your server or store it locally
+     let dataDict: [String: String] = ["token": fcmToken ?? ""]
+     NotificationCenter.default.post(
