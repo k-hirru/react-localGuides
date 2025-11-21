@@ -3,6 +3,7 @@ import { geoapifyService } from "./geoapifyService";
 import { reviewService } from "./reviewService";
 import { mapGeoapifyToBusiness } from "@/src/utils/businessMapper";
 import { queryOptions } from "@tanstack/react-query";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const mapAppCategoriesToGeoapify = (categories: string[]): string[] => {
   if (categories.length === 0) {
@@ -24,6 +25,24 @@ const mapAppCategoriesToGeoapify = (categories: string[]): string[] => {
     })
     .filter(Boolean) as string[];
 };
+
+const NEARBY_CACHE_PREFIX = "nearbyBusinesses_v1";
+const NEARBY_CACHE_MAX_AGE_MS = 6 * 60 * 60 * 1000; // 6 hours
+
+const buildNearbyCacheKey = (
+  lat: number,
+  lng: number,
+  radius: number,
+  categories: string[]
+) => {
+  const cats = [...categories].sort().join(",");
+  return `${NEARBY_CACHE_PREFIX}:${lat.toFixed(4)}:${lng.toFixed(4)}:${radius}:${cats}`;
+};
+
+interface NearbyCachePayload {
+  businesses: Business[];
+  updatedAt: number;
+}
 
 export const businessQueryKeys = {
   all: ["businesses"] as const,
@@ -47,13 +66,42 @@ export const businessService = {
       const geoapifyCategories = mapAppCategoriesToGeoapify(categories);
       console.log("🎯 Categories:", geoapifyCategories);
 
+      const cacheKey = buildNearbyCacheKey(lat, lng, radius, geoapifyCategories);
+
+      // Try to use persisted cache if not forcing refresh
+      if (!forceRefresh) {
+        try {
+          const cached = await AsyncStorage.getItem(cacheKey);
+          if (cached) {
+            const parsed = JSON.parse(cached) as NearbyCachePayload;
+            const age = Date.now() - parsed.updatedAt;
+
+            if (age < NEARBY_CACHE_MAX_AGE_MS) {
+              console.log("📦 Using fresh enough persisted nearby businesses cache");
+              return parsed.businesses;
+            }
+
+            console.log("⏰ Nearby businesses cache is stale, fetching fresh data");
+            // Optional: clean up stale cache entry
+            try {
+              await AsyncStorage.removeItem(cacheKey);
+            } catch (cleanupErr) {
+              console.warn("⚠️ Failed to remove stale nearby cache:", cleanupErr);
+            }
+          }
+        } catch (err) {
+          console.warn("⚠️ Failed to read nearby businesses cache:", err);
+        }
+      }
+
       const places = await geoapifyService.searchNearbyPlaces(
         lat,
         lng,
         radius,
         geoapifyCategories,
-        20,
-        forceRefresh
+        60,
+        forceRefresh,
+        0
       );
 
       console.log("📊 Geoapify returned places:", places.length);
@@ -74,10 +122,93 @@ export const businessService = {
       );
       console.log("🏪 Final businesses:", businesses.length);
       console.log("📝 Sample business:", businesses[0]?.name);
+
+      // Persist to AsyncStorage for cross-session caching
+      try {
+        const payload: NearbyCachePayload = {
+          businesses,
+          updatedAt: Date.now(),
+        };
+        await AsyncStorage.setItem(cacheKey, JSON.stringify(payload));
+        console.log("💾 Nearby businesses cache saved");
+      } catch (err) {
+        console.warn("⚠️ Failed to persist nearby businesses cache:", err);
+      }
       
       return businesses;
     } catch {
       console.error("❌ BUSINESS SERVICE - Error:", Error);
+      return [];
+    }
+  },
+
+  async getNearbyBusinessesPage(
+    lat: number,
+    lng: number,
+    options?: {
+      radius?: number;
+      categories?: string[];
+      page?: number;
+      pageSize?: number;
+      forceRefresh?: boolean;
+    }
+  ): Promise<Business[]> {
+    const {
+      radius = 5000,
+      categories = [],
+      page = 1,
+      pageSize = 20,
+      forceRefresh = false,
+    } = options || {};
+
+    try {
+      console.log("🔍 BUSINESS SERVICE - getNearbyBusinessesPage", {
+        lat,
+        lng,
+        radius,
+        categories,
+        page,
+        pageSize,
+      });
+
+      const geoapifyCategories = mapAppCategoriesToGeoapify(categories);
+      const offset = (page - 1) * pageSize;
+
+      const places = await geoapifyService.searchNearbyPlaces(
+        lat,
+        lng,
+        radius,
+        geoapifyCategories,
+        pageSize,
+        forceRefresh,
+        offset
+      );
+
+      if (!places.length) {
+        console.log("❌ No places found for page", page);
+        return [];
+      }
+
+      const placeIds = places.map((p) => p.place_id);
+      const reviewsMap = await reviewService.getBusinessesWithReviews(placeIds);
+
+      const businesses = places.map((place) =>
+        mapGeoapifyToBusiness(
+          place,
+          reviewsMap.get(place.place_id) || { rating: 0, reviewCount: 0 }
+        )
+      );
+
+      console.log(
+        "🏪 Page businesses:",
+        page,
+        "count:",
+        businesses.length
+      );
+
+      return businesses;
+    } catch (error) {
+      console.error("❌ BUSINESS SERVICE - getNearbyBusinessesPage error:", error);
       return [];
     }
   },
@@ -123,7 +254,7 @@ export const businessService = {
         lng,
         radius,
         geoapifyCategories,
-        20,
+        40,
         forceRefresh
       );
 

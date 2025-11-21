@@ -21,9 +21,10 @@ class GeoapifyService {
       "catering.cafe",
     ],
     limit: number = 20,
-    forceRefresh: boolean = false
+    forceRefresh: boolean = false,
+    offset: number = 0
   ): Promise<GeoapifyPlace[]> {
-    const cacheKey = `${lat.toFixed(4)}_${lon.toFixed(4)}_${radius}_${categories.join(",")}`;
+    const cacheKey = `${lat.toFixed(4)}_${lon.toFixed(4)}_${radius}_${categories.join(",")}_${limit}_${offset}`;
 
     // ✅ Avoid duplicate API requests
     if (this.pendingRequests.has(cacheKey)) {
@@ -46,6 +47,7 @@ class GeoapifyService {
       radius,
       categories,
       limit,
+      offset,
       cacheKey
     );
     this.pendingRequests.set(cacheKey, requestPromise);
@@ -64,10 +66,11 @@ class GeoapifyService {
     radius: number,
     categories: string[],
     limit: number,
+    offset: number,
     cacheKey: string
   ): Promise<GeoapifyPlace[]> {
     const categoryString = categories.join(",");
-    const url = `${BASE_URL}/places?categories=${categoryString}&filter=circle:${lon},${lat},${radius}&limit=${limit}&apiKey=${GEOAPIFY_API_KEY}`;
+    const url = `${BASE_URL}/places?categories=${categoryString}&filter=circle:${lon},${lat},${radius}&limit=${limit}&offset=${offset}&apiKey=${GEOAPIFY_API_KEY}`;
 
     try {
       console.log("📍 Fetching places from Geoapify (NEW REQUEST)");

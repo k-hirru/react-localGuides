@@ -12,7 +12,7 @@ import Colors from '@/src/constants/colors';
 
 export default function SignUpScreen() {
   const navigation = useNavigation();
-  const { signup, loading } = useAuth();
+  const { signup, loading, logout } = useAuth();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -34,7 +34,17 @@ export default function SignUpScreen() {
 
     try {
       await signup(email, password, fullName);
-      Alert.alert('Welcome!', 'Your account has been created successfully!');
+      await logout();
+      Alert.alert(
+        'Welcome!',
+        'Your account has been created successfully! Please log in to continue.',
+        [
+          {
+            text: 'OK',
+            onPress: () => navigation.goBack(),
+          },
+        ],
+      );
     } catch (error: any) {
       Alert.alert('Sign Up Error', error.message);
     }

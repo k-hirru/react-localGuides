@@ -27,9 +27,13 @@ import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import FindingPlacesLoader from "@/src/components/findingPlacesLoader";
 import { Business } from "../../types";
 import { useInternetConnectivity } from "@/src/hooks/useInternetConnectivity";
-import { useNearbyBusinessesQuery } from "@/src/hooks/queries/useNearbyBusinessesQuery";
+import { useInfiniteNearbyBusinessesQuery } from "@/src/hooks/queries/useNearbyBusinessesQuery";
+import { useLocation } from "@/src/hooks/useLocation";
+import { useQueryClient } from "@tanstack/react-query";
+import { businessQueryKeys } from "@/src/services/businessService";
 
 // ✅ Use React.memo to prevent unnecessary re-renders
+
 const HomeScreen = memo(function HomeScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const { user } = useAuthContext();
@@ -38,13 +42,21 @@ const HomeScreen = memo(function HomeScreen() {
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
 
   const { isConnected, showOfflineAlert } = useInternetConnectivity();
+  const { userLocation } = useLocation();
+  const queryClient = useQueryClient();
 
   const {
-    data: businesses = [],
+    data,
     isLoading,
     isFetching,
     refetch,
-  } = useNearbyBusinessesQuery();
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    dataUpdatedAt,
+  } = useInfiniteNearbyBusinessesQuery();
+
+  const businesses = useMemo(() => (data?.pages ?? []).flat() as Business[], [data?.pages]);
 
   const navigation = useNavigation();
 
@@ -54,21 +66,29 @@ const HomeScreen = memo(function HomeScreen() {
     [user?.displayName]
   );
 
-// Track when we've completed at least one load to differentiate
-// between initial loading and true empty states.
-useEffect(() => {
-  if (!hasLoadedOnce && !isLoading && !isFetching) {
-    setHasLoadedOnce(true);
-  }
-}, [hasLoadedOnce, isLoading, isFetching]);
+  // Track when we've completed at least one load with a known location
+  // to differentiate between initial loading and true empty states.
+  useEffect(() => {
+    if (!hasLoadedOnce && userLocation && !isLoading && !isFetching) {
+      setHasLoadedOnce(true);
+    }
+  }, [hasLoadedOnce, userLocation, isLoading, isFetching]);
 
-// 👇 Refined logic
-const isInitialLoading =
-  (!hasLoadedOnce && ((isLoading || isFetching) || businesses.length === 0)) ||
-  ((isLoading || isFetching) && businesses.length === 0);
+  // Initial loading covers:
+  // - waiting for location
+  // - first fetch while no data is present
+  const isInitialLoading =
+    !userLocation ||
+    (!hasLoadedOnce && ((isLoading || isFetching) || businesses.length === 0)) ||
+    ((isLoading || isFetching) && businesses.length === 0);
 
-const showEmptyState =
-  hasLoadedOnce && !isLoading && !isFetching && !refreshing && businesses.length === 0;
+  const showEmptyState =
+    hasLoadedOnce &&
+    !!userLocation &&
+    !isLoading &&
+    !isFetching &&
+    !refreshing &&
+    businesses.length === 0;
 
   const hasContent = businesses.length > 0;
 
@@ -82,9 +102,9 @@ const showEmptyState =
     }).start();
   }, [isInitialLoading]);
 
-// ✅ OPTIMIZED: Efficient filtering with memoization
-const filteredBusinesses = useMemo(() => {
-  let result = businesses;
+  // ✅ OPTIMIZED: Efficient filtering with memoization
+  const filteredBusinesses = useMemo(() => {
+    let result = businesses;
 
   // Apply category filter first
   if (selectedCategory !== "all") {
@@ -105,6 +125,8 @@ const filteredBusinesses = useMemo(() => {
   return result;
 }, [businesses, searchQuery, selectedCategory]);
 
+  // With infinite query, we always show all loaded businesses after filtering.
+
   // ✅ OPTIMIZED: Derived data with proper dependencies
   const topRatedBusinesses = useMemo(() => {
     return filteredBusinesses
@@ -119,21 +141,62 @@ const filteredBusinesses = useMemo(() => {
       .slice(0, 3);
   }, [filteredBusinesses]);
 
-const handleRefresh = useCallback(async () => {
-  if (!isConnected) {
-    showOfflineAlert();
-    return;
-  }
+  const cacheUpdatedLabel = useMemo(() => {
+    if (!dataUpdatedAt) return null;
+    const ageMs = Date.now() - dataUpdatedAt;
 
-  setRefreshing(true);
-  try {
-    await refetch();
-  } catch (error) {
-    console.error("Refresh failed:", error);
-  } finally {
-    setRefreshing(false);
-  }
-}, [refetch, isConnected, showOfflineAlert]);
+    if (ageMs < 60 * 1000) return "Updated just now";
+
+    const minutes = Math.floor(ageMs / (60 * 1000));
+    if (minutes < 60) return `Updated ${minutes} min ago`;
+
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) {
+      return `Updated ${hours} hr${hours > 1 ? "s" : ""} ago`;
+    }
+
+    return "Updated over 1 day ago";
+  }, [dataUpdatedAt]);
+
+  const handleRefresh = useCallback(async () => {
+    if (!isConnected) {
+      showOfflineAlert();
+      return;
+    }
+
+    if (!userLocation) {
+      console.log("⚠️ Cannot refresh: user location not available yet");
+      return;
+    }
+
+    setRefreshing(true);
+    try {
+      // Clear cached infinite pages (including persisted state) for this location
+      const infiniteKey = [
+        ...businessQueryKeys.lists(),
+        "infinite",
+        {
+          lat: userLocation.latitude,
+          lng: userLocation.longitude,
+          radius: 5000,
+          categories: [],
+        },
+      ];
+
+      queryClient.removeQueries({ queryKey: infiniteKey });
+      await refetch();
+    } catch (error) {
+      console.error("Refresh failed:", error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [
+    refetch,
+    isConnected,
+    showOfflineAlert,
+    queryClient,
+    userLocation,
+  ]);
 
   // ✅ Category change without side effects
   const handleCategoryChange = useCallback((category: string) => {
@@ -147,6 +210,11 @@ const handleRefresh = useCallback(async () => {
     },
     [navigation]
   );
+
+  const handleLoadMore = useCallback(() => {
+    if (!hasNextPage || isFetchingNextPage) return;
+    fetchNextPage();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   // ✅ Memoized render item
   const renderBusinessItem = useCallback(
@@ -190,14 +258,14 @@ console.log("🏠 HOME - State:", {
         {!isConnected
           ? "No Internet Connection"
           : selectedCategory === "all"
-            ? "No Places Found Nearby"
+            ? "No Nearby Places Found"
             : `No ${selectedCategory.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())} Found`}
       </Text>
       <Text style={styles.emptyStateMessage}>
         {!isConnected
           ? "Please check your internet connection and pull down to refresh."
           : selectedCategory === "all"
-            ? "We couldn't find any businesses in your area. Try adjusting your location or pull down to refresh."
+            ? "We couldn't find any businesses near your current location. Try adjusting your location settings or pull down to refresh."
             : "Try selecting a different category or pull down to refresh."}
       </Text>
       <TouchableOpacity
@@ -320,11 +388,16 @@ console.log("🏠 HOME - State:", {
 
             {/* Main Business List */}
             <View style={styles.section}>
-              <Text style={styles.nearbyTitle}>
-                {selectedCategory === "all"
-                  ? `Nearby Places (${filteredBusinesses.length})`
-                  : `${selectedCategory.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())} (${filteredBusinesses.length})`}
-              </Text>
+              <View style={styles.nearbyHeaderRow}>
+                <Text style={styles.nearbyTitle}>
+                  {selectedCategory === "all"
+                    ? `Nearby Places (${filteredBusinesses.length})`
+                    : `${selectedCategory.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())} (${filteredBusinesses.length})`}
+                </Text>
+                {cacheUpdatedLabel && (
+                  <Text style={styles.cacheInfoText}>{cacheUpdatedLabel}</Text>
+                )}
+              </View>
 
               {filteredBusinesses.length === 0 ? (
                 <View style={styles.noResultsContainer}>
@@ -341,17 +414,29 @@ console.log("🏠 HOME - State:", {
                   </TouchableOpacity>
                 </View>
               ) : (
-                <FlatList
-                  data={filteredBusinesses}
-                  keyExtractor={(item) => item.id}
-                  renderItem={renderBusinessItem}
-                  scrollEnabled={false}
-                  initialNumToRender={6}
-                  maxToRenderPerBatch={8}
-                  windowSize={5}
-                  removeClippedSubviews={Platform.OS === "android"}
-                  updateCellsBatchingPeriod={50}
-                />
+                <>
+                  <FlatList
+                    data={filteredBusinesses}
+                    keyExtractor={(item) => item.id}
+                    renderItem={renderBusinessItem}
+                    scrollEnabled={false}
+                    initialNumToRender={6}
+                    maxToRenderPerBatch={8}
+                    windowSize={5}
+                    removeClippedSubviews={Platform.OS === "android"}
+                    updateCellsBatchingPeriod={50}
+                  />
+                  {hasNextPage && (
+                    <TouchableOpacity
+                      style={styles.clearFiltersButton}
+                      onPress={handleLoadMore}
+                    >
+                      <Text style={styles.clearFiltersButtonText}>
+                        {isFetchingNextPage ? "Loading..." : "Load More"}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </>
               )}
             </View>
           </>
@@ -405,7 +490,12 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "600",
     color: "#333",
-    marginLeft: 18,
+  },
+  nearbyHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 18,
     marginBottom: 8,
   },
   horizontalScrollContent: {
@@ -509,6 +599,10 @@ const styles = StyleSheet.create({
     color: "#007AFF",
     fontSize: 14,
     fontWeight: "600",
+  },
+  cacheInfoText: {
+    fontSize: 12,
+    color: "#64748B",
   },
 });
 

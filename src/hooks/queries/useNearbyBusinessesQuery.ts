@@ -1,4 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
+import { useCallback } from 'react';
+import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { businessService, businessQueryKeys } from '@/src/services/businessService';
 import { useLocation } from '@/src/hooks/useLocation';
 import { useProtectedAction } from '@/src/hooks/useProtectedAction';
@@ -29,5 +30,100 @@ export const useNearbyBusinessesQuery = () => {
         { actionName: 'Loading nearby businesses', retry: true },
       ) as Promise<Awaited<ReturnType<typeof businessService.getNearbyBusinesses>>>,
     staleTime: 5 * 60 * 1000,
+  });
+};
+
+// Explicit refresh hook that bypasses the persisted AsyncStorage cache
+// by calling getNearbyBusinesses with forceRefresh: true and then
+// writing the fresh result into the React Query cache.
+export const useRefreshNearbyBusinesses = () => {
+  const { userLocation } = useLocation();
+  const { protectedAction } = useProtectedAction();
+  const queryClient = useQueryClient();
+
+  const refreshNearby = useCallback(async () => {
+    if (!userLocation) return;
+
+    const queryKey = businessQueryKeys.list({
+      lat: userLocation.latitude,
+      lng: userLocation.longitude,
+      categories: [],
+    });
+
+    const data = (await protectedAction(
+      () =>
+        businessService.getNearbyBusinesses(
+          userLocation.latitude,
+          userLocation.longitude,
+          5000,
+          [],
+          true // forceRefresh: bypass AsyncStorage cache
+        ),
+      { actionName: 'Refreshing nearby businesses', retry: true },
+    )) as Awaited<ReturnType<typeof businessService.getNearbyBusinesses>>;
+
+    queryClient.setQueryData(queryKey, data);
+    return data;
+  }, [userLocation, queryClient, protectedAction]);
+
+  return { refreshNearby, hasLocation: !!userLocation };
+};
+
+const INFINITE_PAGE_SIZE = 20;
+
+// Infinite query hook for backend-aware pagination using Geoapify offset.
+// Note: This does NOT currently use AsyncStorage persistence; it's designed
+// for in-session infinite scrolling.
+export const useInfiniteNearbyBusinessesQuery = () => {
+  const { userLocation } = useLocation();
+  const { protectedAction } = useProtectedAction();
+
+  return useInfiniteQuery({
+    enabled: !!userLocation,
+    initialPageParam: 1,
+    staleTime: 5 * 60 * 1000,
+    queryKey: [
+      ...businessQueryKeys.lists(),
+      "infinite",
+      {
+        lat: userLocation?.latitude,
+        lng: userLocation?.longitude,
+        radius: 5000,
+        categories: [],
+      },
+    ],
+    getNextPageParam: (lastPage, allPages) => {
+      if (!lastPage || lastPage.length < INFINITE_PAGE_SIZE) {
+        return undefined;
+      }
+      return allPages.length + 1; // next page index
+    },
+    queryFn: async ({ pageParam }) => {
+      if (!userLocation) return [] as Awaited<ReturnType<typeof businessService.getNearbyBusinessesPage>>;
+
+      const page = typeof pageParam === "number" ? pageParam : 1;
+
+      return (await protectedAction(
+        () =>
+          businessService.getNearbyBusinessesPage(
+            userLocation.latitude,
+            userLocation.longitude,
+            {
+              radius: 5000,
+              categories: [],
+              page,
+              pageSize: INFINITE_PAGE_SIZE,
+              forceRefresh: false,
+            }
+          ),
+        {
+          actionName:
+            page === 1
+              ? "Loading nearby businesses (infinite)"
+              : "Loading more nearby businesses",
+          retry: true,
+        }
+      )) as Awaited<ReturnType<typeof businessService.getNearbyBusinessesPage>>;
+    },
   });
 };

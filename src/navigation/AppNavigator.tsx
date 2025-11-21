@@ -1,4 +1,7 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient } from "@tanstack/react-query";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
+import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import {
   NavigationContainer,
@@ -22,6 +25,13 @@ import BusinessMapScreen from "../screens/business/BusinessMapScreen";
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
+
+const asyncStoragePersister = createAsyncStoragePersister({
+  storage: AsyncStorage,
+  key: "react-query",
+  throttleTime: 1000,
+});
+
 const Stack = createNativeStackNavigator();
 
 function AuthNavigator() {
@@ -118,14 +128,20 @@ function AuthNavigator() {
 export default function AppNavigator() {
   return (
     <AuthProvider>
-      <QueryClientProvider client={queryClient}>
+      <PersistQueryClientProvider
+        client={queryClient}
+        persistOptions={{
+          persister: asyncStoragePersister,
+          maxAge: 6 * 60 * 60 * 1000, // 6 hours, aligned with nearby cache TTL
+        }}
+      >
         <NavigationContainer>
           <GestureHandlerRootView style={{ flex: 1 }}>
             <OfflineBanner />
             <AuthNavigator />
           </GestureHandlerRootView>
         </NavigationContainer>
-      </QueryClientProvider>
+      </PersistQueryClientProvider>
     </AuthProvider>
   );
 }
