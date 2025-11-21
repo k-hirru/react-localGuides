@@ -22,8 +22,10 @@ import {
   Image as ImageIcon,
 } from "lucide-react-native";
 import { useAppStore } from "@/src/hooks/useAppStore";
-import { useNavigation, useFocusEffect } from "@react-navigation/native";
+import { useNavigation } from "@react-navigation/native";
 import { useAuth } from "@/src/hooks/useAuth";
+import { useUserReviewsQuery } from "@/src/hooks/queries/useUserReviewsQuery";
+import { useUserFavorites } from "@/src/hooks/useUserFavorites";
 import { launchCamera, launchImageLibrary } from "react-native-image-picker";
 import { imageService } from "@/src/services/imageService";
 import auth from "@react-native-firebase/auth";
@@ -36,12 +38,15 @@ import {
 } from "react-native-permissions";
 
 export default function ProfileScreen() {
-  const { favorites, reviews, getBusinessById, refreshReviews } = useAppStore();
+  const { getBusinessById } = useAppStore();
   const { user: authUser, logout } = useAuth();
   const navigation = useNavigation();
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [showImagePicker, setShowImagePicker] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  const { data: userReviews = [], isFetching, refetch } = useUserReviewsQuery();
+  const { favorites } = useUserFavorites();
 
   // Guard against re-entrant refreshes that cause infinite loops
   const inFlightRef = useRef(false);
@@ -51,8 +56,8 @@ export default function ProfileScreen() {
     inFlightRef.current = true;
     setRefreshing(true);
     try {
-      console.log("🔄 Refreshing profile reviews...");
-      await refreshReviews();
+      console.log("🔄 Refreshing profile reviews (React Query)...");
+      await refetch();
       console.log("✅ Profile reviews refreshed successfully");
     } catch (error) {
       console.error("❌ Failed to refresh profile data:", error);
@@ -60,16 +65,7 @@ export default function ProfileScreen() {
       setRefreshing(false);
       inFlightRef.current = false;
     }
-  }, [refreshReviews]);
-
-  // Refresh when screen comes into focus (no setTimeout; stable deps)
-  useFocusEffect(
-    useCallback(() => {
-      console.log("🎯 Profile screen focused, refreshing data...");
-      handleRefresh();
-      return undefined;
-    }, [handleRefresh])
-  );
+  }, [refetch]);
 
   const handleLogout = async () => {
     Alert.alert("Log Out", "Are you sure you want to log out?", [
@@ -265,8 +261,6 @@ export default function ProfileScreen() {
     );
   }
 
-  const userReviews = reviews.filter((review) => review.userId === authUser.uid);
-
   return (
     <>
       <ScrollView
@@ -274,7 +268,7 @@ export default function ProfileScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
-            refreshing={refreshing}
+            refreshing={refreshing || isFetching}
             onRefresh={handleRefresh}
             colors={["#007AFF"]}
             tintColor="#007AFF"

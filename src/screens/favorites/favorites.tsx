@@ -1,19 +1,17 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar } from 'react-native';
 import { Heart, LogIn } from 'lucide-react-native';
-import { useAppStore } from '@/src/hooks/useAppStore';
 import { useAuthContext } from '@/src/context/AuthContext';
 import BusinessCard from '@/src/components/BusinessCard';
 import { useNavigation } from '@react-navigation/native';
+import { useFavoriteBusinesses } from '@/src/hooks/useFavoriteBusinesses';
 
 export default function FavoritesScreen() {
   const navigation = useNavigation();
-  const { getFavoriteBusinesses, toggleFavorite, isFavorite } = useAppStore();
   const { user } = useAuthContext();
+  const { favoriteBusinesses, toggleFavorite } = useFavoriteBusinesses();
   
   const [optimisticallyRemoved, setOptimisticallyRemoved] = useState<string[]>([]);
-  
-  const favoriteBusinesses = getFavoriteBusinesses();
   
   // ✅ Filter out optimistically removed businesses
   const displayedBusinesses = favoriteBusinesses.filter(

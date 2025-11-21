@@ -21,7 +21,6 @@ import {
 import {
   useNavigation,
   useRoute,
-  useFocusEffect,
 } from "@react-navigation/native";
 import {
   Heart,
@@ -34,11 +33,12 @@ import {
 } from "lucide-react-native";
 import { useAppStore } from "@/src/hooks/useAppStore";
 import { Business, Review } from "@/src/types";
-import { reviewService } from "@/src/services/reviewService";
 import StarRating from "@/src/components/StarRating";
 import ReviewCard from "@/src/components/ReviewCard";
 import { PRICE_LEVELS } from "@/src/constants/categories";
 import { useAuth } from "@/src/hooks/useAuth";
+import { useBusinessDetailsQuery } from "@/src/hooks/queries/useBusinessDetailsQuery";
+import { useBusinessReviewsQuery } from "@/src/hooks/queries/useBusinessReviewsQuery";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -50,7 +50,6 @@ export default function BusinessDetailsScreen() {
 
   const {
     getBusinessById,
-    fetchBusinessById,
     toggleFavorite,
     deleteReview,
     isFavorite,
@@ -59,38 +58,39 @@ export default function BusinessDetailsScreen() {
   const [business, setBusiness] = useState<Business | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [userReview, setUserReview] = useState<Review | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [reviewsLoading, setReviewsLoading] = useState(true);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
 
   const scrollViewRef = useRef<ScrollView | null>(null);
+
+  const {
+    data: businessData,
+    isLoading: isBusinessLoading,
+    refetch: refetchBusiness,
+  } = useBusinessDetailsQuery(id);
+
+  // Seed local business state from any cached/global data while details are loading
+  useEffect(() => {
+    if (!business) {
+      const local = getBusinessById(id);
+      if (local) {
+        setBusiness(local);
+      }
+    }
+  }, [business, getBusinessById, id]);
+
+  const {
+    data: businessReviews = [],
+    isLoading: isReviewsLoading,
+    isFetching: isReviewsFetching,
+    refetch: refetchReviews,
+  } = useBusinessReviewsQuery(id);
 
   const calculateRatingFromReviews = useCallback((reviewList: Review[]) => {
     if (reviewList.length === 0) return 0;
     const sum = reviewList.reduce((acc, review) => acc + review.rating, 0);
     return sum / reviewList.length;
   }, []);
-
-  const loadBusinessData = async () => {
-    try {
-      const localBusiness = getBusinessById(id);
-      if (localBusiness) return localBusiness;
-      return await fetchBusinessById(id);
-    } catch (error) {
-      console.error("Error loading business:", error);
-      return null;
-    }
-  };
-
-  const loadBusinessReviews = async () => {
-    try {
-      return await reviewService.getReviewsForBusiness(id);
-    } catch (error) {
-      console.error("Error loading business reviews:", error);
-      return [];
-    }
-  };
 
   const checkUserReview = useCallback(
     (reviewsList: Review[]) => {
@@ -103,117 +103,42 @@ export default function BusinessDetailsScreen() {
     [authUser]
   );
 
-  // Define refreshBusinessData first so handleRefresh can depend on it
-  const refreshBusinessData = useCallback(async () => {
-    console.log("🔄 Refreshing business data...");
-    try {
-      const [businessData, businessReviews] = await Promise.all([
-        loadBusinessData(),
-        loadBusinessReviews(),
-      ]);
+  // Sync local state from React Query data
+  useEffect(() => {
+    if (!businessData) return;
 
-      if (businessData && businessReviews) {
-        const updatedRating = calculateRatingFromReviews(businessReviews);
-        const updatedBusiness = {
-          ...businessData,
-          rating: updatedRating,
-          reviewCount: businessReviews.length,
-        };
+    const updatedRating = calculateRatingFromReviews(businessReviews);
+    const foundUserReview = checkUserReview(businessReviews);
 
-        // Resolve userReview for prefill/edit
-        let nextUserReview: Review | null = null;
-        if (authUser) {
-          nextUserReview =
-            businessReviews.find((r) => r.userId === authUser.uid) || null;
+    setUserReview(foundUserReview);
+    setBusiness({
+      ...businessData,
+      rating: updatedRating,
+      reviewCount: businessReviews.length,
+    });
+    setReviews(businessReviews);
 
-          console.log("🔍 User review check:", {
-            userId: authUser.uid,
-            totalReviews: businessReviews.length,
-            userReviewFound: !!nextUserReview,
-            userReviewId: nextUserReview?.id,
-          });
-        }
-
-        setUserReview(nextUserReview);
-        setBusiness(updatedBusiness);
-        setReviews(businessReviews);
-
-        console.log("✅ Business data refreshed:", {
-          rating: updatedRating,
-          reviewCount: businessReviews.length,
-          userReview: nextUserReview ? "exists" : "none",
-          userId: authUser?.uid,
-        });
-      }
-    } catch (error) {
-      console.error("❌ Error refreshing business data:", error);
-    }
-  }, [calculateRatingFromReviews, authUser, id]);
+    console.log("✅ Business data synced from React Query:", {
+      rating: updatedRating,
+      reviewCount: businessReviews.length,
+      userReview: foundUserReview ? "exists" : "none",
+      userId: authUser?.uid,
+    });
+  }, [businessData, businessReviews, calculateRatingFromReviews, checkUserReview, authUser?.uid]);
 
   // Pull-to-refresh
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
       console.log("🔄 Manual refresh triggered for business details");
-      await refreshBusinessData();
+      await Promise.all([refetchBusiness(), refetchReviews()]);
     } catch (error) {
       console.error("❌ Manual refresh failed:", error);
       Alert.alert("Refresh Error", "Failed to refresh data. Please try again.");
     } finally {
       setRefreshing(false);
     }
-  }, [refreshBusinessData]);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const loadData = async () => {
-      console.log("🚀 Loading business details for ID:", id);
-      setLoading(true);
-      setReviewsLoading(true);
-
-      try {
-        const businessData = await loadBusinessData();
-        const businessReviews = await loadBusinessReviews();
-
-        if (isMounted) {
-          if (businessData) {
-            const updatedRating = calculateRatingFromReviews(businessReviews);
-            const foundUserReview = checkUserReview(businessReviews);
-            setUserReview(foundUserReview);
-
-            setBusiness({
-              ...businessData,
-              rating: updatedRating,
-              reviewCount: businessReviews.length,
-            });
-          }
-          if (businessReviews) setReviews(businessReviews);
-
-          setLoading(false);
-          setReviewsLoading(false);
-        }
-      } catch (error) {
-        console.error("💥 Error in loadData:", error);
-        if (isMounted) {
-          setLoading(false);
-          setReviewsLoading(false);
-        }
-      }
-    };
-
-    loadData();
-    return () => {
-      isMounted = false;
-    };
-  }, [id, checkUserReview, calculateRatingFromReviews]);
-
-  useFocusEffect(
-    useCallback(() => {
-      console.log("🎯 Screen focused, refreshing business data");
-      refreshBusinessData();
-    }, [refreshBusinessData])
-  );
+  }, [refetchBusiness, refetchReviews]);
 
   const handleEdit = (review: Review) => {
     (navigation as any).navigate("AddReview", {
@@ -232,7 +157,7 @@ export default function BusinessDetailsScreen() {
         onPress: async () => {
           try {
             await deleteReview(reviewId);
-            await refreshBusinessData();
+            await Promise.all([refetchBusiness(), refetchReviews()]);
           } catch (error) {
             console.error("Error deleting review:", error);
             Alert.alert("Error", "Failed to delete review. Please try again.");
@@ -241,6 +166,11 @@ export default function BusinessDetailsScreen() {
       },
     ]);
   };
+
+  const handleShare = useCallback(() => {
+    if (!business) return;
+    Alert.alert("Share", `Share ${business.name} with friends`);
+  }, [business]);
 
   useLayoutEffect(() => {
     if (business) {
@@ -265,9 +195,10 @@ export default function BusinessDetailsScreen() {
         ),
       });
     }
-  }, [navigation, business, isFavorite, toggleFavorite]);
+  }, [navigation, business, isFavorite, toggleFavorite, handleShare]);
 
-  if (loading) {
+  // While details are loading and we don't have any business yet, show spinner
+  if (isBusinessLoading && !business) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#007AFF" />
@@ -276,13 +207,25 @@ export default function BusinessDetailsScreen() {
     );
   }
 
-  if (!business) {
+  // If loading has finished and we still have no business (no cached/global or remote data),
+  // show an error state.
+  if (!business && !isBusinessLoading) {
     return (
       <View style={styles.errorContainer}>
         <Text style={styles.errorText}>Business not found</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={refreshBusinessData}>
+        <TouchableOpacity style={styles.retryButton} onPress={handleRefresh}>
           <Text style={styles.retryButtonText}>Try Again</Text>
         </TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (!business) {
+    // Fallback: should be unreachable, but keep a safe spinner just in case.
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#007AFF" />
+        <Text style={styles.loadingText}>Loading business details...</Text>
       </View>
     );
   }
@@ -313,10 +256,6 @@ export default function BusinessDetailsScreen() {
 
   const handleDirections = () => {
     (navigation as any).navigate("BusinessMap", { id: id, business: business });
-  };
-
-  const handleShare = () => {
-    Alert.alert("Share", `Share ${business.name} with friends`);
   };
 
   const handleAddOrEditReview = () => {
@@ -449,7 +388,7 @@ export default function BusinessDetailsScreen() {
       <View style={styles.reviewsContainer}>
         <View style={styles.reviewsHeader}>
           <Text style={styles.reviewsTitle}>
-            Reviews ({reviewsLoading ? "..." : reviews.length})
+            Reviews ({(isReviewsLoading || isReviewsFetching) ? "..." : reviews.length})
           </Text>
           <TouchableOpacity
             style={[
@@ -465,7 +404,7 @@ export default function BusinessDetailsScreen() {
           </TouchableOpacity>
         </View>
 
-        {reviewsLoading ? (
+        {(isReviewsLoading || isReviewsFetching) ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="small" color="#007AFF" />
             <Text>Loading reviews...</Text>

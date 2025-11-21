@@ -20,7 +20,6 @@ import {
   Coffee,
   WifiOff,
 } from "lucide-react-native";
-import { useAppStore } from "@/src/hooks/useAppStore";
 import { useAuthContext } from "@/src/context/AuthContext";
 import BusinessCard from "@/src/components/BusinessCard";
 import CategoryFilter from "@/src/components/CategoryFilter";
@@ -28,19 +27,24 @@ import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import FindingPlacesLoader from "@/src/components/findingPlacesLoader";
 import { Business } from "../../types";
 import { useInternetConnectivity } from "@/src/hooks/useInternetConnectivity";
+import { useNearbyBusinessesQuery } from "@/src/hooks/queries/useNearbyBusinessesQuery";
 
 // ✅ Use React.memo to prevent unnecessary re-renders
 const HomeScreen = memo(function HomeScreen() {
-  const { businesses, searchBusinesses, refreshBusinesses, loading } =
-    useAppStore();
   const [searchQuery, setSearchQuery] = useState("");
   const { user } = useAuthContext();
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [refreshing, setRefreshing] = useState(false);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
-  const [hasTriggeredLoad, setHasTriggeredLoad] = useState(false);
 
   const { isConnected, showOfflineAlert } = useInternetConnectivity();
+
+  const {
+    data: businesses = [],
+    isLoading,
+    isFetching,
+    refetch,
+  } = useNearbyBusinessesQuery();
 
   const navigation = useNavigation();
 
@@ -50,25 +54,21 @@ const HomeScreen = memo(function HomeScreen() {
     [user?.displayName]
   );
 
-  // ✅ FIXED: Show loading immediately, don't wait for trigger
+// Track when we've completed at least one load to differentiate
+// between initial loading and true empty states.
+useEffect(() => {
+  if (!hasLoadedOnce && !isLoading && !isFetching) {
+    setHasLoadedOnce(true);
+  }
+}, [hasLoadedOnce, isLoading, isFetching]);
 
-  useEffect(() => {
-    if (!hasTriggeredLoad) {
-      console.log("🚀 HOME - Triggering first refresh");
-      setHasTriggeredLoad(true);
-      refreshBusinesses([], true).finally(() => {
-        setHasLoadedOnce(true);
-      });
-    }
-  }, [hasTriggeredLoad, refreshBusinesses]);
+// 👇 Refined logic
+const isInitialLoading =
+  (!hasLoadedOnce && ((isLoading || isFetching) || businesses.length === 0)) ||
+  ((isLoading || isFetching) && businesses.length === 0);
 
-  // 👇 Refined logic
-  const isInitialLoading =
-    (!hasLoadedOnce && (loading || businesses.length === 0)) ||
-    (loading && businesses.length === 0);
-
-  const showEmptyState =
-    hasLoadedOnce && !loading && !refreshing && businesses.length === 0;
+const showEmptyState =
+  hasLoadedOnce && !isLoading && !isFetching && !refreshing && businesses.length === 0;
 
   const hasContent = businesses.length > 0;
 
@@ -82,24 +82,28 @@ const HomeScreen = memo(function HomeScreen() {
     }).start();
   }, [isInitialLoading]);
 
-  // ✅ OPTIMIZED: Efficient filtering with memoization
-  const filteredBusinesses = useMemo(() => {
-    let result = businesses;
+// ✅ OPTIMIZED: Efficient filtering with memoization
+const filteredBusinesses = useMemo(() => {
+  let result = businesses;
 
-    // Apply category filter first
-    if (selectedCategory !== "all") {
-      result = result.filter(
-        (business) => business.category === selectedCategory
-      );
-    }
+  // Apply category filter first
+  if (selectedCategory !== "all") {
+    result = result.filter((business) => business.category === selectedCategory);
+  }
 
-    // Apply search filter if needed
-    if (searchQuery.trim()) {
-      result = searchBusinesses(searchQuery, { category: selectedCategory });
-    }
+  // Apply search filter if needed
+  if (searchQuery.trim()) {
+    const q = searchQuery.toLowerCase();
+    result = result.filter(
+      (b) =>
+        b.name.toLowerCase().includes(q) ||
+        b.address.toLowerCase().includes(q) ||
+        b.features.some((f) => f.toLowerCase().includes(q))
+    );
+  }
 
-    return result;
-  }, [businesses, searchQuery, selectedCategory, searchBusinesses]);
+  return result;
+}, [businesses, searchQuery, selectedCategory]);
 
   // ✅ OPTIMIZED: Derived data with proper dependencies
   const topRatedBusinesses = useMemo(() => {
@@ -115,21 +119,21 @@ const HomeScreen = memo(function HomeScreen() {
       .slice(0, 3);
   }, [filteredBusinesses]);
 
-  const handleRefresh = useCallback(async () => {
-    if (!isConnected) {
-      showOfflineAlert();
-      return;
-    }
+const handleRefresh = useCallback(async () => {
+  if (!isConnected) {
+    showOfflineAlert();
+    return;
+  }
 
-    setRefreshing(true);
-    try {
-      await refreshBusinesses([], true);
-    } catch (error) {
-      console.error("Refresh failed:", error);
-    } finally {
-      setRefreshing(false);
-    }
-  }, [refreshBusinesses, isConnected, showOfflineAlert]);
+  setRefreshing(true);
+  try {
+    await refetch();
+  } catch (error) {
+    console.error("Refresh failed:", error);
+  } finally {
+    setRefreshing(false);
+  }
+}, [refetch, isConnected, showOfflineAlert]);
 
   // ✅ Category change without side effects
   const handleCategoryChange = useCallback((category: string) => {
@@ -155,15 +159,14 @@ const HomeScreen = memo(function HomeScreen() {
     [handleBusinessPress]
   );
 
-  console.log("🏠 HOME - State:", {
-    loading,
-    refreshing,
-    hasTriggeredLoad,
-    businessesCount: businesses.length,
-    filteredCount: filteredBusinesses.length,
-    isInitialLoading,
-    showEmptyState,
-  });
+console.log("🏠 HOME - State:", {
+  loading: isLoading || isFetching,
+  refreshing,
+  businessesCount: businesses.length,
+  filteredCount: filteredBusinesses.length,
+  isInitialLoading,
+  showEmptyState,
+});
 
   // ✅ FIXED: Empty State Component (without useMemo)
   const EmptyStateView = () => (

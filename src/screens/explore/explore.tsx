@@ -12,33 +12,31 @@ import {
   Keyboard 
 } from 'react-native';
 import { Search, Filter, MapPin, Star, X } from 'lucide-react-native';
-import { useAppStore } from '@/src/hooks/useAppStore';
 import BusinessCard from '@/src/components/BusinessCard';
 import CategoryFilter from '@/src/components/CategoryFilter';
-import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { PRICE_LEVELS } from '@/src/constants/categories';
-import { SearchFilters } from '@/src/types';
+import { SearchFilters, Business } from '@/src/types';
+import { useNearbyBusinessesQuery } from '@/src/hooks/queries/useNearbyBusinessesQuery';
+import { useBusinessSearchQuery } from '@/src/hooks/queries/useBusinessSearchQuery';
 
 export default function ExploreScreen() {
   const navigation = useNavigation();
   const route = useRoute();
-  
-  const { 
-    businesses, 
-    searchBusinesses, 
-    searchBusinessesWithAPI,
-    searchResults,
-    searchLoading,
-    refreshBusinesses, 
-    loading,
-    clearSearchResults 
-  } = useAppStore();
-  
+ 
+  const {
+    data: nearbyBusinesses = [],
+    isLoading: isNearbyLoading,
+    isFetching: isNearbyFetching,
+    refetch: refetchNearby,
+  } = useNearbyBusinessesQuery();
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const lastSearchRef = useRef(''); 
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   
   const [filters, setFilters] = useState<Partial<SearchFilters>>({
     category: 'all',
@@ -48,9 +46,17 @@ export default function ExploreScreen() {
   }); 
 
   const [isSearchActive, setIsSearchActive] = useState(false); 
-
+ 
   const searchInputRef = useRef<TextInput>(null);
   const searchTimeoutRef = useRef<number | null>(null);
+
+  const selectedCategories = selectedCategory === 'all' ? [] : [selectedCategory];
+
+  const {
+    data: searchResults = [],
+    isFetching: isSearchLoading,
+    refetch: refetchSearch,
+  } = useBusinessSearchQuery(debouncedQuery, selectedCategories);
 
   const routeParams = route.params as { autoFocus?: boolean } | undefined;
   const autoFocus = routeParams?.autoFocus || false;
@@ -71,27 +77,27 @@ export default function ExploreScreen() {
     }
   }, [autoFocus]);
 
-  // Handle API search with debounce
-  useEffect(() => {
+// Handle API search with debounce (updates debouncedQuery)
+useEffect(() => {
   if (searchTimeoutRef.current) {
     clearTimeout(searchTimeoutRef.current);
   }
 
-  // Only search if query has actually changed and is not empty
-  if (searchQuery.trim().length > 0 && searchQuery.trim() !== lastSearchRef.current) {
-    lastSearchRef.current = searchQuery.trim();
-    
-    searchTimeoutRef.current = setTimeout(async () => {
-      console.log("🔍 EXPLORE - Triggering API search for:", searchQuery);
-      try {
-        await searchBusinessesWithAPI(
-          searchQuery, 
-          selectedCategory === 'all' ? [] : [selectedCategory]
-        );
-      } catch (error) {
-        console.error("Search error:", error);
-      }
+  const trimmed = searchQuery.trim();
+
+  // Only update debounced query if it actually changed and is not empty
+  if (trimmed.length > 0 && trimmed !== lastSearchRef.current) {
+    lastSearchRef.current = trimmed;
+
+    searchTimeoutRef.current = setTimeout(() => {
+      console.log("🔍 EXPLORE - Setting debounced search query to:", trimmed);
+      setDebouncedQuery(trimmed);
     }, 800);
+  }
+
+  // If the user clears the search box, reset debounced query
+  if (!trimmed.length) {
+    setDebouncedQuery('');
   }
 
   return () => {
@@ -99,49 +105,40 @@ export default function ExploreScreen() {
       clearTimeout(searchTimeoutRef.current);
     }
   };
-}, [searchQuery, selectedCategory, searchBusinessesWithAPI]);
+}, [searchQuery, selectedCategory]);
 
-  const handleCleanup = useCallback(() => {
-    setShowFilters(false);
-    setSearchQuery('');
-    setIsSearchActive(false);
-    clearSearchResults(); 
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current);
+const handleCleanup = useCallback(() => {
+  setShowFilters(false);
+  setSearchQuery('');
+  setIsSearchActive(false);
+  setDebouncedQuery('');
+  if (searchTimeoutRef.current) {
+    clearTimeout(searchTimeoutRef.current);
+  }
+}, []);
+
+const handleRefresh = async () => {
+  setRefreshing(true);
+  try {
+    if (isSearchActive && debouncedQuery.trim().length > 0) {
+      await refetchSearch();
+    } else {
+      await refetchNearby();
     }
-  }, [clearSearchResults]); // Only depends on clearSearchResults
+  } finally {
+    setRefreshing(false);
+  }
+};
 
-  useFocusEffect(
-    React.useCallback(() => {
-      // Load businesses only if the list is empty AND we are not currently searching
-      if (businesses.length === 0 && !loading && !searchQuery.trim()) {
-        console.log("🔍 EXPLORE - No businesses, triggering refresh...");
-        refreshBusinesses([], false); 
-      }
-    }, [businesses.length, loading, searchQuery, refreshBusinesses]) 
-  );
-
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    try {
-      const categories = selectedCategory === 'all' ? [] : [selectedCategory];
-      
-      if (isSearchActive) {
-        await searchBusinessesWithAPI(searchQuery, categories, true);
-      } else {
-        await refreshBusinesses(categories, true);
-      }
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
-  const handleClearSearch = () => {
-    setSearchQuery('');
-    setIsSearchActive(false);
-    clearSearchResults();
-    Keyboard.dismiss();
-  };
+const handleClearSearch = () => {
+  setSearchQuery('');
+  setIsSearchActive(false);
+  setDebouncedQuery('');
+  if (searchTimeoutRef.current) {
+    clearTimeout(searchTimeoutRef.current);
+  }
+  Keyboard.dismiss();
+};
 
   const handleBusinessPress = (businessId: string) => {
     (navigation as any).navigate('BusinessDetails', { id: businessId });
@@ -166,20 +163,63 @@ export default function ExploreScreen() {
     setSelectedCategory('all');
   };
   
-  // ------------------------------------------------------------------
-  // START OF RENDER LOGIC
-  // ------------------------------------------------------------------
+// ------------------------------------------------------------------
+// START OF RENDER LOGIC
+// ------------------------------------------------------------------
 
-  const isInitialLoading = loading && businesses.length === 0;
+const isInitialLoading =
+  !isSearchActive && (isNearbyLoading || isNearbyFetching) && nearbyBusinesses.length === 0;
 
-  const displayedBusinesses = isSearchActive && !searchLoading 
-    ? searchResults 
-    : searchBusinesses(searchQuery, {
-      ...filters,
-      category: selectedCategory,
+// Local helper to apply filters to nearby businesses when not in search mode
+const filteredNearbyBusinesses = React.useMemo(() => {
+  let result: Business[] = nearbyBusinesses;
+
+  if (searchQuery.trim()) {
+    const q = searchQuery.toLowerCase();
+    result = result.filter(
+      (b) =>
+        b.name.toLowerCase().includes(q) ||
+        b.address.toLowerCase().includes(q) ||
+        b.features.some((f) => f.toLowerCase().includes(q))
+    );
+  }
+
+  const effectiveFilters: Partial<SearchFilters> = {
+    ...filters,
+    category: selectedCategory,
+  };
+
+  if (effectiveFilters.category && effectiveFilters.category !== 'all') {
+    result = result.filter((b) => b.category === effectiveFilters.category);
+  }
+
+  if (effectiveFilters.priceLevel?.length) {
+    result = result.filter((b) =>
+      effectiveFilters.priceLevel!.includes(b.priceLevel)
+    );
+  }
+
+  if (effectiveFilters.rating !== undefined) {
+    result = result.filter((b) => b.rating >= effectiveFilters.rating!);
+  }
+
+  if (effectiveFilters.sortBy) {
+    result = [...result].sort((a, b) => {
+      if (effectiveFilters.sortBy === 'rating') return b.rating - a.rating;
+      if (effectiveFilters.sortBy === 'reviewCount')
+        return b.reviewCount - a.reviewCount;
+      return 0;
     });
-    
-  return (
+  }
+
+  return result;
+}, [nearbyBusinesses, searchQuery, filters, selectedCategory]);
+
+const displayedBusinesses = isSearchActive && !isSearchLoading
+  ? searchResults
+  : filteredNearbyBusinesses;
+  
+return (
     <View style={styles.container}>
       
       {/* Search Header */}
@@ -314,7 +354,7 @@ export default function ExploreScreen() {
       )}
 
       {/* Results Header */}
-      {!isInitialLoading && !searchLoading && displayedBusinesses.length > 0 && (
+      {!isInitialLoading && !isSearchLoading && displayedBusinesses.length > 0 && (
         <View style={styles.resultsHeader}>
           <Text style={styles.resultsCount}>
             {displayedBusinesses.length} {isSearchActive ? 'Results' : 'Places Nearby'}
@@ -330,7 +370,7 @@ export default function ExploreScreen() {
       {/* List Area Container ensures stable height */}
       <View style={styles.listAreaContainer}>
         {/* Loading/Searching State */}
-        {(isInitialLoading || searchLoading) ? (
+        {(isInitialLoading || isSearchLoading) ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#007AFF" />
             <Text style={styles.loadingText}>
@@ -361,7 +401,7 @@ export default function ExploreScreen() {
                 <Text style={styles.emptyStateText}>
                   {isSearchActive
                     ? `No results found for "${searchQuery}"`
-                    : businesses.length === 0 
+                    : nearbyBusinesses.length === 0 
                       ? "No places found nearby. Pull to refresh."
                       : "No results match your current filters."
                   }

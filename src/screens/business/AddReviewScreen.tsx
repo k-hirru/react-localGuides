@@ -15,6 +15,7 @@ import {
   Linking,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAppStore } from '../../hooks/useAppStore';
 import { useAuth } from '../../hooks/useAuth';
 import { Business, Review } from '../../types';
@@ -24,10 +25,13 @@ import { Camera, X, Image as ImageIcon } from 'lucide-react-native';
 import { imageService } from '../../services/imageService';
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 import { check, request, PERMISSIONS, RESULTS, openSettings } from 'react-native-permissions';
+import { reviewQueryKeys } from '@/src/services/reviewQueryKeys';
+import { businessQueryKeys } from '@/src/services/businessService';
 
 export default function AddReviewScreen() {
   const route = useRoute();
   const navigation = useNavigation();
+  const queryClient = useQueryClient();
   const { id, review: existingReview, business: routeBusiness } = route.params as { 
     id: string; 
     review?: Review;
@@ -46,6 +50,18 @@ export default function AddReviewScreen() {
   const [showImagePicker, setShowImagePicker] = useState(false);
 
   const isEditMode = !!existingReview;
+
+  const invalidateReviewQueries = async () => {
+    // Invalidate business reviews for this business
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: reviewQueryKeys.business(id) }),
+      authUser
+        ? queryClient.invalidateQueries({ queryKey: reviewQueryKeys.user(authUser.uid) })
+        : Promise.resolve(),
+      queryClient.invalidateQueries({ queryKey: businessQueryKeys.detail(id) }),
+      queryClient.invalidateQueries({ queryKey: businessQueryKeys.lists() }),
+    ]);
+  };
   
   useEffect(() => {
     const loadBusiness = async () => {
@@ -375,6 +391,8 @@ export default function AddReviewScreen() {
           text: reviewText.trim(),
           images: selectedImages,
         });
+
+        await invalidateReviewQueries();
         
         Alert.alert(
           'Review Updated!',
@@ -397,6 +415,8 @@ export default function AddReviewScreen() {
           images: selectedImages,
           helpful: 0,
         });
+
+        await invalidateReviewQueries();
 
         Alert.alert(
           'Review Added!',
