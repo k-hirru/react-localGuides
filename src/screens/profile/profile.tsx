@@ -21,11 +21,12 @@ import {
   Camera,
   Image as ImageIcon,
 } from "lucide-react-native";
-import { useAppStore } from "@/src/hooks/useAppStore";
 import { useNavigation } from "@react-navigation/native";
 import { useAuth } from "@/src/hooks/useAuth";
 import { useUserReviewsQuery } from "@/src/hooks/queries/useUserReviewsQuery";
 import { useUserFavorites } from "@/src/hooks/useUserFavorites";
+import { useBusinessDetailsQuery } from "@/src/hooks/queries/useBusinessDetailsQuery";
+import { Review } from "@/src/types";
 import { launchCamera, launchImageLibrary } from "react-native-image-picker";
 import { imageService } from "@/src/services/imageService";
 import auth from "@react-native-firebase/auth";
@@ -37,11 +38,54 @@ import {
   openSettings,
 } from "react-native-permissions";
 
+function ProfileReviewRow({
+  review,
+  onPress,
+}: {
+  review: Review;
+  onPress: () => void;
+}) {
+  const { data: business, isLoading } = useBusinessDetailsQuery(review.businessId);
+
+  const businessName = business?.name || (isLoading ? "Loading..." : "Unknown Business");
+
+  return (
+    <TouchableOpacity style={styles.activityItem} onPress={onPress}>
+      <MessageSquare size={16} color="#007AFF" />
+      <View style={styles.activityContent}>
+        <Text style={styles.activityText}>{businessName}</Text>
+        <Text style={styles.activityDate}>
+          {new Date(review.createdAt).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          })}
+        </Text>
+      </View>
+      <View style={styles.activityRating}>
+        <Star size={12} color="#FFD700" fill="#FFD700" />
+        <Text style={styles.activityRatingText}>{review.rating}</Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+const getProfileInitials = (name?: string | null) => {
+  if (!name) return "U";
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) {
+    return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+  }
+  return parts[0][0]?.toUpperCase() || "U";
+};
+
 export default function ProfileScreen() {
-  const { getBusinessById } = useAppStore();
-  const { user: authUser, logout } = useAuth();
+  const { user: authUser, logout, isAdmin } = useAuth();
   const navigation = useNavigation();
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(
+    authUser?.photoURL ?? null
+  );
   const [showImagePicker, setShowImagePicker] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -231,6 +275,9 @@ export default function ProfileScreen() {
       await auth().currentUser?.updateProfile({ photoURL: imageUrl });
       await auth().currentUser?.reload();
 
+      // Immediately update local avatar so the UI reflects the change
+      setAvatarUrl(imageUrl);
+
       Alert.alert("Success", "Profile picture updated successfully!");
     } catch (error: any) {
       console.error("❌ Profile picture upload failed:", error);
@@ -245,10 +292,7 @@ export default function ProfileScreen() {
   };
 
   const handleNavigateToReview = (reviewId: string, businessId: string) => {
-    const business = getBusinessById(businessId);
-    if (business) {
-      (navigation as any).navigate("BusinessDetails", { id: businessId });
-    }
+    (navigation as any).navigate("BusinessDetails", { id: businessId });
   };
 
   if (!authUser) {
@@ -277,12 +321,12 @@ export default function ProfileScreen() {
       >
         <View style={styles.header}>
           <View style={styles.avatarContainer}>
-            {authUser.photoURL ? (
-              <Image source={{ uri: authUser.photoURL }} style={styles.avatar} />
+            {avatarUrl ? (
+              <Image source={{ uri: avatarUrl }} style={styles.avatar} />
             ) : (
               <View style={styles.avatarPlaceholder}>
                 <Text style={styles.avatarPlaceholderText}>
-                  {authUser.displayName?.charAt(0).toUpperCase() || "U"}
+                  {getProfileInitials(authUser?.displayName)}
                 </Text>
               </View>
             )}
@@ -334,6 +378,17 @@ export default function ProfileScreen() {
             <Text style={styles.menuText}>Help & Support</Text>
           </TouchableOpacity>
 
+          {/* Admin entry point, only visible for admin users */}
+          {isAdmin && (
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => (navigation as any).navigate("AdminDashboard")}
+            >
+              <MessageSquare size={20} color="#007AFF" />
+              <Text style={styles.menuText}>Admin Dashboard</Text>
+            </TouchableOpacity>
+          )}
+
           <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
             <DoorOpen size={20} color="#FF3B30" />
             <Text style={styles.menuTextLogout}>Log Out</Text>
@@ -352,34 +407,15 @@ export default function ProfileScreen() {
               </Text>
             </View>
           ) : (
-            userReviews.slice(0, 5).map((review) => {
-              const business = getBusinessById(review.businessId);
-              return (
-                <TouchableOpacity
-                  key={review.id}
-                  style={styles.activityItem}
-                  onPress={() => handleNavigateToReview(review.id, review.businessId)}
-                >
-                  <MessageSquare size={16} color="#007AFF" />
-                  <View style={styles.activityContent}>
-                    <Text style={styles.activityText}>
-                      {business?.name || "Unknown Business"}
-                    </Text>
-                    <Text style={styles.activityDate}>
-                      {new Date(review.createdAt).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
-                    </Text>
-                  </View>
-                  <View style={styles.activityRating}>
-                    <Star size={12} color="#FFD700" fill="#FFD700" />
-                    <Text style={styles.activityRatingText}>{review.rating}</Text>
-                  </View>
-                </TouchableOpacity>
-              );
-            })
+            userReviews.slice(0, 5).map((review) => (
+              <ProfileReviewRow
+                key={review.id}
+                review={review}
+                onPress={() =>
+                  handleNavigateToReview(review.id, review.businessId)
+                }
+              />
+            ))
           )}
         </View>
       </ScrollView>

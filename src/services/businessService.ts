@@ -4,6 +4,14 @@ import { reviewService } from "./reviewService";
 import { mapGeoapifyToBusiness } from "@/src/utils/businessMapper";
 import { queryOptions } from "@tanstack/react-query";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import {
+  getFirestore,
+  doc,
+  setDoc,
+  getDoc,
+  updateDoc,
+  serverTimestamp,
+} from "@react-native-firebase/firestore";
 
 const mapAppCategoriesToGeoapify = (categories: string[]): string[] => {
   if (categories.length === 0) {
@@ -43,6 +51,8 @@ interface NearbyCachePayload {
   businesses: Business[];
   updatedAt: number;
 }
+
+const db = getFirestore();
 
 export const businessQueryKeys = {
   all: ["businesses"] as const,
@@ -223,12 +233,85 @@ export const businessService = {
           ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
           : 0;
 
-      return mapGeoapifyToBusiness(place, {
+      const business = mapGeoapifyToBusiness(place, {
         rating,
         reviewCount: reviews.length,
       });
+
+      // Upsert canonical Firestore business document for analytics/admin
+      try {
+        const businessRef = doc(db, "businesses", business.id);
+        const existing = await getDoc(businessRef);
+
+        const basePayload = {
+          id: business.id,
+          name: business.name,
+          address: business.address,
+          category: business.category,
+          coordinates: {
+            lat: business.coordinates.latitude,
+            lng: business.coordinates.longitude,
+          },
+          features: business.features,
+          source: business.source,
+          updatedAt: serverTimestamp(),
+        };
+
+        if (existing.exists()) {
+          await updateDoc(businessRef, {
+            ...basePayload,
+            reviewCount: reviews.length,
+            avgRating: rating,
+            lastReviewAt: reviews.length
+              ? reviews
+                  .map((r) => r.createdAt)
+                  .sort((a, b) => b.getTime() - a.getTime())[0]
+              : null,
+          });
+        } else {
+          await setDoc(businessRef, {
+            ...basePayload,
+            reviewCount: reviews.length,
+            avgRating: rating,
+            lastReviewAt: reviews.length
+              ? reviews
+                  .map((r) => r.createdAt)
+                  .sort((a, b) => b.getTime() - a.getTime())[0]
+              : null,
+            createdAt: serverTimestamp(),
+          });
+        }
+      } catch (firestoreError) {
+        console.warn(
+          "⚠️ Failed to upsert Firestore business doc for",
+          placeId,
+          firestoreError
+        );
+      }
+
+      return business;
     } catch {
       return null;
+    }
+  },
+
+  async updateBusinessStats(
+    businessId: string,
+    stats: { reviewCount: number; avgRating: number; lastReviewAt?: Date | null }
+  ): Promise<void> {
+    try {
+      const businessRef = doc(db, "businesses", businessId);
+      const payload: any = {
+        reviewCount: stats.reviewCount,
+        avgRating: stats.avgRating,
+        updatedAt: serverTimestamp(),
+      };
+      if (stats.lastReviewAt !== undefined) {
+        payload.lastReviewAt = stats.lastReviewAt;
+      }
+      await setDoc(businessRef, payload, { merge: true });
+    } catch (error) {
+      console.warn("⚠️ Failed to update business stats in Firestore:", error);
     }
   },
 

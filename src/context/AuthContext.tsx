@@ -14,6 +14,8 @@ interface AuthContextType {
   ) => Promise<FirebaseAuthTypes.User>;
   logout: () => Promise<boolean>;
   resetPassword: (email: string) => Promise<void>;
+  role: 'user' | 'admin';
+  isAdmin: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);

@@ -27,6 +27,7 @@ interface UserDocument {
   name: string;
   email: string;
   fcmTokens?: string[];
+  role?: 'user' | 'admin';
   createdAt: FieldValue;
   updatedAt: FieldValue;
 }
@@ -39,6 +40,7 @@ export const useAuth = () => {
   const [user, setUser] = useState<User | null>(initialUser);
   const [loading, setLoading] = useState(!initialUser);
   const [error, setError] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<'user' | 'admin' | null>(null);
 
   const auth = getAuth();
   const firestore = getFirestore();
@@ -94,9 +96,25 @@ export const useAuth = () => {
       setUser(user);
 
       if (user) {
+        // Load role from Firestore (default to 'user' if missing)
+        try {
+          const userRef = doc(firestore, "users", user.uid);
+          const snap = await getDoc(userRef);
+          if (snap.exists()) {
+            const data = snap.data() as Partial<UserDocument>;
+            setUserRole(data.role === 'admin' ? 'admin' : 'user');
+          } else {
+            setUserRole('user');
+          }
+        } catch (roleError) {
+          console.warn("⚠️ Failed to load user role:", roleError);
+          setUserRole('user');
+        }
+
         const token = await notificationService.requestPermissionAndGetToken();
         await updateUserFcmToken(user, token);
       } else {
+        setUserRole(null);
         notificationService.clearCachedToken();
       }
 
@@ -239,8 +257,10 @@ export const useAuth = () => {
       signup,
       logout: logoutAndCleanup,
       resetPassword,
+      role: userRole ?? 'user',
+      isAdmin: userRole === 'admin',
     }),
-    [user, loading, error, login, signup, logoutAndCleanup, resetPassword]
+    [user, loading, error, login, signup, logoutAndCleanup, resetPassword, userRole]
   );
 
   return authValue;

@@ -21,6 +21,7 @@ import AddReviewScreen from "../screens/business/AddReviewScreen";
 import LoginScreen from "../screens/entry/LoginScreen";
 import SignUpScreen from "../screens/entry/SignUpScreen";
 import BusinessMapScreen from "../screens/business/BusinessMapScreen";
+import AdminDashboardScreen from "../screens/admin/AdminDashboardScreen";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -117,6 +118,14 @@ function AuthNavigator() {
             options={{
               title: "Location",
               headerShown: false,
+            }}
+          />
+          <Stack.Screen
+            name="AdminDashboard"
+            component={AdminDashboardScreen}
+            options={{
+              title: "Admin Dashboard",
+              headerShown: true,
             }}
           />
         </>

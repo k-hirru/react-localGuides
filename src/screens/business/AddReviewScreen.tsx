@@ -409,7 +409,9 @@ export default function AddReviewScreen() {
           businessId: id!,
           userId: authUser.uid,
           userName: authUser.displayName || 'Anonymous User',
-          userAvatar: authUser.photoURL || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100',
+          // If the user has no profile photo yet, leave avatar empty so
+          // UI components can fall back to initials instead of a stock image.
+          userAvatar: authUser.photoURL || '',
           rating,
           text: reviewText.trim(),
           images: selectedImages,

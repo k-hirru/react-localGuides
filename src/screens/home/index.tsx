@@ -23,7 +23,7 @@ import {
 import { useAuthContext } from "@/src/context/AuthContext";
 import BusinessCard from "@/src/components/BusinessCard";
 import CategoryFilter from "@/src/components/CategoryFilter";
-import { useNavigation, useFocusEffect } from "@react-navigation/native";
+import { useNavigation } from "@react-navigation/native";
 import FindingPlacesLoader from "@/src/components/findingPlacesLoader";
 import { Business } from "../../types";
 import { useInternetConnectivity } from "@/src/hooks/useInternetConnectivity";
@@ -100,7 +100,7 @@ const HomeScreen = memo(function HomeScreen() {
       duration: 300,
       useNativeDriver: true,
     }).start();
-  }, [isInitialLoading]);
+  }, [isInitialLoading, fadeAnim]);
 
   // ✅ OPTIMIZED: Efficient filtering with memoization
   const filteredBusinesses = useMemo(() => {

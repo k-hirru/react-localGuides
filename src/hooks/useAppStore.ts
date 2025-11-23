@@ -327,16 +327,20 @@ export const useAppStore = () => {
       const result = await protectedAction(
         async () => {
           try {
-            const reviews = await reviewService.getReviewsForBusiness(businessId);
+            const reviewsForBusiness = await reviewService.getReviewsForBusiness(
+              businessId
+            );
             const rating =
-              reviews.length > 0
-                ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+              reviewsForBusiness.length > 0
+                ?
+                  reviewsForBusiness.reduce((sum, r) => sum + r.rating, 0) /
+                  reviewsForBusiness.length
                 : 0;
 
             // Update the business in the global state
             const updatedBusinesses = globalState.businesses.map((b) =>
               b.id === businessId
-                ? { ...b, rating, reviewCount: reviews.length }
+                ? { ...b, rating, reviewCount: reviewsForBusiness.length }
                 : b
             );
 
@@ -344,7 +348,21 @@ export const useAppStore = () => {
             console.log("✅ Updated business ratings:", {
               businessId,
               rating,
-              reviewCount: reviews.length,
+              reviewCount: reviewsForBusiness.length,
+            });
+
+            // Also persist aggregates to Firestore for admin/analytics
+            const lastReviewAt =
+              reviewsForBusiness.length > 0
+                ? reviewsForBusiness
+                    .map((r) => r.createdAt)
+                    .sort((a, b) => b.getTime() - a.getTime())[0]
+                : null;
+
+            await businessService.updateBusinessStats(businessId, {
+              reviewCount: reviewsForBusiness.length,
+              avgRating: rating,
+              lastReviewAt,
             });
           } catch (error) {
             console.error("Error updating business ratings:", error);
@@ -381,9 +399,9 @@ export const useAppStore = () => {
             ...reviewData,
             userId: authUser.uid,
             userName: authUser.displayName || "Anonymous User",
-            userAvatar:
-              authUser.photoURL ||
-              "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100",
+            // Store empty avatar when the user has no custom photo so
+            // the UI can fall back to initials instead of a stock image.
+            userAvatar: authUser.photoURL || "",
           });
 
           // Refresh user reviews and business ratings
@@ -612,9 +630,9 @@ export const useAppStore = () => {
         id: authUser.uid,
         name: authUser.displayName || "User",
         email: authUser.email || "",
-        avatar:
-          authUser.photoURL ||
-          "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100",
+        // Let UI decide how to display a missing avatar (e.g. initials),
+        // instead of forcing a stock image URL here.
+        avatar: authUser.photoURL || "",
         reviewCount: reviews.filter((r) => r.userId === authUser.uid).length,
         favoriteBusinesses: favorites,
       }

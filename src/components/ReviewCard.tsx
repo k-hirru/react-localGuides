@@ -141,14 +141,22 @@ const ReviewCard = memo(
       return "U";
     };
 
+    const isDefaultAvatarUrl = (url?: string | null) => {
+      if (!url) return true;
+      // Treat the old Unsplash fallback as "no real avatar" so we show initials instead.
+      return url.includes("photo-1535713875002-d1d0cf377fde");
+    };
+
+    const hasCustomAvatar = !!review.userAvatar && !isDefaultAvatarUrl(review.userAvatar);
+
     return (
       <View
         style={[styles.container, isUsersReview && styles.usersReviewContainer]}
       >
         <View style={styles.header}>
           <View style={styles.userInfo}>
-            {/* ✅ UPDATED: Use userAvatar from review data directly */}
-            {review.userAvatar ? (
+            {/* Avatar: use custom avatar if set, otherwise fallback to initials */}
+            {hasCustomAvatar ? (
               <Image
                 source={{ uri: review.userAvatar }}
                 style={styles.avatar}
