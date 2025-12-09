@@ -1,0 +1,32 @@
+# Simple Maestro E2E flow: Home screen smoke test
+appId: com.khirrucapstone.localguide
+name: Home screen smoke test
+---
+# Clear any existing app state
+- clearState
+
+# Launch the app
+- launchApp
+
+# Wait for login screen
+- assertVisible: "Discover local. Log in to guide."
+
+# Enter email 
+- tapOn: "Email address"
+- inputText: ${MAESTRO_EMAIL}
+
+# Enter password 
+- tapOn: "Password"
+- inputText: ${MAESTRO_PASSWORD}
+
+# Tap the Sign In button
+- tapOn: "Sign In" 
+
+# Wait for the Home screen to load by checking for the subtitle text
+- assertVisible: "Discover amazing local spots near you"
+
+# Verify the search placeholder is visible
+- assertVisible: "Search restaurants, cafes, fast food..."
+
+# Optionally tap the search bar
+- tapOn: "Search restaurants, cafes, fast food..."
