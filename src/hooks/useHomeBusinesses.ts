@@ -6,6 +6,25 @@ import { useQueryClient } from "@tanstack/react-query";
 import { businessQueryKeys } from "@/src/services/businessService";
 import { Business } from "@/src/types";
 
+/**
+ * Feature-level hook that encapsulates all **Home** data logic.
+ *
+ * Responsibilities:
+ * - Fetch nearby businesses via `useInfiniteNearbyBusinessesQuery` and
+ *   `businessService.getNearbyBusinessesPage`.
+ * - Combine server state with client concerns:
+ *   - Connectivity (`useInternetConnectivity`),
+ *   - Location (`useLocation`),
+ *   - Category + search filters (derived `filteredBusinesses`),
+ *   - Derived collections (`topRatedBusinesses`, `trendingBusinesses`).
+ * - Expose UI-friendly flags (`isInitialLoading`, `showEmptyState`,
+ *   `hasContent`, `refreshing`) and callbacks (`handleRefresh`,
+ *   `handleLoadMore`).
+ *
+ * This keeps `HomeScreen` focused on presentation and navigation while this
+ * hook owns all the stateful behavior required to power the screen.
+ */
+
 export interface UseHomeBusinessesArgs {
   selectedCategory: string;
   searchQuery: string;

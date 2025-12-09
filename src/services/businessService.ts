@@ -13,6 +13,24 @@ import {
   serverTimestamp,
 } from "@react-native-firebase/firestore";
 
+/**
+ * businessService
+ *
+ * Orchestrates business discovery and persistence:
+ * - Maps high-level app categories (restaurants/cafes/fast_food) to
+ *   Geoapify category strings.
+ * - Calls `geoapifyService` to search for places and `reviewService` to
+ *   gather aggregated rating/review-count per business.
+ * - Converts raw Geoapify places into internal `Business` domain objects
+ *   via `mapGeoapifyToBusiness`.
+ * - Persists/reads a cross-session AsyncStorage cache for nearby results.
+ * - Upserts canonical business documents into Firestore for analytics and
+ *   admin/dashboard usage.
+ *
+ * This module never touches UI components directly; it is consumed by
+ * React Query hooks and feature hooks like `useHomeBusinesses`.
+ */
+
 const mapAppCategoriesToGeoapify = (categories: string[]): string[] => {
   if (categories.length === 0) {
     return ["catering.restaurant", "catering.cafe", "catering.fast_food"];

@@ -12,6 +12,19 @@ import {
 // Get Firestore instance
 const db = getFirestore();
 
+/**
+ * favoriteService
+ *
+ * Thin Firestore wrapper around the `userFavorites` collection:
+ * - Stores an array of `favoriteBusinessIds` per user.
+ * - Exposes helpers to add/remove/toggle a business as a favorite.
+ * - Provides a realtime `subscribeToFavorites` API so hooks like
+ *   `useAppStore` can react to updates.
+ *
+ * This keeps favorites persistence concerns out of components and
+ * normalizes how favorite state is stored and retrieved.
+ */
+
 export const favoriteService = {
   // Get user's favorites
   async getUserFavorites(userId: string): Promise<string[]> {

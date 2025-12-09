@@ -216,7 +216,34 @@ These helpers are pure functions and are heavily unit-tested.
 
 ---
 
-## 3. API Integration Overview
+## 3. State Management
+
+The app uses a combination of **React Query**, **custom hooks/contexts**, and a small client-side store to manage state.
+
+- **Server state (remote data):**
+  - React Query hooks (e.g. `useNearbyBusinessesQuery`, `useInfiniteNearbyBusinessesQuery`, `useBusinessDetailsQuery`, `useBusinessReviewsQuery`) fetch and cache data from Geoapify and Firebase.
+  - These hooks always talk to the API via services (`businessService`, `geoapifyService`, `reviewService`, etc.) so that network logic is not embedded in screens.
+- **Client state (UI + derived state):**
+  - `AuthContext` + `useAuth` manage the authenticated user, role (`user` / `admin`), and profile name.
+  - `useHomeBusinesses` is a feature hook for Home that composes:
+    - Connectivity (`useInternetConnectivity`),
+    - Location (`useLocation`),
+    - Infinite nearby businesses (`useInfiniteNearbyBusinessesQuery`), and
+    - Client-side filters (category + search),
+    into a single stateful façade consumed by `HomeScreen`.
+  - `useAppStore` acts as a thin orchestration layer for cross-screen client state such as:
+    - Locally cached businesses, reviews, and favorites,
+    - Search and refresh helpers,
+    while delegating all remote data access to `businessService`, `reviewService`, and `favoriteService` via `useProtectedAction`.
+  - `useUserFavorites` is a tiny hook that exposes the current user’s favorite IDs from `useAppStore`, giving consumers a clear entry point for favorites state.
+- **Network/side-effect guard:**
+  - `useProtectedAction` centralizes connectivity checks and retry/alert behavior around async actions, so services and hooks can assume they are called only when the device is online.
+
+This separation makes it clear what is **server state** (owned by React Query + services) vs what is **client/derived state** (owned by hooks/contexts like `useHomeBusinesses`, `useAppStore`, and `AuthContext`).
+
+---
+
+## 4. API Integration Overview
 
 ### 3.1 Firebase
 
@@ -259,7 +286,7 @@ Key integration points:
 
 ---
 
-## 4. Testing Strategy
+## 5. Testing Strategy
 
 The test suite uses **Jest** and **@testing-library/react-native** for unit and integration tests, plus **Maestro** for a small end-to-end smoke test.
 
@@ -320,7 +347,7 @@ To run these flows, install Maestro CLI and follow the instructions in `TESTING.
 
 ---
 
-## 5. Summary
+## 6. Summary
 
 This project’s architecture separates concerns into:
 

@@ -2,6 +2,20 @@ import { useCallback } from 'react';
 import { useInternetConnectivity } from './useInternetConnectivity';
 import { Alert } from 'react-native';
 
+/**
+ * Wraps async actions with connectivity checks and optional retry/alerts.
+ *
+ * - Calls `useInternetConnectivity().checkConnectivity()` before running
+ *   the provided action.
+ * - Presents a user-facing alert with optional "Retry" when offline.
+ * - Returns `false` instead of throwing when the action is blocked by
+ *   offline state, making it easy for callers to bail out gracefully.
+ *
+ * This hook sits between UI/feature hooks (e.g. `useHomeBusinesses`,
+ * `useAppStore`) and the services layer, so network guarding logic is
+ * defined once and reused consistently.
+ */
+
 export const useProtectedAction = () => {
   const { isConnected, checkConnectivity, showOfflineAlert } = useInternetConnectivity();
 

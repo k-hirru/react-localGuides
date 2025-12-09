@@ -5,7 +5,32 @@ import { favoriteService } from "@/src/services/favoriteService";
 import { useAuth } from "./useAuth";
 import { useLocation } from "./useLocation";
 import { Review, Business, SearchFilters } from "@/src/types";
-import { useProtectedAction } from '@/src/hooks/useProtectedAction';
+import { useProtectedAction } from "@/src/hooks/useProtectedAction";
+
+/**
+ * Global app store for **client-side** cross-cutting concerns.
+ *
+ * Responsibilities:
+ * - Hold in-memory copies of "local" state that is shared across multiple
+ *   screens (e.g. cached `businesses`, `reviews`, `favorites`, and
+ *   local search results).
+ * - Coordinate side effects such as:
+ *   - Subscribing to Firestore favorites via `favoriteService` once per
+ *     authenticated user.
+ *   - Orchestrating nearby-business loading by delegating to
+ *     `businessService` and `reviewService` through `useProtectedAction`.
+ * - Expose high-level helpers like `loadNearbyBusinesses`,
+ *   `refreshBusinesses`, `searchBusinesses`, `getBusinessById`, etc., so
+ *   UI components and feature hooks don't need to know about Firestore,
+ *   Geoapify, or connectivity details.
+ *
+ * It deliberately does **not** perform direct network calls itself; instead,
+ * all remote access goes through the dedicated services layer (`businessService`,
+ * `reviewService`, `favoriteService`, `notificationService`, etc.). This keeps
+ * server state and side effects encapsulated and makes it easier to evolve the
+ * state management strategy (e.g. moving more into React Query or Zustand)
+ * without rewriting UI components.
+ */
 
 // ✅ Global state for business loading coordination
 const globalState = {
