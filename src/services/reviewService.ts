@@ -22,6 +22,24 @@ import { imageService } from "./imageService";
 
 const db = getFirestore();
 
+/**
+ * reviewService
+ *
+ * Encapsulates all Firestore access and domain logic for reviews and
+ * helpful votes:
+ * - `addReview`, `updateReview`, `deleteReview` work with the `reviews`
+ *   collection and ensure timestamps are managed consistently.
+ * - `getReviewsForBusiness`, `getUserReviews`, and `getBusinessesWithReviews`
+ *   provide both raw lists and aggregated rating/review-count data per
+ *   business.
+ * - Integrates with `imageService` to delete associated review images from
+ *   Storage when a review is removed.
+ *
+ * UI and hooks rely on this service instead of talking to Firestore
+ * collections directly, which keeps persistence concerns out of
+ * presentation code.
+ */
+
 export interface HelpfulVote {
   reviewId: string;
   reviewOwnerId: string;
