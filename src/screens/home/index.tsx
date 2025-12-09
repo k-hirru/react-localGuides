@@ -20,45 +20,41 @@ import {
   Coffee,
   WifiOff,
 } from "lucide-react-native";
+import { useNavigation } from "@react-navigation/native";
+
 import { useAuthContext } from "@/src/context/AuthContext";
 import BusinessCard from "@/src/components/BusinessCard";
 import CategoryFilter from "@/src/components/CategoryFilter";
-import { useNavigation } from "@react-navigation/native";
 import FindingPlacesLoader from "@/src/components/findingPlacesLoader";
-import { Business } from "../../types";
-import { useInternetConnectivity } from "@/src/hooks/useInternetConnectivity";
-import { useInfiniteNearbyBusinessesQuery } from "@/src/hooks/queries/useNearbyBusinessesQuery";
-import { useLocation } from "@/src/hooks/useLocation";
-import { useQueryClient } from "@tanstack/react-query";
-import { businessQueryKeys } from "@/src/services/businessService";
+import { Business } from "@/src/types";
+import { useHomeBusinesses } from "@/src/hooks/useHomeBusinesses";
 
 // ✅ Use React.memo to prevent unnecessary re-renders
 
 const HomeScreen = memo(function HomeScreen() {
   const [searchQuery, setSearchQuery] = useState("");
-  const { user, profileName } = useAuthContext();
   const [selectedCategory, setSelectedCategory] = useState("all");
-  const [refreshing, setRefreshing] = useState(false);
-  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
-
-  const { isConnected, showOfflineAlert } = useInternetConnectivity();
-  const { userLocation } = useLocation();
-  const queryClient = useQueryClient();
+  const { user, profileName } = useAuthContext();
+  const navigation = useNavigation();
 
   const {
-    data,
-    isLoading,
-    isFetching,
-    refetch,
-    fetchNextPage,
+    businesses,
+    filteredBusinesses,
+    topRatedBusinesses,
+    trendingBusinesses,
+    cacheUpdatedLabel,
+    isInitialLoading,
+    showEmptyState,
+    hasContent,
+    refreshing,
+    isConnected,
+    handleRefresh,
+    handleLoadMore,
     hasNextPage,
     isFetchingNextPage,
-    dataUpdatedAt,
-  } = useInfiniteNearbyBusinessesQuery();
+  } = useHomeBusinesses({ selectedCategory, searchQuery });
 
-  const businesses = useMemo(() => (data?.pages ?? []).flat() as Business[], [data?.pages]);
-
-  const navigation = useNavigation();
+  const [fadeAnim] = useState(new Animated.Value(0));
 
   // ✅ Memoize user-dependent values
   const userName = useMemo(
@@ -70,34 +66,7 @@ const HomeScreen = memo(function HomeScreen() {
     [profileName, user?.displayName]
   );
 
-  // Track when we've completed at least one load with a known location
-  // to differentiate between initial loading and true empty states.
-  useEffect(() => {
-    if (!hasLoadedOnce && userLocation && !isLoading && !isFetching) {
-      setHasLoadedOnce(true);
-    }
-  }, [hasLoadedOnce, userLocation, isLoading, isFetching]);
-
-  // Initial loading covers:
-  // - waiting for location
-  // - first fetch while no data is present
-  const isInitialLoading =
-    !userLocation ||
-    (!hasLoadedOnce && ((isLoading || isFetching) || businesses.length === 0)) ||
-    ((isLoading || isFetching) && businesses.length === 0);
-
-  const showEmptyState =
-    hasLoadedOnce &&
-    !!userLocation &&
-    !isLoading &&
-    !isFetching &&
-    !refreshing &&
-    businesses.length === 0;
-
-  const hasContent = businesses.length > 0;
-
-  const [fadeAnim] = useState(new Animated.Value(0));
-
+  // Animate the loading state
   useEffect(() => {
     Animated.timing(fadeAnim, {
       toValue: isInitialLoading ? 1 : 0,
@@ -106,103 +75,7 @@ const HomeScreen = memo(function HomeScreen() {
     }).start();
   }, [isInitialLoading, fadeAnim]);
 
-  // ✅ OPTIMIZED: Efficient filtering with memoization
-  const filteredBusinesses = useMemo(() => {
-    let result = businesses;
-
-  // Apply category filter first
-  if (selectedCategory !== "all") {
-    result = result.filter((business) => business.category === selectedCategory);
-  }
-
-  // Apply search filter if needed
-  if (searchQuery.trim()) {
-    const q = searchQuery.toLowerCase();
-    result = result.filter(
-      (b) =>
-        b.name.toLowerCase().includes(q) ||
-        b.address.toLowerCase().includes(q) ||
-        b.features.some((f) => f.toLowerCase().includes(q))
-    );
-  }
-
-  return result;
-}, [businesses, searchQuery, selectedCategory]);
-
-  // With infinite query, we always show all loaded businesses after filtering.
-
-  // ✅ OPTIMIZED: Derived data with proper dependencies
-  const topRatedBusinesses = useMemo(() => {
-    return filteredBusinesses
-      .filter((b) => b.rating >= 4.0)
-      .sort((a, b) => b.rating - a.rating)
-      .slice(0, 3);
-  }, [filteredBusinesses]);
-
-  const trendingBusinesses = useMemo(() => {
-    return filteredBusinesses
-      .sort((a, b) => b.reviewCount - a.reviewCount)
-      .slice(0, 3);
-  }, [filteredBusinesses]);
-
-  const cacheUpdatedLabel = useMemo(() => {
-    if (!dataUpdatedAt) return null;
-    const ageMs = Date.now() - dataUpdatedAt;
-
-    if (ageMs < 60 * 1000) return "Updated just now";
-
-    const minutes = Math.floor(ageMs / (60 * 1000));
-    if (minutes < 60) return `Updated ${minutes} min ago`;
-
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) {
-      return `Updated ${hours} hr${hours > 1 ? "s" : ""} ago`;
-    }
-
-    return "Updated over 1 day ago";
-  }, [dataUpdatedAt]);
-
-  const handleRefresh = useCallback(async () => {
-    if (!isConnected) {
-      showOfflineAlert();
-      return;
-    }
-
-    if (!userLocation) {
-      console.log("⚠️ Cannot refresh: user location not available yet");
-      return;
-    }
-
-    setRefreshing(true);
-    try {
-      // Clear cached infinite pages (including persisted state) for this location
-      const infiniteKey = [
-        ...businessQueryKeys.lists(),
-        "infinite",
-        {
-          lat: userLocation.latitude,
-          lng: userLocation.longitude,
-          radius: 5000,
-          categories: [],
-        },
-      ];
-
-      queryClient.removeQueries({ queryKey: infiniteKey });
-      await refetch();
-    } catch (error) {
-      console.error("Refresh failed:", error);
-    } finally {
-      setRefreshing(false);
-    }
-  }, [
-    refetch,
-    isConnected,
-    showOfflineAlert,
-    queryClient,
-    userLocation,
-  ]);
-
-  // ✅ Category change without side effects
+  // Category change without side effects
   const handleCategoryChange = useCallback((category: string) => {
     setSelectedCategory(category);
     setSearchQuery("");
@@ -215,12 +88,7 @@ const HomeScreen = memo(function HomeScreen() {
     [navigation]
   );
 
-  const handleLoadMore = useCallback(() => {
-    if (!hasNextPage || isFetchingNextPage) return;
-    fetchNextPage();
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
-
-  // ✅ Memoized render item
+  // Memoized render item
   const renderBusinessItem = useCallback(
     ({ item }: ListRenderItemInfo<Business>) => (
       <BusinessCard
@@ -231,14 +99,14 @@ const HomeScreen = memo(function HomeScreen() {
     [handleBusinessPress]
   );
 
-console.log("🏠 HOME - State:", {
-  loading: isLoading || isFetching,
-  refreshing,
-  businessesCount: businesses.length,
-  filteredCount: filteredBusinesses.length,
-  isInitialLoading,
-  showEmptyState,
-});
+  console.log("🏠 HOME - State:", {
+    loading: isInitialLoading,
+    refreshing,
+    businessesCount: businesses.length,
+    filteredCount: filteredBusinesses.length,
+    isInitialLoading,
+    showEmptyState,
+  });
 
   // ✅ FIXED: Empty State Component (without useMemo)
   const EmptyStateView = () => (
