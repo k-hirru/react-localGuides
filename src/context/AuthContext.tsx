@@ -16,6 +16,7 @@ interface AuthContextType {
   resetPassword: (email: string) => Promise<void>;
   role: 'user' | 'admin';
   isAdmin: boolean;
+  profileName: string | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);

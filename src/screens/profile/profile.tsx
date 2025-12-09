@@ -22,7 +22,7 @@ import {
   Image as ImageIcon,
 } from "lucide-react-native";
 import { useNavigation } from "@react-navigation/native";
-import { useAuth } from "@/src/hooks/useAuth";
+import { useAuthContext } from "@/src/context/AuthContext";
 import { useUserReviewsQuery } from "@/src/hooks/queries/useUserReviewsQuery";
 import { useUserFavorites } from "@/src/hooks/useUserFavorites";
 import { useBusinessDetailsQuery } from "@/src/hooks/queries/useBusinessDetailsQuery";
@@ -80,7 +80,7 @@ const getProfileInitials = (name?: string | null) => {
 };
 
 export default function ProfileScreen() {
-  const { user: authUser, logout, isAdmin } = useAuth();
+  const { user: authUser, logout, isAdmin, role } = useAuthContext();
   const navigation = useNavigation();
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(
@@ -121,6 +121,12 @@ export default function ProfileScreen() {
           try {
             await logout();
             console.log("✅ User logged out successfully");
+
+            // Extra safety: explicitly reset navigation to the auth stack
+            (navigation as any).reset({
+              index: 0,
+              routes: [{ name: "Login" }],
+            });
           } catch (error) {
             console.error("❌ Logout failed:", error);
             Alert.alert("Error", "Failed to log out. Please try again.");
@@ -491,7 +497,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   name: { fontSize: 24, fontWeight: "bold", color: "#333", marginBottom: 4 },
-  email: { fontSize: 16, color: "#666", marginBottom: 20 },
+  email: { fontSize: 16, color: "#666", marginBottom: 4 },
+  roleDebug: { fontSize: 14, color: "#6B7280", marginBottom: 16 },
   editButton: {
     flexDirection: "row",
     alignItems: "center",

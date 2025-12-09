@@ -67,7 +67,8 @@ export const favoriteService = {
   subscribeToFavorites(userId: string, callback: (favorites: string[]) => void): () => void {
     const userRef = doc(db, 'userFavorites', userId);
     
-    const unsubscribe = onSnapshot(userRef,
+    const unsubscribe = onSnapshot(
+      userRef,
       (documentSnapshot) => {
         if (documentSnapshot.exists()) {
           const favorites = documentSnapshot.data()?.favoriteBusinessIds || [];
@@ -76,7 +77,14 @@ export const favoriteService = {
           callback([]);
         }
       },
-      (error) => {
+      (error: any) => {
+        // Gracefully handle permission issues (e.g. user logged out or rules updated)
+        if (error?.code === 'firestore/permission-denied') {
+          console.warn('Favorites subscription permission denied, clearing favorites.');
+          callback([]);
+          return;
+        }
+
         console.error('Error in favorites subscription:', error);
       }
     );

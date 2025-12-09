@@ -72,13 +72,12 @@ export const useRefreshNearbyBusinesses = () => {
 const INFINITE_PAGE_SIZE = 20;
 
 // Infinite query hook for backend-aware pagination using Geoapify offset.
-// Note: This does NOT currently use AsyncStorage persistence; it's designed
 // for in-session infinite scrolling.
 export const useInfiniteNearbyBusinessesQuery = () => {
   const { userLocation } = useLocation();
   const { protectedAction } = useProtectedAction();
 
-  return useInfiniteQuery({
+  return useInfiniteQuery<Awaited<ReturnType<typeof businessService.getNearbyBusinessesPage>>>({
     enabled: !!userLocation,
     initialPageParam: 1,
     staleTime: 5 * 60 * 1000,

@@ -9,6 +9,7 @@ import {
 } from "@react-navigation/native";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
+import { View, ActivityIndicator } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AuthProvider, useAuthContext } from "@/src/context/AuthContext"; // ← CHANGE THIS
 import { useNotifications } from "@/src/hooks/useNotification";
@@ -61,7 +62,11 @@ function AuthNavigator() {
   }, [loading]);
 
   if (loading) {
-    return null;
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#F8F9FA" }}>
+        <ActivityIndicator size="large" color="#007AFF" />
+      </View>
+    );
   }
 
   return (
@@ -125,7 +130,7 @@ function AuthNavigator() {
             component={AdminDashboardScreen}
             options={{
               title: "Admin Dashboard",
-              headerShown: true,
+              headerShown: false,
             }}
           />
         </>

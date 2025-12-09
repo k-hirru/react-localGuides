@@ -54,6 +54,11 @@ interface NearbyCachePayload {
 
 const db = getFirestore();
 
+const buildAreaKey = (city?: string | null, country?: string | null) => {
+  if (!city || !country) return null;
+  return `${city.trim().toLowerCase()}::${country.trim().toLowerCase()}`;
+};
+
 export const businessQueryKeys = {
   all: ["businesses"] as const,
   lists: () => [...businessQueryKeys.all, "list"] as const,
@@ -243,7 +248,11 @@ export const businessService = {
         const businessRef = doc(db, "businesses", business.id);
         const existing = await getDoc(businessRef);
 
-        const basePayload = {
+        const city = place.address?.city ?? null;
+        const country = place.address?.country ?? null;
+        const areaKey = buildAreaKey(city, country);
+
+        const basePayload: any = {
           id: business.id,
           name: business.name,
           address: business.address,
@@ -256,6 +265,16 @@ export const businessService = {
           source: business.source,
           updatedAt: serverTimestamp(),
         };
+
+        if (city) {
+          basePayload.city = city;
+        }
+        if (country) {
+          basePayload.country = country;
+        }
+        if (areaKey) {
+          basePayload.areaKey = areaKey;
+        }
 
         if (existing.exists()) {
           await updateDoc(businessRef, {

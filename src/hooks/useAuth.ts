@@ -41,6 +41,7 @@ export const useAuth = () => {
   const [loading, setLoading] = useState(!initialUser);
   const [error, setError] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<'user' | 'admin' | null>(null);
+  const [profileName, setProfileName] = useState<string | null>(null);
 
   const auth = getAuth();
   const firestore = getFirestore();
@@ -96,25 +97,37 @@ export const useAuth = () => {
       setUser(user);
 
       if (user) {
-        // Load role from Firestore (default to 'user' if missing)
+        // Load role and profile data from Firestore (default to 'user' if missing)
         try {
           const userRef = doc(firestore, "users", user.uid);
           const snap = await getDoc(userRef);
+          console.log("🔐 useAuth: loaded user doc for role", {
+            uid: user.uid,
+            exists: snap.exists(),
+            data: snap.exists() ? snap.data() : null,
+          });
           if (snap.exists()) {
             const data = snap.data() as Partial<UserDocument>;
+            console.log("🔐 useAuth: derived role", data.role);
             setUserRole(data.role === 'admin' ? 'admin' : 'user');
+            setProfileName(data.name || user.displayName || null);
           } else {
+            console.log("🔐 useAuth: no user doc found, defaulting to 'user'");
             setUserRole('user');
+            // Do NOT overwrite profileName here; keep whatever we have from
+            // signup (fullName) so Home greeting doesn't briefly show "there".
           }
         } catch (roleError) {
           console.warn("⚠️ Failed to load user role:", roleError);
           setUserRole('user');
+          // Likewise, don't clobber profileName on role load failure.
         }
 
         const token = await notificationService.requestPermissionAndGetToken();
         await updateUserFcmToken(user, token);
       } else {
         setUserRole(null);
+        setProfileName(null);
         notificationService.clearCachedToken();
       }
 
@@ -177,6 +190,7 @@ export const useAuth = () => {
       try {
         setError(null);
         setLoading(true);
+
         const userCredential = await createUserWithEmailAndPassword(
           auth,
           email,
@@ -186,6 +200,32 @@ export const useAuth = () => {
         await updateProfile(userCredential.user, {
           displayName: fullName,
         });
+
+        // Write/merge Firestore user document with the correct name
+        try {
+          const userRef = doc(firestore, "users", userCredential.user.uid);
+          await setDoc(
+            userRef,
+            {
+              name: fullName,
+              email: userCredential.user.email || email,
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+            },
+            { merge: true }
+          );
+        } catch (e) {
+          console.warn("⚠️ Failed to write user profile doc on signup:", e);
+        }
+
+        // Ensure in-memory user has the updated displayName so Home can greet properly
+        try {
+          await userCredential.user.reload();
+          setUser(userCredential.user);
+          setProfileName(fullName);
+        } catch (e) {
+          console.warn("⚠️ Failed to reload user after signup:", e);
+        }
 
         const token = await notificationService.requestPermissionAndGetToken();
         await updateUserFcmToken(userCredential.user, token);
@@ -248,10 +288,13 @@ export const useAuth = () => {
     [auth]
   );
 
+  const isProfileLoading = !!user && profileName === null;
+  const effectiveLoading = loading || isProfileLoading;
+
   const authValue = useMemo(
     () => ({
       user,
-      loading,
+      loading: effectiveLoading,
       error,
       login,
       signup,
@@ -259,8 +302,19 @@ export const useAuth = () => {
       resetPassword,
       role: userRole ?? 'user',
       isAdmin: userRole === 'admin',
+      profileName,
     }),
-    [user, loading, error, login, signup, logoutAndCleanup, resetPassword, userRole]
+    [
+      user,
+      effectiveLoading,
+      error,
+      login,
+      signup,
+      logoutAndCleanup,
+      resetPassword,
+      userRole,
+      profileName,
+    ]
   );
 
   return authValue;

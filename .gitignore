@@ -36,3 +36,7 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 .vercel
+
+# Test artifacts
+.tmp/
+coverage/

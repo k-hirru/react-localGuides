@@ -1,7 +1,15 @@
 // /src/services/geoapifyService.ts
 import { GeoapifyPlace } from "@/src/types";
+import Constants from "expo-constants";
 
-const GEOAPIFY_API_KEY = "62f8635ddced4b519caa9d2f13edfc43";
+const GEOAPIFY_API_KEY =
+  Constants.expoConfig?.extra?.GEOAPIFY_API_KEY ??
+  Constants.manifest?.extra?.GEOAPIFY_API_KEY;
+
+if (!GEOAPIFY_API_KEY) {
+  console.warn("⚠️ GEOAPIFY_API_KEY is not set in app config extra.");
+}
+
 const BASE_URL = "https://api.geoapify.com/v2";
 const URL_SEARCH = " ";
 

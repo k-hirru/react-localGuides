@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, SafeAreaView, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, SafeAreaView} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Mail, Lock, Apple, Smartphone, User } from 'lucide-react-native';
 
@@ -7,12 +7,12 @@ import { StyledInput } from '@/src/components/StyledInput';
 import { SocialButton } from '@/src/components/SocialButton';
 import { KeyboardAvoidingScrollView } from '@/src/components/KeyboardAvoidingScrollView';
 import { FormContainer } from '@/src/components/FormContainer';
-import { useAuth } from '@/src/hooks/useAuth';
+import { useAuthContext } from '@/src/context/AuthContext';
 import Colors from '@/src/constants/colors';
 
 export default function SignUpScreen() {
   const navigation = useNavigation();
-  const { signup, loading, logout } = useAuth();
+  const { signup, loading } = useAuthContext();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -34,17 +34,8 @@ export default function SignUpScreen() {
 
     try {
       await signup(email, password, fullName);
-      await logout();
-      Alert.alert(
-        'Welcome!',
-        'Your account has been created successfully! Please log in to continue.',
-        [
-          {
-            text: 'OK',
-            onPress: () => navigation.goBack(),
-          },
-        ],
-      );
+      // User stays signed in; AuthNavigator will switch to the main app (Tabs/Home).
+      // No extra navigation needed here to avoid race conditions.
     } catch (error: any) {
       Alert.alert('Sign Up Error', error.message);
     }

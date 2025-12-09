@@ -36,7 +36,7 @@ import { businessQueryKeys } from "@/src/services/businessService";
 
 const HomeScreen = memo(function HomeScreen() {
   const [searchQuery, setSearchQuery] = useState("");
-  const { user } = useAuthContext();
+  const { user, profileName } = useAuthContext();
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [refreshing, setRefreshing] = useState(false);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
@@ -62,8 +62,12 @@ const HomeScreen = memo(function HomeScreen() {
 
   // ✅ Memoize user-dependent values
   const userName = useMemo(
-    () => user?.displayName?.split(" ")[0] || "there",
-    [user?.displayName]
+    () => {
+      const source = profileName || user?.displayName || "";
+      const first = source.trim().split(" ")[0];
+      return first || "there";
+    },
+    [profileName, user?.displayName]
   );
 
   // Track when we've completed at least one load with a known location
