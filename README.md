@@ -289,7 +289,26 @@ Key integration points:
 
 ---
 
-## 5. Testing Strategy
+## 5. Network Performance & Caching
+
+The app is designed to avoid unnecessary network calls and to degrade gracefully when the network is unreliable:
+
+- **React Query + persistence:**
+  - `AppNavigator` configures a `QueryClient` with explicit exponential backoff (capped) and avoids retrying obvious client errors (4xx).
+  - Queries use a 5-minute `staleTime` and 10-minute `gcTime`, while `PersistQueryClientProvider` persists data to AsyncStorage for up to 6 hours, reducing refetches across app launches.
+- **Geoapify service caching & deduplication:**
+  - `geoapifyService` maintains a 15-minute in-memory cache and a `pendingRequests` map so identical in-flight queries share a single HTTP request.
+  - On errors, it falls back to stale cached data where available so users still see place results instead of a hard failure.
+- **Business service TTL cache:**
+  - `businessService` wraps Geoapify with an AsyncStorage cache of mapped `Business` models (6-hour TTL) for nearby searches.
+  - This sits on top of the in-memory Geoapify cache to keep “nearby” lists fast both within a session and across app restarts.
+- **Offline-friendly favorites:**
+  - `useAppStore.toggleFavorite` performs optimistic updates and, when offline, enqueues favorite toggles to AsyncStorage.
+  - `useInternetConnectivity` flushes this queue when connectivity is restored by replaying the queued operations through `favoriteService.toggleFavorite`.
+
+Together, these layers go beyond default React Query caching to provide explicit retry/backoff, request deduplication, multi-tier caching, and a concrete example of offline queue/sync behavior.
+
+## 6. Testing Strategy
 
 The test suite uses **Jest** and **@testing-library/react-native** for unit and integration tests, plus **Maestro** for a small end-to-end smoke test.
 
@@ -350,7 +369,7 @@ To run these flows, install Maestro CLI and follow the instructions in `TESTING.
 
 ---
 
-## 6. Summary
+## 7. Summary
 
 This project’s architecture separates concerns into:
 
@@ -367,7 +386,7 @@ This structure and documentation are designed to make the app easier to understa
 
 ---
 
-## 7. Code Quality & Tooling
+## 8. Code Quality & Tooling
 
 - **Linting:** `npm run lint` (Expo lint) and `npm run lint:eslint` (raw ESLint) enforce code style and catch common issues across JS/TS/React Native files.
 - **Formatting:** `npm run format` and `npm run format:check` use Prettier to keep formatting consistent across the codebase.

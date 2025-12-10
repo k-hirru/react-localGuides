@@ -23,7 +23,24 @@ import AdminDashboardScreen from '../screens/admin/AdminDashboardScreen';
 
 SplashScreen.preventAutoHideAsync();
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Explicit exponential backoff and smarter retry rules so
+      // network behavior is predictable and easy to explain.
+      retry: (failureCount, error: any) => {
+        const status = (error as any)?.response?.status ?? (error as any)?.status;
+        if (status && status >= 400 && status < 500) {
+          return false; // don't retry obvious client errors
+        }
+        return failureCount < 3; // up to 3 attempts
+      },
+      retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 30000), // cap at 30s
+      staleTime: 5 * 60 * 1000,
+      gcTime: 10 * 60 * 1000,
+    },
+  },
+});
 
 const asyncStoragePersister = createAsyncStoragePersister({
   storage: AsyncStorage,

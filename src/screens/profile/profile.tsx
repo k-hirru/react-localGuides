@@ -68,7 +68,7 @@ const getProfileInitials = (name?: string | null) => {
 };
 
 export default function ProfileScreen() {
-  const { user: authUser, logout, isAdmin, role } = useAuthContext();
+  const { user: authUser, logout, isAdmin } = useAuthContext();
   const navigation = useNavigation();
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(authUser?.photoURL ?? null);
