@@ -15,10 +15,10 @@ import {
   serverTimestamp,
   increment,
   writeBatch,
-} from "@react-native-firebase/firestore";
-import type { FirebaseFirestoreTypes } from "@react-native-firebase/firestore";
-import { Review } from "@/src/types";
-import { imageService } from "./imageService";
+} from '@react-native-firebase/firestore';
+import type { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
+import { Review } from '@/src/types';
+import { imageService } from './imageService';
 
 const db = getFirestore();
 
@@ -50,15 +50,14 @@ export interface HelpfulVote {
 
 // Helpers
 const toISODate = (ts?: FirebaseFirestoreTypes.Timestamp) =>
-  (ts?.toDate() ?? new Date()).toISOString().split("T")[0];
+  (ts?.toDate() ?? new Date()).toISOString().split('T')[0];
 
-const toJSDate = (ts?: FirebaseFirestoreTypes.Timestamp) =>
-  ts?.toDate() ?? new Date();
+const toJSDate = (ts?: FirebaseFirestoreTypes.Timestamp) => ts?.toDate() ?? new Date();
 
 export const reviewService = {
   // Add a new review
   async addReview(
-    reviewData: Omit<Review, "id" | "date" | "createdAt" | "updatedAt">
+    reviewData: Omit<Review, 'id' | 'date' | 'createdAt' | 'updatedAt'>,
   ): Promise<string> {
     try {
       const reviewWithTimestamps = {
@@ -68,16 +67,16 @@ export const reviewService = {
         updatedAt: serverTimestamp(),
       };
 
-      const ref = await addDoc(collection(db, "reviews"), reviewWithTimestamps);
+      const ref = await addDoc(collection(db, 'reviews'), reviewWithTimestamps);
       return ref.id;
     } catch (error) {
-      console.error("Error adding review:", error);
-      throw new Error("Failed to add review");
+      console.error('Error adding review:', error);
+      throw new Error('Failed to add review');
     }
   },
 
   async getBusinessesWithReviews(
-    businessIds: string[]
+    businessIds: string[],
   ): Promise<Map<string, { rating: number; reviewCount: number }>> {
     if (businessIds.length === 0) return new Map();
 
@@ -89,10 +88,7 @@ export const reviewService = {
       const batchIds = businessIds.slice(i, i + 10);
 
       try {
-        const q = query(
-          collection(db, "reviews"),
-          where("businessId", "in", batchIds)
-        );
+        const q = query(collection(db, 'reviews'), where('businessId', 'in', batchIds));
         const snap = await getDocs(q);
 
         snap.forEach((d: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
@@ -104,7 +100,7 @@ export const reviewService = {
           }
         });
       } catch (error) {
-        console.error("Error fetching batch reviews:", error);
+        console.error('Error fetching batch reviews:', error);
       }
     }
 
@@ -122,16 +118,16 @@ export const reviewService = {
   // Get reviews for a business
   async getReviewsForBusiness(businessId: string): Promise<Review[]> {
     try {
-      console.log("🔍 Fetching reviews for business:", businessId);
+      console.log('🔍 Fetching reviews for business:', businessId);
 
       const q = query(
-        collection(db, "reviews"),
-        where("businessId", "==", businessId),
-        orderBy("date", "desc")
+        collection(db, 'reviews'),
+        where('businessId', '==', businessId),
+        orderBy('date', 'desc'),
       );
       const snap = await getDocs(q);
 
-      console.log("✅ Reviews query successful, found:", snap.size, "reviews");
+      console.log('✅ Reviews query successful, found:', snap.size, 'reviews');
 
       const reviews: Review[] = [];
       snap.forEach((d: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
@@ -154,8 +150,8 @@ export const reviewService = {
 
       return reviews;
     } catch (error: unknown) {
-      console.error("❌ Error fetching reviews:", error);
-      throw new Error("Failed to fetch reviews");
+      console.error('❌ Error fetching reviews:', error);
+      throw new Error('Failed to fetch reviews');
     }
   },
 
@@ -163,9 +159,9 @@ export const reviewService = {
   async getUserReviews(userId: string): Promise<Review[]> {
     try {
       const q = query(
-        collection(db, "reviews"),
-        where("userId", "==", userId),
-        orderBy("date", "desc")
+        collection(db, 'reviews'),
+        where('userId', '==', userId),
+        orderBy('date', 'desc'),
       );
       const snap = await getDocs(q);
 
@@ -190,36 +186,36 @@ export const reviewService = {
 
       return reviews;
     } catch (error) {
-      console.error("Error fetching user reviews:", error);
-      throw new Error("Failed to fetch user reviews");
+      console.error('Error fetching user reviews:', error);
+      throw new Error('Failed to fetch user reviews');
     }
   },
 
   // Update a review
   async updateReview(
     reviewId: string,
-    updates: { rating?: number; text?: string; images?: string[] }
+    updates: { rating?: number; text?: string; images?: string[] },
   ): Promise<void> {
     try {
-      await updateDoc(doc(db, "reviews", reviewId), {
+      await updateDoc(doc(db, 'reviews', reviewId), {
         ...updates,
         updatedAt: serverTimestamp(),
       });
     } catch (error) {
-      console.error("Error updating review:", error);
-      throw new Error("Failed to update review");
+      console.error('Error updating review:', error);
+      throw new Error('Failed to update review');
     }
   },
 
   // Delete a review and its images
   async deleteReview(reviewId: string): Promise<void> {
     try {
-      const reviewRef = doc(db, "reviews", reviewId);
+      const reviewRef = doc(db, 'reviews', reviewId);
       const reviewSnap = await getDoc(reviewRef);
 
       // RNFirebase typings vary by version: some expose `exists()` (method), others `exists` (boolean)
       const exists =
-        typeof (reviewSnap as any).exists === "function"
+        typeof (reviewSnap as any).exists === 'function'
           ? (reviewSnap as any).exists()
           : !!(reviewSnap as any).exists;
 
@@ -227,42 +223,42 @@ export const reviewService = {
         const data = reviewSnap.data() as any;
         const images: string[] = (data?.images as string[]) || [];
         if (images.length > 0) {
-          console.log("🗑️ Deleting review images from Firebase Storage:", images.length);
+          console.log('🗑️ Deleting review images from Firebase Storage:', images.length);
           await imageService.deleteImages(images);
         }
       }
 
       await deleteDoc(reviewRef);
-      console.log("✅ Review deleted successfully");
+      console.log('✅ Review deleted successfully');
     } catch (error) {
-      console.error("Error deleting review:", error);
-      throw new Error("Failed to delete review");
+      console.error('Error deleting review:', error);
+      throw new Error('Failed to delete review');
     }
   },
 
   // Update helpful count (increment/decrement)
   async updateReviewHelpfulCount(reviewId: string, delta: number): Promise<void> {
     try {
-      await updateDoc(doc(db, "reviews", reviewId), {
+      await updateDoc(doc(db, 'reviews', reviewId), {
         helpful: increment(delta),
       });
       console.log(`✅ Updated helpful count for review ${reviewId} by ${delta}`);
     } catch (error) {
-      console.error("Error updating helpful count:", error);
+      console.error('Error updating helpful count:', error);
       throw error;
     }
   },
 
-  async addHelpfulVote(voteData: Omit<HelpfulVote, "createdAt">): Promise<void> {
+  async addHelpfulVote(voteData: Omit<HelpfulVote, 'createdAt'>): Promise<void> {
     try {
-      const helpfulRef = doc(collection(db, "helpfuls")); // auto-id
+      const helpfulRef = doc(collection(db, 'helpfuls')); // auto-id
       await setDoc(helpfulRef, {
         ...voteData,
         createdAt: serverTimestamp(),
       });
-      console.log("Helpful vote added:", voteData.reviewId);
+      console.log('Helpful vote added:', voteData.reviewId);
     } catch (error) {
-      console.error("Error adding helpful vote:", error);
+      console.error('Error adding helpful vote:', error);
       throw error;
     }
   },
@@ -270,9 +266,9 @@ export const reviewService = {
   async removeHelpfulVote(reviewId: string, userId: string): Promise<void> {
     try {
       const q = query(
-        collection(db, "helpfuls"),
-        where("reviewId", "==", reviewId),
-        where("taggedBy", "==", userId)
+        collection(db, 'helpfuls'),
+        where('reviewId', '==', reviewId),
+        where('taggedBy', '==', userId),
       );
       const snap = await getDocs(q);
 
@@ -284,7 +280,7 @@ export const reviewService = {
         await batch.commit();
       }
     } catch (error) {
-      console.error("Error removing helpful vote:", error);
+      console.error('Error removing helpful vote:', error);
       throw error;
     }
   },
@@ -292,28 +288,25 @@ export const reviewService = {
   async hasUserVoted(reviewId: string, userId: string): Promise<boolean> {
     try {
       const q = query(
-        collection(db, "helpfuls"),
-        where("reviewId", "==", reviewId),
-        where("taggedBy", "==", userId)
+        collection(db, 'helpfuls'),
+        where('reviewId', '==', reviewId),
+        where('taggedBy', '==', userId),
       );
       const snap = await getDocs(q);
       return !snap.empty;
     } catch (error) {
-      console.error("Error checking user vote:", error);
+      console.error('Error checking user vote:', error);
       return false;
     }
   },
 
-  async getUserReviewForBusiness(
-    userId: string,
-    businessId: string
-  ): Promise<Review | null> {
+  async getUserReviewForBusiness(userId: string, businessId: string): Promise<Review | null> {
     try {
       const q = query(
-        collection(db, "reviews"),
-        where("userId", "==", userId),
-        where("businessId", "==", businessId),
-        qLimit(1)
+        collection(db, 'reviews'),
+        where('userId', '==', userId),
+        where('businessId', '==', businessId),
+        qLimit(1),
       );
       const snap = await getDocs(q);
 
@@ -337,7 +330,7 @@ export const reviewService = {
         updatedAt: toJSDate(data.updatedAt),
       };
     } catch (error) {
-      console.error("Error checking user review:", error);
+      console.error('Error checking user review:', error);
       return null;
     }
   },

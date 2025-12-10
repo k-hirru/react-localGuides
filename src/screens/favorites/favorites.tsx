@@ -10,16 +10,16 @@ export default function FavoritesScreen() {
   const navigation = useNavigation();
   const { user } = useAuthContext();
   const { favoriteBusinesses, toggleFavorite } = useFavoriteBusinesses();
-  
+
   const [optimisticallyRemoved, setOptimisticallyRemoved] = useState<string[]>([]);
-  
+
   // ✅ Filter out optimistically removed businesses
   const displayedBusinesses = favoriteBusinesses.filter(
-    business => !optimisticallyRemoved.includes(business.id)
+    (business) => !optimisticallyRemoved.includes(business.id),
   );
 
-  console.log("🏠 FavoritesScreen - User:", user ? "logged in" : "not logged in");
-  console.log("🏠 FavoritesScreen - Favorite businesses:", displayedBusinesses.length);
+  console.log('🏠 FavoritesScreen - User:', user ? 'logged in' : 'not logged in');
+  console.log('🏠 FavoritesScreen - Favorite businesses:', displayedBusinesses.length);
 
   const handleBusinessPress = (businessId: string) => {
     (navigation as any).navigate('BusinessDetails', { id: businessId });
@@ -30,35 +30,41 @@ export default function FavoritesScreen() {
   };
 
   // ✅ Optimistic removal when heart is tapped in Favorites screen
-  const handleFavoritePress = useCallback(async (businessId: string) => {
-    console.log("🗑️ Optimistically removing favorite:", businessId);
-    
-    // Immediately remove from UI
-    setOptimisticallyRemoved(prev => [...prev, businessId]);
-    
-    try {
-      // Call the actual toggle function (will unfavorite)
-      await toggleFavorite(businessId);
-      console.log("✅ Favorite removed successfully");
-    } catch (error) {
-      console.error("❌ Failed to remove favorite, reverting UI:", error);
-      // Revert optimistic update on error
-      setOptimisticallyRemoved(prev => prev.filter(id => id !== businessId));
-      alert("Failed to remove favorite. Please try again.");
-    }
-  }, [toggleFavorite]);
+  const handleFavoritePress = useCallback(
+    async (businessId: string) => {
+      console.log('🗑️ Optimistically removing favorite:', businessId);
+
+      // Immediately remove from UI
+      setOptimisticallyRemoved((prev) => [...prev, businessId]);
+
+      try {
+        // Call the actual toggle function (will unfavorite)
+        await toggleFavorite(businessId);
+        console.log('✅ Favorite removed successfully');
+      } catch (error) {
+        console.error('❌ Failed to remove favorite, reverting UI:', error);
+        // Revert optimistic update on error
+        setOptimisticallyRemoved((prev) => prev.filter((id) => id !== businessId));
+        alert('Failed to remove favorite. Please try again.');
+      }
+    },
+    [toggleFavorite],
+  );
 
   // ✅ Custom render function that overrides the onPress for the heart
-  const renderBusinessItem = useCallback(({ item }: { item: any }) => (
-    <View style={styles.businessCardWrapper}>
-      <BusinessCard
-        business={item}
-        onPress={() => handleBusinessPress(item.id)}
-        // ✅ Override the heart behavior in Favorites screen
-        customHeartAction={() => handleFavoritePress(item.id)}
-      />
-    </View>
-  ), [handleFavoritePress]);
+  const renderBusinessItem = useCallback(
+    ({ item }: { item: any }) => (
+      <View style={styles.businessCardWrapper}>
+        <BusinessCard
+          business={item}
+          onPress={() => handleBusinessPress(item.id)}
+          // ✅ Override the heart behavior in Favorites screen
+          customHeartAction={() => handleFavoritePress(item.id)}
+        />
+      </View>
+    ),
+    [handleFavoritePress],
+  );
 
   // ✅ Show login prompt if user is not logged in
   if (!user) {
@@ -86,13 +92,12 @@ export default function FavoritesScreen() {
         <View style={styles.emptyContainer}>
           <Heart size={64} color="#E0E0E0" />
           <Text style={styles.emptyTitle}>
-            {optimisticallyRemoved.length > 0 ? "All Favorites Removed" : "No Favorites Yet"}
+            {optimisticallyRemoved.length > 0 ? 'All Favorites Removed' : 'No Favorites Yet'}
           </Text>
           <Text style={styles.emptySubtitle}>
-            {optimisticallyRemoved.length > 0 
+            {optimisticallyRemoved.length > 0
               ? "You've removed all your favorites. Add new ones by exploring nearby places!"
-              : "Start exploring and save your favorite places by tapping the heart icon"
-            }
+              : 'Start exploring and save your favorite places by tapping the heart icon'}
           </Text>
         </View>
       </View>
@@ -102,7 +107,7 @@ export default function FavoritesScreen() {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFF" />
-      
+
       {/* Header with safe area padding */}
       <View style={styles.header}>
         <Text style={styles.title}>Your Favorites</Text>

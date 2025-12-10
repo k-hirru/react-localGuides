@@ -1,10 +1,10 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
-import { useInfiniteNearbyBusinessesQuery } from "@/src/hooks/queries/useNearbyBusinessesQuery";
-import { useInternetConnectivity } from "@/src/hooks/useInternetConnectivity";
-import { useLocation } from "@/src/hooks/useLocation";
-import { useQueryClient } from "@tanstack/react-query";
-import { businessQueryKeys } from "@/src/services/businessService";
-import { Business } from "@/src/types";
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useInfiniteNearbyBusinessesQuery } from '@/src/hooks/queries/useNearbyBusinessesQuery';
+import { useInternetConnectivity } from '@/src/hooks/useInternetConnectivity';
+import { useLocation } from '@/src/hooks/useLocation';
+import { useQueryClient } from '@tanstack/react-query';
+import { businessQueryKeys } from '@/src/services/businessService';
+import { Business } from '@/src/types';
 
 /**
  * Feature-level hook that encapsulates all **Home** data logic.
@@ -30,10 +30,7 @@ export interface UseHomeBusinessesArgs {
   searchQuery: string;
 }
 
-export function useHomeBusinesses({
-  selectedCategory,
-  searchQuery,
-}: UseHomeBusinessesArgs) {
+export function useHomeBusinesses({ selectedCategory, searchQuery }: UseHomeBusinessesArgs) {
   const { isConnected, showOfflineAlert } = useInternetConnectivity();
   const { userLocation } = useLocation();
   const queryClient = useQueryClient();
@@ -49,13 +46,11 @@ export function useHomeBusinesses({
     dataUpdatedAt,
   } = useInfiniteNearbyBusinessesQuery();
 
-  const businesses = useMemo(
-    () => (data?.pages ?? []).flat() as Business[],
-    [data?.pages]
-  );
+  const businesses = useMemo(() => (data?.pages ?? []).flat() as Business[], [data?.pages]);
 
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (!hasLoadedOnce && userLocation && !isLoading && !isFetching) {
@@ -65,7 +60,7 @@ export function useHomeBusinesses({
 
   const isInitialLoading =
     !userLocation ||
-    (!hasLoadedOnce && ((isLoading || isFetching) || businesses.length === 0)) ||
+    (!hasLoadedOnce && (isLoading || isFetching || businesses.length === 0)) ||
     ((isLoading || isFetching) && businesses.length === 0);
 
   const showEmptyState =
@@ -81,10 +76,8 @@ export function useHomeBusinesses({
   const filteredBusinesses = useMemo(() => {
     let result = businesses;
 
-    if (selectedCategory !== "all") {
-      result = result.filter(
-        (business) => business.category === selectedCategory
-      );
+    if (selectedCategory !== 'all') {
+      result = result.filter((business) => business.category === selectedCategory);
     }
 
     if (searchQuery.trim()) {
@@ -93,7 +86,7 @@ export function useHomeBusinesses({
         (b) =>
           b.name.toLowerCase().includes(q) ||
           b.address.toLowerCase().includes(q) ||
-          b.features.some((f) => f.toLowerCase().includes(q))
+          b.features.some((f) => f.toLowerCase().includes(q)),
       );
     }
 
@@ -118,17 +111,17 @@ export function useHomeBusinesses({
     if (!dataUpdatedAt) return null;
     const ageMs = Date.now() - dataUpdatedAt;
 
-    if (ageMs < 60 * 1000) return "Updated just now";
+    if (ageMs < 60 * 1000) return 'Updated just now';
 
     const minutes = Math.floor(ageMs / (60 * 1000));
     if (minutes < 60) return `Updated ${minutes} min ago`;
 
     const hours = Math.floor(minutes / 60);
     if (hours < 24) {
-      return `Updated ${hours} hr${hours > 1 ? "s" : ""} ago`;
+      return `Updated ${hours} hr${hours > 1 ? 's' : ''} ago`;
     }
 
-    return "Updated over 1 day ago";
+    return 'Updated over 1 day ago';
   }, [dataUpdatedAt]);
 
   const handleRefresh = useCallback(async () => {
@@ -138,15 +131,16 @@ export function useHomeBusinesses({
     }
 
     if (!userLocation) {
-      console.log("⚠️ Cannot refresh: user location not available yet");
+      console.log('⚠️ Cannot refresh: user location not available yet');
       return;
     }
 
     setRefreshing(true);
+    setErrorMessage(null);
     try {
       const infiniteKey = [
         ...businessQueryKeys.lists(),
-        "infinite",
+        'infinite',
         {
           lat: userLocation.latitude,
           lng: userLocation.longitude,
@@ -158,21 +152,23 @@ export function useHomeBusinesses({
       queryClient.removeQueries({ queryKey: infiniteKey });
       await refetch();
     } catch (error) {
-      console.error("Refresh failed:", error);
+      console.error('Refresh failed:', error);
+      setErrorMessage('Failed to refresh places. Please try again.');
     } finally {
       setRefreshing(false);
     }
-  }, [
-    refetch,
-    isConnected,
-    showOfflineAlert,
-    queryClient,
-    userLocation,
-  ]);
+  }, [refetch, isConnected, showOfflineAlert, queryClient, userLocation]);
 
-  const handleLoadMore = useCallback(() => {
+  const handleLoadMore = useCallback(async () => {
     if (!hasNextPage || isFetchingNextPage) return;
-    fetchNextPage();
+
+    try {
+      await fetchNextPage();
+      setErrorMessage(null);
+    } catch (error) {
+      console.error('Load more failed:', error);
+      setErrorMessage('Failed to load more places. Pull to refresh to retry.');
+    }
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   return {
@@ -186,6 +182,7 @@ export function useHomeBusinesses({
     hasContent,
     refreshing,
     isConnected,
+    errorMessage,
     handleRefresh,
     handleLoadMore,
     hasNextPage,

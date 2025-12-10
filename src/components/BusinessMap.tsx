@@ -1,11 +1,8 @@
-import React, { useEffect, useRef, useState, useCallback } from "react";
-import { StyleSheet, View, Text } from "react-native";
-import MapLibreGL, {
-  MapViewRef,
-  CameraRef,
-} from "@maplibre/maplibre-react-native";
-import { Business } from "@/src/types";
-import "react-native-url-polyfill/auto";
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { StyleSheet, View, Text } from 'react-native';
+import MapLibreGL, { MapViewRef, CameraRef } from '@maplibre/maplibre-react-native';
+import { Business } from '@/src/types';
+import 'react-native-url-polyfill/auto';
 
 interface BusinessMapProps {
   business: Business;
@@ -17,23 +14,19 @@ interface BusinessMapProps {
 }
 
 const getCoordNumber = (coord: number | any): number => {
-  if (typeof coord === "number") return coord;
-  if (Array.isArray(coord) && typeof coord[0] === "number") {
+  if (typeof coord === 'number') return coord;
+  if (Array.isArray(coord) && typeof coord[0] === 'number') {
     return coord[0];
   }
-  if (typeof coord === "string") {
+  if (typeof coord === 'string') {
     const num = parseFloat(coord);
     if (!isNaN(num)) return num;
   }
-  console.error("CRITICAL ERROR: Invalid coordinate data received:", coord);
+  console.error('CRITICAL ERROR: Invalid coordinate data received:', coord);
   return 0;
 };
 
-const BusinessMap: React.FC<BusinessMapProps> = ({
-  business,
-  userLocation,
-  onMapReady,
-}) => {
+const BusinessMap: React.FC<BusinessMapProps> = ({ business, userLocation, onMapReady }) => {
   const businessLat = getCoordNumber(business.coordinates.latitude);
   const businessLon = getCoordNumber(business.coordinates.longitude);
 
@@ -46,11 +39,11 @@ const BusinessMap: React.FC<BusinessMapProps> = ({
 
     recenterCounterRef.current += 1;
     const slightVariation = recenterCounterRef.current * 0.000001;
-    
+
     cameraRef.current.setCamera({
       centerCoordinate: [
-        userLocation.longitude + slightVariation, 
-        userLocation.latitude + slightVariation
+        userLocation.longitude + slightVariation,
+        userLocation.latitude + slightVariation,
       ],
       zoomLevel: 16,
       animationDuration: 1500,
@@ -118,10 +111,7 @@ const BusinessMap: React.FC<BusinessMapProps> = ({
         )}
 
         {/* Business Location Marker */}
-        <MapLibreGL.PointAnnotation
-          id="business-location"
-          coordinate={[businessLon, businessLat]}
-        >
+        <MapLibreGL.PointAnnotation id="business-location" coordinate={[businessLon, businessLat]}>
           <View style={[styles.marker, styles.businessMarker]}>
             <View style={styles.businessIcon}>
               <Text style={styles.businessIconText}>📍</Text>
@@ -152,35 +142,35 @@ const styles = StyleSheet.create({
   },
   // User Marker with pulse effect
   userMarkerContainer: {
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   marker: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
     borderWidth: 3,
-    borderColor: "white",
-    shadowColor: "#000",
+    borderColor: 'white',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
   },
   userMarker: {
-    backgroundColor: "#007AFF",
+    backgroundColor: '#007AFF',
   },
   userMarkerPulse: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: "black",
+    backgroundColor: 'black',
   },
   // Business Marker
   businessMarker: {
-    backgroundColor: "#FF3B30",
+    backgroundColor: '#FF3B30',
     width: 32,
     height: 32,
     borderRadius: 16,
@@ -188,30 +178,30 @@ const styles = StyleSheet.create({
   businessIcon: {
     width: 20,
     height: 20,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   businessIconText: {
     fontSize: 14,
   },
   // You are here overlay
   youAreHereOverlay: {
-    position: "absolute",
+    position: 'absolute',
     top: 20,
     left: 20,
     right: 20,
-    alignItems: "flex-start",
+    alignItems: 'flex-start',
   },
   youAreHereCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "white",
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'white',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#E0E0E0",
-    shadowColor: "#000",
+    borderColor: '#E0E0E0',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -221,13 +211,13 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: "black",
+    backgroundColor: 'black',
     marginRight: 8,
   },
   youAreHereText: {
     fontSize: 14,
-    fontWeight: "600",
-    color: "#007AFF",
+    fontWeight: '600',
+    color: '#007AFF',
   },
 });
 

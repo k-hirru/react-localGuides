@@ -9,9 +9,9 @@ export const useBusinessDetailsQuery = (id: string | undefined) => {
     enabled: !!id,
     queryKey: businessQueryKeys.detail(id || ''),
     queryFn: () =>
-      protectedAction(
-        () => businessService.getBusinessById(id || ''),
-        { actionName: 'Loading business details', retry: true },
-      ) as Promise<Awaited<ReturnType<typeof businessService.getBusinessById>>>,
+      protectedAction(() => businessService.getBusinessById(id || ''), {
+        actionName: 'Loading business details',
+        retry: true,
+      }) as Promise<Awaited<ReturnType<typeof businessService.getBusinessById>>>,
   });
 };

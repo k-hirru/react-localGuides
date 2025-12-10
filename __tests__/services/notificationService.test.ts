@@ -22,19 +22,14 @@ describe('notificationService - token management', () => {
     mockedMessagingInstance.requestPermission = jest
       .fn()
       .mockResolvedValue((messaging as any).AuthorizationStatus.AUTHORIZED);
-    mockedMessagingInstance.getToken = jest
-      .fn()
-      .mockResolvedValue('fcm-token');
+    mockedMessagingInstance.getToken = jest.fn().mockResolvedValue('fcm-token');
 
     const token = await notificationService.requestPermissionAndGetToken();
 
     expect(mockedMessagingInstance.requestPermission).toHaveBeenCalled();
     expect(mockedMessagingInstance.getToken).toHaveBeenCalled();
     expect(token).toBe('fcm-token');
-    expect(mockedEncrypted.setItem).toHaveBeenCalledWith(
-      SecureStorageKey.FCM_TOKEN,
-      'fcm-token'
-    );
+    expect(mockedEncrypted.setItem).toHaveBeenCalledWith(SecureStorageKey.FCM_TOKEN, 'fcm-token');
   });
 
   it('clears cached token and removes from storage on clearCachedToken', () => {

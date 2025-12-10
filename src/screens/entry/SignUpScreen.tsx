@@ -1,5 +1,13 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, SafeAreaView} from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+  ActivityIndicator,
+  SafeAreaView,
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Mail, Lock, Apple, Smartphone, User } from 'lucide-react-native';
 
@@ -46,22 +54,25 @@ export default function SignUpScreen() {
     Alert.alert('Coming Soon', `${platform} sign up will be available soon!`);
   };
 
-  const isButtonDisabled = loading || !fullName || !email || !password || !confirmPassword || password !== confirmPassword || password.length < 6;
+  const isButtonDisabled =
+    loading ||
+    !fullName ||
+    !email ||
+    !password ||
+    !confirmPassword ||
+    password !== confirmPassword ||
+    password.length < 6;
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingScrollView 
+      <KeyboardAvoidingScrollView
         contentContainerStyle={styles.mainContent}
         style={styles.scrollView}
       >
         {/* Application Header */}
         <View style={styles.headerContainer}>
-          <Text style={[styles.title, { color: Colors.light.text }]}>
-            Join BiteSpot
-          </Text>
-          <Text style={styles.subtitle}>
-            Create an account and start sharing your local gems.
-          </Text>
+          <Text style={[styles.title, { color: Colors.light.text }]}>Join BiteSpot</Text>
+          <Text style={styles.subtitle}>Create an account and start sharing your local gems.</Text>
         </View>
 
         {/* Sign Up Form */}
@@ -74,7 +85,7 @@ export default function SignUpScreen() {
             keyboardType="default"
             autoCapitalize="words"
           />
-          
+
           <StyledInput
             Icon={Mail}
             placeholder="Email address"
@@ -83,7 +94,7 @@ export default function SignUpScreen() {
             keyboardType="email-address"
             autoCapitalize="none"
           />
-          
+
           <StyledInput
             Icon={Lock}
             placeholder="Password"
@@ -97,24 +108,19 @@ export default function SignUpScreen() {
             placeholder="Confirm Password"
             value={confirmPassword}
             onChangeText={setConfirmPassword}
-            isPassword           
+            isPassword
           />
 
           {/* Main Sign Up Button */}
-          <TouchableOpacity 
-            style={[
-              styles.signUpButton, 
-              isButtonDisabled && styles.signUpButtonDisabled
-            ]} 
+          <TouchableOpacity
+            style={[styles.signUpButton, isButtonDisabled && styles.signUpButtonDisabled]}
             onPress={handleSignUp}
             disabled={isButtonDisabled}
           >
             {loading ? (
               <ActivityIndicator color={Colors.light.background} size="small" />
             ) : (
-              <Text style={styles.signUpButtonText}>
-                Create Account
-              </Text>
+              <Text style={styles.signUpButtonText}>Create Account</Text>
             )}
           </TouchableOpacity>
         </FormContainer>
@@ -127,27 +133,23 @@ export default function SignUpScreen() {
         </View>
 
         <View>
-          <SocialButton 
-            Icon={Apple} 
-            text="Continue with Apple" 
-            onPress={() => handleSocialSignUp('Apple')} 
+          <SocialButton
+            Icon={Apple}
+            text="Continue with Apple"
+            onPress={() => handleSocialSignUp('Apple')}
           />
-          <SocialButton 
-            Icon={Smartphone} 
-            text="Continue with Phone Number" 
-            onPress={() => handleSocialSignUp('Phone')} 
+          <SocialButton
+            Icon={Smartphone}
+            text="Continue with Phone Number"
+            onPress={() => handleSocialSignUp('Phone')}
           />
         </View>
 
         {/* Login Link */}
         <View style={styles.loginLinkContainer}>
-          <Text style={styles.loginText}>
-            Already a local guide? 
-          </Text>
+          <Text style={styles.loginText}>Already a local guide?</Text>
           <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Text style={[styles.loginText, styles.linkText]}>
-              Log In
-            </Text>
+            <Text style={[styles.loginText, styles.linkText]}>Log In</Text>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingScrollView>
@@ -165,7 +167,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.background,
   },
   mainContent: {
-    flexGrow: 1, 
+    flexGrow: 1,
     justifyContent: 'center',
     paddingTop: 16,
     paddingHorizontal: 24,
@@ -178,7 +180,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 42,
     textAlign: 'center',
-    marginTop: 0, 
+    marginTop: 0,
     fontWeight: '800',
   },
   subtitle: {
@@ -213,8 +215,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 24,
-    marginTop: 6, 
-    paddingHorizontal: 8, 
+    marginTop: 6,
+    paddingHorizontal: 8,
   },
   dividerLine: {
     flex: 1,
@@ -239,7 +241,7 @@ const styles = StyleSheet.create({
   },
   linkText: {
     color: Colors.light.primary,
-    fontWeight: '700', 
+    fontWeight: '700',
     marginLeft: 4,
   },
 });

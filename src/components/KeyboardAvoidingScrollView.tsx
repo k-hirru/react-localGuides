@@ -1,11 +1,5 @@
 import React from 'react';
-import {
-  KeyboardAvoidingView,
-  ScrollView,
-  Platform,
-  StyleSheet,
-  ViewStyle
-} from 'react-native';
+import { KeyboardAvoidingView, ScrollView, Platform, StyleSheet, ViewStyle } from 'react-native';
 import Colors from '@/src/constants/colors';
 
 interface KeyboardAvoidingScrollViewProps {
@@ -17,7 +11,7 @@ interface KeyboardAvoidingScrollViewProps {
 export const KeyboardAvoidingScrollView: React.FC<KeyboardAvoidingScrollViewProps> = ({
   children,
   contentContainerStyle,
-  style
+  style,
 }) => {
   return (
     <KeyboardAvoidingView

@@ -56,9 +56,7 @@ describe('businessService.getNearbyBusinesses AsyncStorage caching', () => {
 
   it('fetches from Geoapify and writes fresh cache when no existing cache', async () => {
     mockedAsyncStorage.getItem.mockResolvedValueOnce(null);
-    const searchSpy = jest
-      .spyOn(geoapifyService, 'searchNearbyPlaces')
-      .mockResolvedValueOnce([
+    const searchSpy = jest.spyOn(geoapifyService, 'searchNearbyPlaces').mockResolvedValueOnce([
       {
         place_id: 'place-1',
         name: 'Test Place',
@@ -70,7 +68,7 @@ describe('businessService.getNearbyBusinesses AsyncStorage caching', () => {
       } as any,
     ]);
     mockedReviews.getBusinessesWithReviews.mockResolvedValueOnce(
-      new Map([['place-1', { rating: 4, reviewCount: 2 }]])
+      new Map([['place-1', { rating: 4, reviewCount: 2 }]]),
     );
 
     const result = await businessService.getNearbyBusinesses(baseLat, baseLng, 5000, [], false);
@@ -107,9 +105,7 @@ describe('businessService.getNearbyBusinesses AsyncStorage caching', () => {
     };
     mockedAsyncStorage.getItem.mockResolvedValueOnce(JSON.stringify(stalePayload));
 
-    const searchSpy = jest
-      .spyOn(geoapifyService, 'searchNearbyPlaces')
-      .mockResolvedValueOnce([
+    const searchSpy = jest.spyOn(geoapifyService, 'searchNearbyPlaces').mockResolvedValueOnce([
       {
         place_id: 'place-1',
         name: 'Fresh Place',
@@ -121,7 +117,7 @@ describe('businessService.getNearbyBusinesses AsyncStorage caching', () => {
       } as any,
     ]);
     mockedReviews.getBusinessesWithReviews.mockResolvedValueOnce(
-      new Map([['place-1', { rating: 5, reviewCount: 10 }]])
+      new Map([['place-1', { rating: 5, reviewCount: 10 }]]),
     );
 
     const result = await businessService.getNearbyBusinesses(baseLat, baseLng, 5000, [], false);
@@ -138,9 +134,7 @@ describe('businessService.getNearbyBusinesses AsyncStorage caching', () => {
     };
     mockedAsyncStorage.getItem.mockResolvedValueOnce(JSON.stringify(cachedPayload));
 
-    const searchSpy = jest
-      .spyOn(geoapifyService, 'searchNearbyPlaces')
-      .mockResolvedValueOnce([
+    const searchSpy = jest.spyOn(geoapifyService, 'searchNearbyPlaces').mockResolvedValueOnce([
       {
         place_id: 'place-1',
         name: 'Forced Fresh Place',
@@ -152,7 +146,7 @@ describe('businessService.getNearbyBusinesses AsyncStorage caching', () => {
       } as any,
     ]);
     mockedReviews.getBusinessesWithReviews.mockResolvedValueOnce(
-      new Map([['place-1', { rating: 3, reviewCount: 1 }]])
+      new Map([['place-1', { rating: 3, reviewCount: 1 }]]),
     );
 
     const result = await businessService.getNearbyBusinesses(baseLat, baseLng, 5000, [], true);

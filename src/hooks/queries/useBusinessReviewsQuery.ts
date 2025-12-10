@@ -11,9 +11,9 @@ export const useBusinessReviewsQuery = (businessId: string | undefined) => {
     enabled: !!businessId,
     queryKey: reviewQueryKeys.business(businessId || ''),
     queryFn: () =>
-      protectedAction(
-        () => reviewService.getReviewsForBusiness(businessId || ''),
-        { actionName: 'Loading business reviews', retry: true },
-      ) as Promise<Review[]>,
+      protectedAction(() => reviewService.getReviewsForBusiness(businessId || ''), {
+        actionName: 'Loading business reviews',
+        retry: true,
+      }) as Promise<Review[]>,
   });
 };

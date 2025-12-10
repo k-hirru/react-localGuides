@@ -35,7 +35,7 @@ describe('mapGeoapifyToBusiness', () => {
     expect(business.placeId).toBe('place-1');
     expect(business.name).toBe('Test Place');
     expect(business.address).toBe('123 Test St, City');
-expect(business.coordinates).toEqual({ latitude: 14.5, longitude: 121.0 });
+    expect(business.coordinates).toEqual({ latitude: 14.5, longitude: 121.0 });
     expect(business.rating).toBe(4.2);
     expect(business.reviewCount).toBe(10);
     expect(business.source).toBe('geoapify');
@@ -91,7 +91,7 @@ expect(business.coordinates).toEqual({ latitude: 14.5, longitude: 121.0 });
     const business = mapGeoapifyToBusiness(cafePlace);
 
     expect(business.features).toEqual(
-      expect.arrayContaining(['Takeaway', 'filipino Cuisine', 'Cafe Brand', 'Coffee'])
+      expect.arrayContaining(['Takeaway', 'filipino Cuisine', 'Cafe Brand', 'Coffee']),
     );
   });
 
@@ -108,8 +108,6 @@ expect(business.coordinates).toEqual({ latitude: 14.5, longitude: 121.0 });
 
     const business = mapGeoapifyToBusiness(noFeaturePlace);
 
-    expect(business.features).toEqual(
-      expect.arrayContaining(['Local Favorite', 'Great Service'])
-    );
+    expect(business.features).toEqual(expect.arrayContaining(['Local Favorite', 'Great Service']));
   });
 });

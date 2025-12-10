@@ -230,14 +230,16 @@ The app uses a combination of **React Query**, **custom hooks/contexts**, and a 
     - Location (`useLocation`),
     - Infinite nearby businesses (`useInfiniteNearbyBusinessesQuery`), and
     - Client-side filters (category + search),
-    into a single stateful façade consumed by `HomeScreen`.
+      into a single stateful façade consumed by `HomeScreen`.
   - `useAppStore` acts as a thin orchestration layer for cross-screen client state such as:
     - Locally cached businesses, reviews, and favorites,
     - Search and refresh helpers,
-    while delegating all remote data access to `businessService`, `reviewService`, and `favoriteService` via `useProtectedAction`.
+      while delegating all remote data access to `businessService`, `reviewService`, and `favoriteService` via `useProtectedAction`.
   - `useUserFavorites` is a tiny hook that exposes the current user’s favorite IDs from `useAppStore`, giving consumers a clear entry point for favorites state.
 - **Network/side-effect guard:**
   - `useProtectedAction` centralizes connectivity checks and retry/alert behavior around async actions, so services and hooks can assume they are called only when the device is online.
+- **Error handling pattern:**
+  - Services log and throw domain-friendly errors; hooks such as `useHomeBusinesses` convert those into UI state (booleans and `errorMessage` strings); and screens (`HomeScreen`, `BusinessDetailsScreen`, `SignUpScreen`) surface them via inline banners or `Alert.alert` so users always get clear feedback when something fails.
 
 This separation makes it clear what is **server state** (owned by React Query + services) vs what is **client/derived state** (owned by hooks/contexts like `useHomeBusinesses`, `useAppStore`, and `AuthContext`).
 
@@ -280,6 +282,7 @@ Key integration points:
     ```
 
   - Transforms `features` into internal `GeoapifyPlace` objects, making sure lat/lon, categories, and address fields are consistent.
+
 - `services/businessService.ts`:
   - Maps app categories (restaurants/cafes/fast_food) to Geoapify category strings.
   - Delegates raw fetching to `geoapifyService` and focuses on mapping and caching.
@@ -348,6 +351,28 @@ To run these flows, install Maestro CLI and follow the instructions in `TESTING.
 ---
 
 ## 6. Summary
+
+This project’s architecture separates concerns into:
+
+- **Screens** for UI and navigation.
+- **Components** for reusable presentation.
+- **Hooks** for app-specific state and orchestration.
+- **Services** for business logic and external integrations.
+- **Context** for shared app state (auth, role, profile).
+- **Utils** for pure helpers (like mapping external API data to domain models).
+
+Testing covers core services, hooks, and screens via Jest, with a minimal Maestro-based e2e flow to validate the real app on a device.
+
+This structure and documentation are designed to make the app easier to understand, extend, and evaluate from an architectural and production-readiness perspective.
+
+---
+
+## 7. Code Quality & Tooling
+
+- **Linting:** `npm run lint` (Expo lint) and `npm run lint:eslint` (raw ESLint) enforce code style and catch common issues across JS/TS/React Native files.
+- **Formatting:** `npm run format` and `npm run format:check` use Prettier to keep formatting consistent across the codebase.
+- **Pre-commit hook:** Husky runs `npm run lint` and `npm run format:check` on `git commit` to prevent obviously broken or misformatted code from landing in the repo.
+- **TypeScript:** `tsconfig.json` extends Expo’s base config with `strict: true` and an `@/src/*` alias. `any` is avoided where possible and constrained to boundaries (e.g. raw Firestore responses) that are immediately mapped into typed domain models like `Business` and `Review`.
 
 This project’s architecture separates concerns into:
 

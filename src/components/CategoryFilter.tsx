@@ -7,7 +7,10 @@ interface CategoryFilterProps {
   onCategoryChange: (category: string) => void;
 }
 
-export default function CategoryFilter({ selectedCategory, onCategoryChange }: CategoryFilterProps) {
+export default function CategoryFilter({
+  selectedCategory,
+  onCategoryChange,
+}: CategoryFilterProps) {
   return (
     <View style={styles.outerContainer}>
       <FlatList
@@ -20,20 +23,16 @@ export default function CategoryFilter({ selectedCategory, onCategoryChange }: C
           const isSelected = selectedCategory === item.id;
           return (
             <TouchableOpacity
-              style={[
-                styles.categoryChip,
-                isSelected ? styles.selectedChip : styles.defaultChip,
-              ]}
+              style={[styles.categoryChip, isSelected ? styles.selectedChip : styles.defaultChip]}
               onPress={() => onCategoryChange(item.id)}
             >
-              <Text style={[styles.categoryIcon, isSelected ? styles.selectedIcon : styles.defaultIcon]}>
+              <Text
+                style={[styles.categoryIcon, isSelected ? styles.selectedIcon : styles.defaultIcon]}
+              >
                 {item.icon}
               </Text>
               <Text
-                style={[
-                  styles.categoryText,
-                  isSelected ? styles.selectedText : styles.defaultText,
-                ]}
+                style={[styles.categoryText, isSelected ? styles.selectedText : styles.defaultText]}
               >
                 {item.name}
               </Text>
@@ -62,7 +61,7 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     marginRight: 10,
     borderWidth: 1,
-    shadowColor: "#000",
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 1.5,

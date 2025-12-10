@@ -1,5 +1,5 @@
-import React, { useRef, useEffect } from "react";
-import { Animated, Easing, View } from "react-native";
+import React, { useRef, useEffect } from 'react';
+import { Animated, Easing, View } from 'react-native';
 
 type AnimatedTabLabelProps = {
   label: string;
@@ -7,11 +7,7 @@ type AnimatedTabLabelProps = {
   focused: boolean;
 };
 
-const AnimatedTabLabel: React.FC<AnimatedTabLabelProps> = ({
-  label,
-  color,
-  focused,
-}) => {
+const AnimatedTabLabel: React.FC<AnimatedTabLabelProps> = ({ label, color, focused }) => {
   const scaleAnim = useRef(new Animated.Value(focused ? 1.05 : 1)).current;
 
   useEffect(() => {
@@ -23,7 +19,6 @@ const AnimatedTabLabel: React.FC<AnimatedTabLabelProps> = ({
     }).start();
   }, [focused, scaleAnim]);
 
-
   return (
     <View style={{ alignItems: 'center' }}>
       <Animated.Text
@@ -31,10 +26,7 @@ const AnimatedTabLabel: React.FC<AnimatedTabLabelProps> = ({
           color: color,
           fontSize: 12,
           fontWeight: focused ? '700' : '500',
-          transform: [
-            { scale: scaleAnim },
-            { translateY: -2 },
-          ],
+          transform: [{ scale: scaleAnim }, { translateY: -2 }],
         }}
       >
         {label}

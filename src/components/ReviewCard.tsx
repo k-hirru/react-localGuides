@@ -1,16 +1,8 @@
-import React, { useState, memo, useEffect } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Alert,
-  Image,
-  ScrollView,
-} from "react-native";
-import { useAuth } from "@/src/hooks/useAuth";
-import StarRating from "./StarRating";
-import { Review, Business } from "@/src/types";
+import React, { useState, memo, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, Image, ScrollView } from 'react-native';
+import { useAuth } from '@/src/hooks/useAuth';
+import StarRating from './StarRating';
+import { Review, Business } from '@/src/types';
 import {
   MoreVertical,
   Edit,
@@ -18,8 +10,8 @@ import {
   UserCircle,
   ThumbsUp,
   Image as ImageIcon,
-} from "lucide-react-native";
-import { reviewService } from "@/src/services/reviewService";
+} from 'lucide-react-native';
+import { reviewService } from '@/src/services/reviewService';
 
 interface ReviewCardProps {
   review: Review;
@@ -30,13 +22,7 @@ interface ReviewCardProps {
 }
 
 const ReviewCard = memo(
-  ({
-    review,
-    business,
-    onEdit,
-    onDelete,
-    isUsersReview = false,
-  }: ReviewCardProps) => {
+  ({ review, business, onEdit, onDelete, isUsersReview = false }: ReviewCardProps) => {
     const { user: authUser } = useAuth();
     const [showMenu, setShowMenu] = useState(false);
     const [imageModalVisible, setImageModalVisible] = useState(false);
@@ -50,10 +36,7 @@ const ReviewCard = memo(
     useEffect(() => {
       const checkExistingVote = async () => {
         if (authUser && !isOwnReview) {
-          const hasVoted = await reviewService.hasUserVoted(
-            review.id,
-            authUser.uid
-          );
+          const hasVoted = await reviewService.hasUserVoted(review.id, authUser.uid);
           setIsHelpful(hasVoted);
         }
       };
@@ -68,34 +51,24 @@ const ReviewCard = memo(
 
     const handleDelete = () => {
       setShowMenu(false);
-      Alert.alert(
-        "Delete Review",
-        "Are you sure you want to delete this review?",
-        [
-          { text: "Cancel", style: "cancel" },
-          {
-            text: "Delete",
-            style: "destructive",
-            onPress: () => onDelete?.(review.id),
-          },
-        ]
-      );
+      Alert.alert('Delete Review', 'Are you sure you want to delete this review?', [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => onDelete?.(review.id),
+        },
+      ]);
     };
 
     const handleHelpfulPress = async () => {
       if (!authUser) {
-        Alert.alert(
-          "Sign In Required",
-          "Please sign in to mark reviews as helpful."
-        );
+        Alert.alert('Sign In Required', 'Please sign in to mark reviews as helpful.');
         return;
       }
 
       if (isOwnReview) {
-        Alert.alert(
-          "Not Allowed",
-          "You cannot mark your own review as helpful."
-        );
+        Alert.alert('Not Allowed', 'You cannot mark your own review as helpful.');
         return;
       }
 
@@ -117,11 +90,8 @@ const ReviewCard = memo(
           await reviewService.updateReviewHelpfulCount(review.id, 1);
         }
       } catch (error) {
-        console.error("Error with helpful vote:", error);
-        Alert.alert(
-          "Error",
-          "Failed to update helpful vote. Please try again."
-        );
+        console.error('Error with helpful vote:', error);
+        Alert.alert('Error', 'Failed to update helpful vote. Please try again.');
       }
     };
 
@@ -132,27 +102,25 @@ const ReviewCard = memo(
 
     const getUserInitials = () => {
       if (review.userName) {
-        const names = review.userName.split(" ");
+        const names = review.userName.split(' ');
         if (names.length >= 2) {
           return `${names[0][0]}${names[1][0]}`.toUpperCase();
         }
         return review.userName.charAt(0).toUpperCase();
       }
-      return "U";
+      return 'U';
     };
 
     const isDefaultAvatarUrl = (url?: string | null) => {
       if (!url) return true;
       // Treat the old Unsplash fallback as "no real avatar" so we show initials instead.
-      return url.includes("photo-1535713875002-d1d0cf377fde");
+      return url.includes('photo-1535713875002-d1d0cf377fde');
     };
 
     const hasCustomAvatar = !!review.userAvatar && !isDefaultAvatarUrl(review.userAvatar);
 
     return (
-      <View
-        style={[styles.container, isUsersReview && styles.usersReviewContainer]}
-      >
+      <View style={[styles.container, isUsersReview && styles.usersReviewContainer]}>
         <View style={styles.header}>
           <View style={styles.userInfo}>
             {/* Avatar: use custom avatar if set, otherwise fallback to initials */}
@@ -160,13 +128,11 @@ const ReviewCard = memo(
               <Image
                 source={{ uri: review.userAvatar }}
                 style={styles.avatar}
-                onError={() => console.log("Failed to load profile image")}
+                onError={() => console.log('Failed to load profile image')}
               />
             ) : (
               <View style={styles.avatarPlaceholder}>
-                <Text style={styles.avatarPlaceholderText}>
-                  {getUserInitials()}
-                </Text>
+                <Text style={styles.avatarPlaceholderText}>{getUserInitials()}</Text>
               </View>
             )}
 
@@ -186,10 +152,7 @@ const ReviewCard = memo(
 
           {/* ✅ KEEP: Menu button on the right side */}
           {isOwnReview && (
-            <TouchableOpacity
-              onPress={() => setShowMenu(!showMenu)}
-              style={styles.menuButton}
-            >
+            <TouchableOpacity onPress={() => setShowMenu(!showMenu)} style={styles.menuButton}>
               <MoreVertical size={20} color="#666" />
             </TouchableOpacity>
           )}
@@ -204,9 +167,7 @@ const ReviewCard = memo(
             </TouchableOpacity>
             <TouchableOpacity style={styles.menuItem} onPress={handleDelete}>
               <Trash2 size={16} color="#FF6B6B" />
-              <Text style={[styles.menuText, { color: "#FF6B6B" }]}>
-                Delete
-              </Text>
+              <Text style={[styles.menuText, { color: '#FF6B6B' }]}>Delete</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -220,8 +181,7 @@ const ReviewCard = memo(
         {hasImages && (
           <View style={styles.imagesSection}>
             <Text style={styles.imagesTitle}>
-              <ImageIcon size={14} color="#666" /> Photos (
-              {review.images!.length})
+              <ImageIcon size={14} color="#666" /> Photos ({review.images!.length})
             </Text>
             <ScrollView
               horizontal
@@ -235,11 +195,7 @@ const ReviewCard = memo(
                   style={styles.imageWrapper}
                   onPress={() => openImage(index)}
                 >
-                  <Image
-                    source={{ uri: imageUrl }}
-                    style={styles.reviewImage}
-                    resizeMode="cover"
-                  />
+                  <Image source={{ uri: imageUrl }} style={styles.reviewImage} resizeMode="cover" />
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -248,24 +204,16 @@ const ReviewCard = memo(
 
         <View style={styles.helpfulContainer}>
           <TouchableOpacity
-            style={[
-              styles.helpfulButton,
-              isHelpful && styles.helpfulButtonActive,
-            ]}
+            style={[styles.helpfulButton, isHelpful && styles.helpfulButtonActive]}
             onPress={handleHelpfulPress}
             disabled={isOwnReview}
           >
             <ThumbsUp
               size={14}
-              color={isHelpful ? "#007AFF" : "#666"}
-              fill={isHelpful ? "#007AFF" : "transparent"}
+              color={isHelpful ? '#007AFF' : '#666'}
+              fill={isHelpful ? '#007AFF' : 'transparent'}
             />
-            <Text
-              style={[
-                styles.helpfulText,
-                isHelpful && styles.helpfulTextActive,
-              ]}
-            >
+            <Text style={[styles.helpfulText, isHelpful && styles.helpfulTextActive]}>
               Helpful ({helpfulCount})
             </Text>
           </TouchableOpacity>
@@ -291,21 +239,21 @@ const ReviewCard = memo(
         )}
       </View>
     );
-  }
+  },
 );
 
-ReviewCard.displayName = "ReviewCard";
+ReviewCard.displayName = 'ReviewCard';
 
 export default ReviewCard;
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: "#FFF",
+    backgroundColor: '#FFF',
     padding: 16,
     marginHorizontal: 16,
     marginVertical: 8,
     borderRadius: 12,
-    shadowColor: "#000",
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
@@ -313,23 +261,23 @@ const styles = StyleSheet.create({
   },
   usersReviewContainer: {
     borderLeftWidth: 4,
-    borderLeftColor: "#007AFF",
-    backgroundColor: "#F8F9FA",
+    borderLeftColor: '#007AFF',
+    backgroundColor: '#F8F9FA',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 6,
     elevation: 3,
   },
   header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
     marginBottom: 12,
-    position: "relative",
+    position: 'relative',
   },
   userInfo: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     flex: 1,
   },
   avatar: {
@@ -337,64 +285,64 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 20,
     marginRight: 12,
-    backgroundColor: "#E5E7EB",
+    backgroundColor: '#E5E7EB',
   },
   avatarPlaceholder: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "#007AFF",
-    justifyContent: "center",
-    alignItems: "center",
+    backgroundColor: '#007AFF',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: 12,
   },
   avatarPlaceholderText: {
     fontSize: 16,
-    fontWeight: "600",
-    color: "#FFF",
+    fontWeight: '600',
+    color: '#FFF',
   },
   userDetails: {
     flex: 1,
   },
   nameRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    flexWrap: "wrap",
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
     marginBottom: 2,
   },
   userName: {
     fontSize: 16,
-    fontWeight: "600",
-    color: "#333",
+    fontWeight: '600',
+    color: '#333',
     marginRight: 8,
   },
   // ✅ UPDATED: Your Review badge styles
   yourReviewBadge: {
-    backgroundColor: "#007AFF",
+    backgroundColor: '#007AFF',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 10,
-    alignSelf: "flex-start",
+    alignSelf: 'flex-start',
   },
   yourReviewText: {
     fontSize: 10,
-    fontWeight: "600",
-    color: "#FFF",
+    fontWeight: '600',
+    color: '#FFF',
   },
   date: {
     fontSize: 12,
-    color: "#666",
+    color: '#666',
   },
   menuButton: {
     padding: 4, // Add padding for better touch area
   },
   menu: {
-    position: "absolute",
+    position: 'absolute',
     top: 30,
     right: 0,
-    backgroundColor: "#FFF",
+    backgroundColor: '#FFF',
     borderRadius: 8,
-    shadowColor: "#000",
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -403,14 +351,14 @@ const styles = StyleSheet.create({
     minWidth: 120,
   },
   menuItem: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
   menuText: {
     fontSize: 14,
-    color: "#666",
+    color: '#666',
     marginLeft: 8,
   },
   ratingContainer: {
@@ -418,7 +366,7 @@ const styles = StyleSheet.create({
   },
   reviewText: {
     fontSize: 14,
-    color: "#333",
+    color: '#333',
     lineHeight: 20,
     marginBottom: 12,
   },
@@ -427,11 +375,11 @@ const styles = StyleSheet.create({
   },
   imagesTitle: {
     fontSize: 14,
-    fontWeight: "600",
-    color: "#666",
+    fontWeight: '600',
+    color: '#666',
     marginBottom: 8,
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   imagesScroll: {
     marginHorizontal: -4,
@@ -442,7 +390,7 @@ const styles = StyleSheet.create({
   imageWrapper: {
     marginRight: 8,
     borderRadius: 8,
-    overflow: "hidden",
+    overflow: 'hidden',
   },
   reviewImage: {
     width: 120,
@@ -450,57 +398,57 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   imageModal: {
-    position: "absolute",
+    position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: "rgba(0, 0, 0, 0.9)",
-    justifyContent: "center",
-    alignItems: "center",
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
     zIndex: 1000,
   },
   imageModalContent: {
-    width: "90%",
-    height: "70%",
-    justifyContent: "center",
-    alignItems: "center",
+    width: '90%',
+    height: '70%',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   modalImage: {
-    width: "100%",
-    height: "100%",
+    width: '100%',
+    height: '100%',
     borderRadius: 12,
   },
   imageCounter: {
-    position: "absolute",
+    position: 'absolute',
     top: 20,
-    color: "#FFF",
+    color: '#FFF',
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: '600',
   },
   helpfulContainer: {
     borderTopWidth: 1,
-    borderTopColor: "#F0F0F0",
+    borderTopColor: '#F0F0F0',
     paddingTop: 12,
   },
   helpfulButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    alignSelf: "flex-start",
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
   },
   helpfulButtonActive: {
-    backgroundColor: "#F0F8FF",
+    backgroundColor: '#F0F8FF',
   },
   helpfulText: {
     fontSize: 12,
-    color: "#666",
+    color: '#666',
     marginLeft: 6,
   },
   helpfulTextActive: {
-    color: "#007AFF",
-    fontWeight: "500",
+    color: '#007AFF',
+    fontWeight: '500',
   },
 });

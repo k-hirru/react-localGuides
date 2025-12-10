@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import { Location, locationService } from "@/src/services/locationService";
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Location, locationService } from '@/src/services/locationService';
 
 const DEFAULT_LOCATION: Location = {
   latitude: 14.5995,
@@ -30,14 +30,14 @@ export const useLocation = () => {
 
     return () => {
       isMounted.current = false;
-      globalListeners = globalListeners.filter(l => l !== listener);
+      globalListeners = globalListeners.filter((l) => l !== listener);
     };
   }, []);
 
   // ✅ Notify all listeners of location change
   const notifyListeners = useCallback((location: Location | null) => {
     globalLocation = location;
-    globalListeners.forEach(listener => listener(location));
+    globalListeners.forEach((listener) => listener(location));
   }, []);
 
   // ✅ Single shared location fetch
@@ -45,13 +45,13 @@ export const useLocation = () => {
     async (force: boolean = false): Promise<Location> => {
       // Return cached location if available and not forcing refresh
       if (!force && globalLocation) {
-        console.log("📦 Using global cached location");
+        console.log('📦 Using global cached location');
         return globalLocation;
       }
 
       // Prevent duplicate concurrent requests
       if (globalLoading) {
-        console.log("⏳ Location fetch already in progress");
+        console.log('⏳ Location fetch already in progress');
         return new Promise((resolve) => {
           const checkInterval = setInterval(() => {
             if (!globalLoading && globalLocation) {
@@ -67,23 +67,21 @@ export const useLocation = () => {
       setError(null);
 
       try {
-        console.log("📍 Fetching location...");
+        console.log('📍 Fetching location...');
         const location = await locationService.getLocation(force);
-        
+
         notifyListeners(location);
-        console.log("✅ Location updated:", location);
-        
+        console.log('✅ Location updated:', location);
+
         return location;
-        
       } catch (err) {
-        console.error("❌ Location fetch failed:", err);
+        console.error('❌ Location fetch failed:', err);
         const fallback = globalLocation || DEFAULT_LOCATION;
-        
+
         notifyListeners(fallback);
-        setError("Using default location");
-        
+        setError('Using default location');
+
         return fallback;
-        
       } finally {
         globalLoading = false;
         if (isMounted.current) {
@@ -91,7 +89,7 @@ export const useLocation = () => {
         }
       }
     },
-    [notifyListeners]
+    [notifyListeners],
   );
 
   // ✅ Initial location fetch - only once globally

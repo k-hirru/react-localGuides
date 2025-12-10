@@ -57,7 +57,7 @@ export const useRefreshNearbyBusinesses = () => {
           userLocation.longitude,
           5000,
           [],
-          true // forceRefresh: bypass AsyncStorage cache
+          true, // forceRefresh: bypass AsyncStorage cache
         ),
       { actionName: 'Refreshing nearby businesses', retry: true },
     )) as Awaited<ReturnType<typeof businessService.getNearbyBusinesses>>;
@@ -83,7 +83,7 @@ export const useInfiniteNearbyBusinessesQuery = () => {
     staleTime: 5 * 60 * 1000,
     queryKey: [
       ...businessQueryKeys.lists(),
-      "infinite",
+      'infinite',
       {
         lat: userLocation?.latitude,
         lng: userLocation?.longitude,
@@ -98,30 +98,25 @@ export const useInfiniteNearbyBusinessesQuery = () => {
       return allPages.length + 1; // next page index
     },
     queryFn: async ({ pageParam }) => {
-      if (!userLocation) return [] as Awaited<ReturnType<typeof businessService.getNearbyBusinessesPage>>;
+      if (!userLocation)
+        return [] as Awaited<ReturnType<typeof businessService.getNearbyBusinessesPage>>;
 
-      const page = typeof pageParam === "number" ? pageParam : 1;
+      const page = typeof pageParam === 'number' ? pageParam : 1;
 
       return (await protectedAction(
         () =>
-          businessService.getNearbyBusinessesPage(
-            userLocation.latitude,
-            userLocation.longitude,
-            {
-              radius: 5000,
-              categories: [],
-              page,
-              pageSize: INFINITE_PAGE_SIZE,
-              forceRefresh: false,
-            }
-          ),
+          businessService.getNearbyBusinessesPage(userLocation.latitude, userLocation.longitude, {
+            radius: 5000,
+            categories: [],
+            page,
+            pageSize: INFINITE_PAGE_SIZE,
+            forceRefresh: false,
+          }),
         {
           actionName:
-            page === 1
-              ? "Loading nearby businesses (infinite)"
-              : "Loading more nearby businesses",
+            page === 1 ? 'Loading nearby businesses (infinite)' : 'Loading more nearby businesses',
           retry: true,
-        }
+        },
       )) as Awaited<ReturnType<typeof businessService.getNearbyBusinessesPage>>;
     },
   });

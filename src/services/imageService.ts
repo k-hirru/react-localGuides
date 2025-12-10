@@ -15,10 +15,7 @@ export const imageService = {
    * @param type - Image type: 'review' or 'profile'
    * @returns Firebase Storage download URL
    */
-  async uploadImage(
-    imageBase64: string,
-    type: 'review' | 'profile' = 'review'
-  ): Promise<string> {
+  async uploadImage(imageBase64: string, type: 'review' | 'profile' = 'review'): Promise<string> {
     try {
       const user = getAuth().currentUser;
 
@@ -27,10 +24,7 @@ export const imageService = {
       }
 
       // Remove data URL prefix if present
-      const base64Data = imageBase64.replace(
-        /^data:image\/\w+;base64,/,
-        ''
-      );
+      const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
 
       // Generate unique filename
       const timestamp = Date.now();
@@ -68,15 +62,11 @@ export const imageService = {
 
       // Provide user-friendly error messages
       if (error.code === 'storage/unauthorized') {
-        throw new Error(
-          'You do not have permission to upload images. Please sign in again.'
-        );
+        throw new Error('You do not have permission to upload images. Please sign in again.');
       } else if (error.code === 'storage/canceled') {
         throw new Error('Upload was cancelled');
       } else if (error.code === 'storage/unknown') {
-        throw new Error(
-          'An unknown error occurred during upload. Please try again.'
-        );
+        throw new Error('An unknown error occurred during upload. Please try again.');
       } else {
         throw new Error(error.message || 'Failed to upload image');
       }
@@ -125,7 +115,7 @@ export const imageService = {
         this.deleteImage(url).catch((error) => {
           console.warn('Failed to delete image:', url, error);
           // Continue deleting other images even if one fails
-        })
+        }),
       );
 
       await Promise.all(deletePromises);

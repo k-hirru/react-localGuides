@@ -6,18 +6,12 @@ export enum SecureStorageKey {
   CUSTOM_API_TOKEN = 'custom_api_token',
 }
 
-export async function setSecureItem<T = string>(
-  key: SecureStorageKey,
-  value: T
-): Promise<void> {
-  const serialized =
-    typeof value === 'string' ? value : JSON.stringify(value);
+export async function setSecureItem<T = string>(key: SecureStorageKey, value: T): Promise<void> {
+  const serialized = typeof value === 'string' ? value : JSON.stringify(value);
   await EncryptedStorage.setItem(key, serialized);
 }
 
-export async function getSecureItem<T = string>(
-  key: SecureStorageKey
-): Promise<T | null> {
+export async function getSecureItem<T = string>(key: SecureStorageKey): Promise<T | null> {
   const raw = await EncryptedStorage.getItem(key);
   if (raw == null) return null;
 
@@ -29,9 +23,7 @@ export async function getSecureItem<T = string>(
   }
 }
 
-export async function removeSecureItem(
-  key: SecureStorageKey
-): Promise<void> {
+export async function removeSecureItem(key: SecureStorageKey): Promise<void> {
   await EncryptedStorage.removeItem(key);
 }
 

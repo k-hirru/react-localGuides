@@ -1,21 +1,19 @@
 // /src/services/geoapifyService.ts
-import { GeoapifyPlace } from "@/src/types";
-import Constants from "expo-constants";
+import { GeoapifyPlace } from '@/src/types';
+import Constants from 'expo-constants';
 
 const GEOAPIFY_API_KEY =
-  Constants.expoConfig?.extra?.GEOAPIFY_API_KEY ??
-  Constants.manifest?.extra?.GEOAPIFY_API_KEY;
+  Constants.expoConfig?.extra?.GEOAPIFY_API_KEY ?? Constants.manifest?.extra?.GEOAPIFY_API_KEY;
 
 if (!GEOAPIFY_API_KEY) {
-  console.warn("⚠️ GEOAPIFY_API_KEY is not set in app config extra.");
+  console.warn('⚠️ GEOAPIFY_API_KEY is not set in app config extra.');
 }
 
-const BASE_URL = "https://api.geoapify.com/v2";
-const URL_SEARCH = " ";
+const BASE_URL = 'https://api.geoapify.com/v2';
+const URL_SEARCH = ' ';
 
 class GeoapifyService {
-  private cache: Map<string, { data: GeoapifyPlace[]; timestamp: number }> =
-    new Map();
+  private cache: Map<string, { data: GeoapifyPlace[]; timestamp: number }> = new Map();
   private pendingRequests: Map<string, Promise<GeoapifyPlace[]>> = new Map();
   private readonly CACHE_DURATION = 15 * 60 * 1000; // ✅ 15 minutes
 
@@ -23,16 +21,12 @@ class GeoapifyService {
     lat: number,
     lon: number,
     radius: number = 5000,
-    categories: string[] = [
-      "catering.restaurant",
-      "catering.fast_food",
-      "catering.cafe",
-    ],
+    categories: string[] = ['catering.restaurant', 'catering.fast_food', 'catering.cafe'],
     limit: number = 20,
     forceRefresh: boolean = false,
-    offset: number = 0
+    offset: number = 0,
   ): Promise<GeoapifyPlace[]> {
-    const cacheKey = `${lat.toFixed(4)}_${lon.toFixed(4)}_${radius}_${categories.join(",")}_${limit}_${offset}`;
+    const cacheKey = `${lat.toFixed(4)}_${lon.toFixed(4)}_${radius}_${categories.join(',')}_${limit}_${offset}`;
 
     // ✅ Avoid duplicate API requests
     if (this.pendingRequests.has(cacheKey)) {
@@ -43,7 +37,7 @@ class GeoapifyService {
     if (!forceRefresh) {
       const cached = this.cache.get(cacheKey);
       if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
-        console.log("📦 Using cached results");
+        console.log('📦 Using cached results');
         return cached.data;
       }
     }
@@ -56,7 +50,7 @@ class GeoapifyService {
       categories,
       limit,
       offset,
-      cacheKey
+      cacheKey,
     );
     this.pendingRequests.set(cacheKey, requestPromise);
 
@@ -75,18 +69,18 @@ class GeoapifyService {
     categories: string[],
     limit: number,
     offset: number,
-    cacheKey: string
+    cacheKey: string,
   ): Promise<GeoapifyPlace[]> {
-    const categoryString = categories.join(",");
+    const categoryString = categories.join(',');
     const url = `${BASE_URL}/places?categories=${categoryString}&filter=circle:${lon},${lat},${radius}&limit=${limit}&offset=${offset}&apiKey=${GEOAPIFY_API_KEY}`;
 
     try {
-      console.log("📍 Fetching places from Geoapify (NEW REQUEST)");
+      console.log('📍 Fetching places from Geoapify (NEW REQUEST)');
       const response = await fetch(url);
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error("❌ Geoapify API error:", response.status, errorText);
+        console.error('❌ Geoapify API error:', response.status, errorText);
         throw new Error(`Geoapify API error: ${response.status}`);
       }
 
@@ -101,23 +95,23 @@ class GeoapifyService {
 
       return places;
     } catch (error) {
-      console.error("❌ Geoapify search error:", error);
+      console.error('❌ Geoapify search error:', error);
 
       // ✅ Fallback to stale cache if available
       const cached = this.cache.get(cacheKey);
       if (cached) {
-        console.log("🔄 Using stale cache due to error");
+        console.log('🔄 Using stale cache due to error');
         return cached.data;
       }
 
-      throw new Error("Failed to fetch places from Geoapify");
+      throw new Error('Failed to fetch places from Geoapify');
     }
   }
 
   // ✅ Cleaner response transformation method
   private transformApiResponse(data: any): GeoapifyPlace[] {
     if (!data.features) {
-      console.log("ℹ️ No features found");
+      console.log('ℹ️ No features found');
       return [];
     }
 
@@ -129,34 +123,28 @@ class GeoapifyService {
       let lon: number = props.lon;
 
       // COORDINATE EXTRACTION
-      if (
-        geometry &&
-        geometry.type === "Point" &&
-        Array.isArray(geometry.coordinates)
-      ) {
+      if (geometry && geometry.type === 'Point' && Array.isArray(geometry.coordinates)) {
         // Geoapify Point is [lon, lat]
         lon = geometry.coordinates[0];
         lat = geometry.coordinates[1];
-      } else if (geometry && geometry.type !== "Point") {
+      } else if (geometry && geometry.type !== 'Point') {
         // If it's a complex geometry (Polygon, etc.), rely on the simpler properties.lat/lon
         // If we tried to access geometry.coordinates here, it would be an array of arrays (the polygon points)
         // The error you saw happens when geometry.coordinates is an array of arrays, and you try to assign it to a single number
-        console.warn(
-          `Complex geometry type found (${geometry.type}). Using properties.lat/lon.`
-        );
+        console.warn(`Complex geometry type found (${geometry.type}). Using properties.lat/lon.`);
       }
 
       // If props.lat or props.lon were undefined, the mapper would fail later.
       // We rely on Geoapify to provide props.lat/lon for a center point.
       if (!lat || !lon) {
-        console.error("Missing valid coordinates for place:", props.name);
+        console.error('Missing valid coordinates for place:', props.name);
         // Optional: throw error or skip item if coordinates are essential
       }
 
       return {
         place_id: props.place_id,
-        name: props.name || "Unnamed Place",
-        formatted: props.formatted || "Address not available",
+        name: props.name || 'Unnamed Place',
+        formatted: props.formatted || 'Address not available',
 
         // ❌ Remove the old problematic line: lat: geometry?.coordinates[1] || props.lat,
         // ❌ Remove the old problematic line: lon: geometry?.coordinates[0] || props.lon,
@@ -176,9 +164,7 @@ class GeoapifyService {
           cuisine: props.cuisine?.[0] || props.raw?.cuisine,
           brand: props.brand || props.raw?.brand,
           takeaway:
-            props.takeaway ||
-            props.raw?.takeaway === "yes" ||
-            props.raw?.takeaway === "only",
+            props.takeaway || props.raw?.takeaway === 'yes' || props.raw?.takeaway === 'only',
         },
         distance: props.distance,
       } as GeoapifyPlace;
@@ -188,7 +174,7 @@ class GeoapifyService {
   // ✅ Optional utility methods kept from your version
   clearCache() {
     this.cache.clear();
-    console.log("🗑️ Cache cleared");
+    console.log('🗑️ Cache cleared');
   }
 
   getCacheStats() {
@@ -203,13 +189,13 @@ class GeoapifyService {
     lat: number,
     lon: number,
     radius: number = 5000,
-    categories: string[] = ["catering.restaurant"],
-    limit: number = 50
+    categories: string[] = ['catering.restaurant'],
+    limit: number = 50,
   ): Promise<GeoapifyPlace[]> {
-    const categoryString = categories.join(",");
+    const categoryString = categories.join(',');
     const url = `${BASE_URL}/places?categories=${categoryString}&bias=proximity:${lon},${lat}&limit=${limit}&apiKey=${GEOAPIFY_API_KEY}`;
 
-    console.log("📍 Fetching places from Geoapify (alternative):", url);
+    console.log('📍 Fetching places from Geoapify (alternative):', url);
 
     const response = await fetch(url);
     const data = await response.json();
@@ -221,13 +207,13 @@ class GeoapifyService {
     const response = await fetch(url);
     const data = await response.json();
 
-    if (!data.features?.length) throw new Error("Place not found");
+    if (!data.features?.length) throw new Error('Place not found');
     return this.transformApiResponse({ features: [data.features[0]] })[0];
   }
 
   async testApi(lat: number, lon: number) {
     const url = `${BASE_URL}/places?categories=catering.restaurant&bias=proximity:${lon},${lat}&limit=5&apiKey=${GEOAPIFY_API_KEY}`;
-    console.log("🧪 Testing API with:", url);
+    console.log('🧪 Testing API with:', url);
 
     const response = await fetch(url);
     const data = await response.json();
@@ -369,21 +355,17 @@ class GeoapifyService {
     lat: number,
     lon: number,
     radius: number = 5000,
-    categories: string[] = [
-      "catering.restaurant",
-      "catering.fast_food",
-      "catering.cafe",
-    ],
+    categories: string[] = ['catering.restaurant', 'catering.fast_food', 'catering.cafe'],
     limit: number = 20,
-    forceRefresh: boolean = false
+    forceRefresh: boolean = false,
   ): Promise<GeoapifyPlace[]> {
-    const cacheKey = `name_search_${query.toLowerCase()}_${lat.toFixed(4)}_${lon.toFixed(4)}_${radius}_${categories.join(",")}`;
+    const cacheKey = `name_search_${query.toLowerCase()}_${lat.toFixed(4)}_${lon.toFixed(4)}_${radius}_${categories.join(',')}`;
 
     // Standard caching logic (use existing caching implementation)
     if (!forceRefresh) {
       const cached = this.cache.get(cacheKey);
       if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
-        console.log("📦 Using cached name search results");
+        console.log('📦 Using cached name search results');
         return cached.data;
       }
     }
@@ -395,7 +377,7 @@ class GeoapifyService {
       radius,
       categories,
       limit,
-      cacheKey
+      cacheKey,
     );
     this.pendingRequests.set(cacheKey, requestPromise);
     requestPromise.finally(() => {
@@ -412,28 +394,24 @@ class GeoapifyService {
     radius: number,
     categories: string[],
     limit: number,
-    cacheKey: string
+    cacheKey: string,
   ): Promise<GeoapifyPlace[]> {
-    const categoryString = categories.join(",");
+    const categoryString = categories.join(',');
 
     // 💡 THE FIX: Use /v2/places, apply the search query with &name=,
     // and use filter=circle to constrain the search area by radius.
     const url = `${BASE_URL}/places?name=${encodeURIComponent(query)}&categories=${categoryString}&filter=circle:${lon},${lat},${radius}&limit=${limit}&apiKey=${GEOAPIFY_API_KEY}`;
 
     try {
-      console.log("🔍 Places API Name search:", query);
-      console.log("📍 URL:", url);
+      console.log('🔍 Places API Name search:', query);
+      console.log('📍 URL:', url);
 
       const response = await fetch(url);
 
       if (!response.ok) {
         // ... (Error handling as before)
         const errorText = await response.text();
-        console.error(
-          "❌ Geoapify Places Name API error:",
-          response.status,
-          errorText
-        );
+        console.error('❌ Geoapify Places Name API error:', response.status, errorText);
         throw new Error(`Geoapify Places Name API error: ${response.status}`);
       }
 
@@ -442,17 +420,17 @@ class GeoapifyService {
 
       // ... (Caching and return as before)
       this.cache.set(cacheKey, { data: places, timestamp: Date.now() });
-      console.log("✅ Places API found places:", places.length);
+      console.log('✅ Places API found places:', places.length);
       return places;
     } catch (error) {
       // ... (Error handling/fallback as before)
-      console.error("❌ Geoapify name search error:", error);
+      console.error('❌ Geoapify name search error:', error);
       const cached = this.cache.get(cacheKey);
       if (cached) {
-        console.log("🔄 Using stale cache due to error");
+        console.log('🔄 Using stale cache due to error');
         return cached.data;
       }
-      throw new Error("Failed to search places by name from Geoapify");
+      throw new Error('Failed to search places by name from Geoapify');
     }
   }
 }

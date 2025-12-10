@@ -9,27 +9,27 @@ name: Login and Home smoke test
 - launchApp
 
 # Wait for the login screen to appear (adjust "Sign In" to match your UI)
-- assertVisible: "Sign In"
+- assertVisible: 'Sign In'
 
 # Enter email (update "Email" to match your email field label or placeholder)
-- tapOn: "Email"
+- tapOn: 'Email'
 - inputText: ${MAESTRO_EMAIL}
 
 # Enter password (update "Password" to match your password field label or placeholder)
-- tapOn: "Password"
+- tapOn: 'Password'
 - inputText: ${MAESTRO_PASSWORD}
 
 # Optionally hide keyboard if it covers the button
 # - hideKeyboard
 
 # Tap the sign in button (update text if your button label is different)
-- tapOn: "Sign In"
+- tapOn: 'Sign In'
 
 # Wait for the Home screen subtitle to confirm successful login
-- assertVisible: "Discover amazing local spots near you"
+- assertVisible: 'Discover amazing local spots near you'
 
 # Verify the search placeholder is visible
-- assertVisible: "Search restaurants, cafes, fast food..."
+- assertVisible: 'Search restaurants, cafes, fast food...'
 
 # Tap the search bar
-- tapOn: "Search restaurants, cafes, fast food..."
+- tapOn: 'Search restaurants, cafes, fast food...'

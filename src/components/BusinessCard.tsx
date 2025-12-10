@@ -1,10 +1,10 @@
-import React, { memo } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Image } from "react-native";
-import { Heart, MapPin } from "lucide-react-native";
-import { Business } from "../types";
-import { useAppStore } from "../hooks/useAppStore";
-import StarRating from "./StarRating";
-import { PRICE_LEVELS } from "../constants/categories";
+import React, { memo } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { Heart, MapPin } from 'lucide-react-native';
+import { Business } from '../types';
+import { useAppStore } from '../hooks/useAppStore';
+import StarRating from './StarRating';
+import { PRICE_LEVELS } from '../constants/categories';
 
 interface BusinessCardProps {
   business: Business;
@@ -14,11 +14,10 @@ interface BusinessCardProps {
 
 const BusinessCard = memo(({ business, onPress, customHeartAction }: BusinessCardProps) => {
   const { toggleFavorite, isFavorite } = useAppStore();
-  
+
   // ✅ Use the isFavorite function instead of checking favorites array directly
   const favorite = isFavorite(business.id);
-  const priceSymbol =
-    PRICE_LEVELS.find((p) => p.level === business.priceLevel)?.symbol || "$";
+  const priceSymbol = PRICE_LEVELS.find((p) => p.level === business.priceLevel)?.symbol || '$';
 
   const handlePress = () => {
     console.log('🟢 BusinessCard - Pressed business ID:', business.id);
@@ -52,8 +51,8 @@ const BusinessCard = memo(({ business, onPress, customHeartAction }: BusinessCar
       >
         <Heart
           size={20}
-          fill={favorite ? "#FF6B6B" : "transparent"}
-          color={favorite ? "#FF6B6B" : "#FFF"}
+          fill={favorite ? '#FF6B6B' : 'transparent'}
+          color={favorite ? '#FF6B6B' : '#FFF'}
         />
       </TouchableOpacity>
 
@@ -79,33 +78,33 @@ const BusinessCard = memo(({ business, onPress, customHeartAction }: BusinessCar
   );
 });
 
-BusinessCard.displayName = "BusinessCard";
+BusinessCard.displayName = 'BusinessCard';
 
 export default BusinessCard;
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#FFF",
+    backgroundColor: '#FFF',
     borderRadius: 12,
     marginHorizontal: 16,
     marginVertical: 8,
-    shadowColor: "#000",
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 3,
   },
   image: {
-    width: "100%",
+    width: '100%',
     height: 160,
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
   },
   favoriteButton: {
-    position: "absolute",
+    position: 'absolute',
     top: 12,
     right: 12,
-    backgroundColor: "rgba(0, 0, 0, 0.3)",
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
     borderRadius: 20,
     padding: 8,
   },
@@ -114,33 +113,33 @@ const styles = StyleSheet.create({
   },
   name: {
     fontSize: 18,
-    fontWeight: "600",
-    color: "#333",
+    fontWeight: '600',
+    color: '#333',
     marginBottom: 8,
   },
   ratingRow: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 8,
   },
   reviewCount: {
     fontSize: 14,
-    color: "#666",
+    color: '#666',
     marginLeft: 8,
   },
   price: {
     fontSize: 14,
-    color: "#4CAF50",
-    fontWeight: "600",
-    marginLeft: "auto",
+    color: '#4CAF50',
+    fontWeight: '600',
+    marginLeft: 'auto',
   },
   locationRow: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   address: {
     fontSize: 14,
-    color: "#666",
+    color: '#666',
     marginLeft: 4,
     flex: 1,
   },
