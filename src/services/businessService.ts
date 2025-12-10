@@ -23,7 +23,11 @@ import {
  *   gather aggregated rating/review-count per business.
  * - Converts raw Geoapify places into internal `Business` domain objects
  *   via `mapGeoapifyToBusiness`.
- * - Persists/reads a cross-session AsyncStorage cache for nearby results.
+ * - Persists/reads a cross-session AsyncStorage cache for nearby results
+ *   (6-hour TTL) on top of GeoapifyService’s in-memory cache so nearby
+ *   lists are fast across app launches.
+ * - Exposes React Query-friendly helpers (`getNearbyBusinessesQuery`) so
+ *   callers can benefit from query caching, dedupe, and retries.
  * - Upserts canonical business documents into Firestore for analytics and
  *   admin/dashboard usage.
  *

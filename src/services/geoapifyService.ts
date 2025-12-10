@@ -2,6 +2,22 @@
 import { GeoapifyPlace } from '@/src/types';
 import Constants from 'expo-constants';
 
+/**
+ * GeoapifyService
+ *
+ * Network performance responsibilities:
+ * - Maintains a 15-minute in-memory cache of successful responses so
+ *   repeated queries avoid new HTTP requests.
+ * - Deduplicates concurrent requests via `pendingRequests`, ensuring only
+ *   one HTTP call is made per unique cache key and all callers share the
+ *   same promise.
+ * - Falls back to stale cached data on errors where possible so users see
+ *   something instead of a hard failure.
+ *
+ * This sits underneath `businessService`, which maps raw places into
+ * `Business` models and adds its own AsyncStorage-based TTL cache.
+ */
+
 const GEOAPIFY_API_KEY =
   Constants.expoConfig?.extra?.GEOAPIFY_API_KEY ?? Constants.manifest?.extra?.GEOAPIFY_API_KEY;
 

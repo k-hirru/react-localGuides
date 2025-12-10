@@ -21,6 +21,11 @@ const db = getFirestore();
  * - Provides a realtime `subscribeToFavorites` API so hooks like
  *   `useAppStore` can react to updates.
  *
+ * Together with `useAppStore` and `useInternetConnectivity`, this also
+ * participates in a lightweight offline strategy: favorite toggles can be
+ * queued locally when offline and replayed as `toggleFavorite` calls when
+ * connectivity is restored.
+ *
  * This keeps favorites persistence concerns out of components and
  * normalizes how favorite state is stored and retrieved.
  */

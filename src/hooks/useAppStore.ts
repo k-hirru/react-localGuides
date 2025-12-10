@@ -505,27 +505,29 @@ export const useAppStore = () => {
     return result !== false;
   }, [loadAllReviews, protectedAction]);
 
-  // ✅ Favorite management
+  // ✅ Favorite management with offline queue support
   const toggleFavorite = async (businessId: string) => {
     if (!authUser) {
       alert('Please sign in to save favorites');
       return false;
     }
 
+    const currentlyFavorite = favorites.includes(businessId);
+
+    // Optimistic local update for snappy UI even when offline.
+    setFavorites((prev) =>
+      currentlyFavorite ? prev.filter((id) => id !== businessId) : [...prev, businessId],
+    );
+
     const result = await protectedAction(
       async () => {
         try {
-          const currentlyFavorite = favorites.includes(businessId);
-
-          setFavorites((prev) =>
-            currentlyFavorite ? prev.filter((id) => id !== businessId) : [...prev, businessId],
-          );
-
           await favoriteService.toggleFavorite(authUser.uid, businessId, currentlyFavorite);
           return true;
         } catch (error) {
           console.error('Error toggling favorite:', error);
 
+          // Roll back optimistic update on hard failure.
           setFavorites((prev) =>
             favorites.includes(businessId)
               ? [...prev, businessId]
@@ -541,6 +543,21 @@ export const useAppStore = () => {
         retry: false,
       },
     );
+
+    // If the action was blocked because we are offline, queue this
+    // toggle for later replay when connectivity is restored.
+    if (result === false) {
+      try {
+        const raw = await AsyncStorage.getItem('favoritesOfflineQueue_v1');
+        const queue: { businessId: string; isCurrentlyFavorite: boolean }[] = raw
+          ? JSON.parse(raw)
+          : [];
+        queue.push({ businessId, isCurrentlyFavorite: currentlyFavorite });
+        await AsyncStorage.setItem('favoritesOfflineQueue_v1', JSON.stringify(queue));
+      } catch (error) {
+        console.error('Failed to enqueue offline favorite toggle:', error);
+      }
+    }
 
     return result !== false;
   };
