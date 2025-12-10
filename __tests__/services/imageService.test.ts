@@ -26,10 +26,7 @@ describe('imageService', () => {
     (uploadString as jest.Mock).mockResolvedValueOnce(undefined);
     (getDownloadURL as jest.Mock).mockResolvedValueOnce('https://example.com/img.jpg');
 
-    const url = await imageService.uploadImage(
-      'data:image/jpeg;base64,AAAA',
-      'review'
-    );
+    const url = await imageService.uploadImage('data:image/jpeg;base64,AAAA', 'review');
 
     expect(uploadString).toHaveBeenCalledTimes(1);
     const [storageRef, base64Data] = (uploadString as jest.Mock).mock.calls[0];
@@ -42,9 +39,9 @@ describe('imageService', () => {
     const auth = getAuth() as any;
     auth.currentUser = null;
 
-    await expect(
-      imageService.uploadImage('data:image/jpeg;base64,AAAA', 'review')
-    ).rejects.toThrow('User must be authenticated to upload images');
+    await expect(imageService.uploadImage('data:image/jpeg;base64,AAAA', 'review')).rejects.toThrow(
+      'User must be authenticated to upload images',
+    );
   });
 
   it('deletes image when user authenticated', async () => {
@@ -66,9 +63,9 @@ describe('imageService', () => {
     const auth = getAuth() as any;
     auth.currentUser = null;
 
-    await expect(
-      imageService.deleteImage('review-images/user-1/file.jpg')
-    ).rejects.toThrow('User must be authenticated to delete images');
+    await expect(imageService.deleteImage('review-images/user-1/file.jpg')).rejects.toThrow(
+      'User must be authenticated to delete images',
+    );
   });
 
   it('deleteImages calls deleteImage for each URL and continues on errors', async () => {

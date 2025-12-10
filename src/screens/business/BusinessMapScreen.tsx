@@ -1,11 +1,11 @@
-import React, { useState, useCallback } from "react";
-import { View, StyleSheet, Text, TouchableOpacity } from "react-native";
-import { useNavigation, useRoute } from "@react-navigation/native";
-import { ChevronLeft, MapPin, LocateFixed } from "lucide-react-native";
-import { useAppStore } from "@/src/hooks/useAppStore";
-import { useLocation } from "@/src/hooks/useLocation";
-import BusinessMap from "@/src/components/BusinessMap";
-import { Business } from "../../types";
+import React, { useState, useCallback } from 'react';
+import { View, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import { ChevronLeft, MapPin, LocateFixed } from 'lucide-react-native';
+import { useAppStore } from '@/src/hooks/useAppStore';
+import { useLocation } from '@/src/hooks/useLocation';
+import BusinessMap from '@/src/components/BusinessMap';
+import { Business } from '../../types';
 
 type RecenterFunction = () => void;
 
@@ -20,18 +20,18 @@ const BusinessMapScreen: React.FC = () => {
 
   const { getBusinessById } = useAppStore();
   const { userLocation } = useLocation();
-  console.log("📍 MAP SCREEN RENDER - userLocation:", userLocation);
+  console.log('📍 MAP SCREEN RENDER - userLocation:', userLocation);
 
   // State to hold the recenter function from the map component
   const [recenterMap, setRecenterMap] = useState<RecenterFunction>(() => () => {
-    console.log("📍 MAP SCREEN - Recentering function called before map was ready.");
+    console.log('📍 MAP SCREEN - Recentering function called before map was ready.');
   });
 
   // Callback to receive the recenter function when the map is ready
   const handleMapReady = useCallback((recenterFunction: RecenterFunction) => {
     // We set the function itself into state
     setRecenterMap(() => recenterFunction);
-    console.log("📍 MAP SCREEN - Recenter function is set.");
+    console.log('📍 MAP SCREEN - Recenter function is set.');
   }, []);
 
   const business = passedBusiness || getBusinessById(id);
@@ -40,10 +40,7 @@ const BusinessMapScreen: React.FC = () => {
     return (
       <View style={styles.errorContainer}>
         <Text style={styles.errorText}>Business not found</Text>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <ChevronLeft size={24} color="#007AFF" />
           <Text style={styles.backButtonText}>Go Back</Text>
         </TouchableOpacity>
@@ -55,10 +52,7 @@ const BusinessMapScreen: React.FC = () => {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <ChevronLeft size={24} color="#333" />
         </TouchableOpacity>
         <View style={styles.headerInfo}>
@@ -115,12 +109,7 @@ const BusinessMapScreen: React.FC = () => {
 };
 
 // Helper function to calculate distance
-function calculateDistance(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number
-): string {
+function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): string {
   const R = 6371; // Earth's radius in km
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
@@ -142,26 +131,26 @@ function calculateDistance(
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: '#fff',
   },
   header: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 16,
     paddingTop: 60,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "#E0E0E0",
+    borderBottomColor: '#E0E0E0',
   },
   backButton: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     padding: 12,
   },
   backButtonText: {
-    color: "#007AFF",
+    color: '#007AFF',
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: '600',
     marginLeft: 8,
   },
   headerInfo: {
@@ -170,12 +159,12 @@ const styles = StyleSheet.create({
   },
   businessName: {
     fontSize: 18,
-    fontWeight: "600",
-    color: "#333",
+    fontWeight: '600',
+    color: '#333',
   },
   businessAddress: {
     fontSize: 14,
-    color: "#666",
+    color: '#666',
     marginTop: 2,
   },
   headerIcon: {
@@ -183,24 +172,24 @@ const styles = StyleSheet.create({
   },
   errorContainer: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
     padding: 20,
   },
   errorText: {
     fontSize: 18,
-    color: "#666",
+    color: '#666',
     marginBottom: 16,
   },
   infoPanel: {
-    position: "absolute",
+    position: 'absolute',
     bottom: 20,
     left: 20,
     right: 20,
-    backgroundColor: "white",
+    backgroundColor: 'white',
     borderRadius: 12,
     padding: 16,
-    shadowColor: "#000",
+    shadowColor: '#000',
     shadowOffset: {
       width: 0,
       height: 2,
@@ -210,32 +199,32 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   locationInfo: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 8,
   },
   locationText: {
     fontSize: 14,
-    color: "#333",
+    color: '#333',
     marginLeft: 8,
     flex: 1,
   },
   distanceText: {
     fontSize: 14,
-    color: "#007AFF",
-    fontWeight: "500",
+    color: '#007AFF',
+    fontWeight: '500',
   },
   myLocationButton: {
-    position: "absolute",
+    position: 'absolute',
     bottom: 60,
     right: 40,
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: "white",
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#000",
+    backgroundColor: 'white',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,

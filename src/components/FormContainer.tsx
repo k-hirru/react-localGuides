@@ -7,15 +7,8 @@ interface FormContainerProps {
   style?: any;
 }
 
-export const FormContainer: React.FC<FormContainerProps> = ({ 
-  children, 
-  style 
-}) => {
-  return (
-    <View style={[styles.formContainer, style]}>
-      {children}
-    </View>
-  );
+export const FormContainer: React.FC<FormContainerProps> = ({ children, style }) => {
+  return <View style={[styles.formContainer, style]}>{children}</View>;
 };
 
 const styles = StyleSheet.create({

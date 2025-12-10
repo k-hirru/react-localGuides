@@ -1,12 +1,5 @@
-import notifee, {
-  AndroidStyle,
-  AndroidImportance,
-  EventType,
-} from '@notifee/react-native';
-import messaging, {
-  FirebaseMessagingTypes,
-  getIsHeadless,
-} from '@react-native-firebase/messaging';
+import notifee, { AndroidStyle, AndroidImportance, EventType } from '@notifee/react-native';
+import messaging, { FirebaseMessagingTypes, getIsHeadless } from '@react-native-firebase/messaging';
 import {
   SecureStorageKey,
   getSecureItem,
@@ -48,7 +41,7 @@ class NotificationService {
     if (this.tokenRequestInProgress) {
       if (__DEV__) {
         console.log(
-          '⏳ FCM token request already in progress, returning cached token if available'
+          '⏳ FCM token request already in progress, returning cached token if available',
         );
       }
       if (this.cachedToken) return this.cachedToken;
@@ -153,11 +146,7 @@ class NotificationService {
   }
 
   // Display local notification
-  async displayNotification(
-    title: string,
-    body: string,
-    data: NotificationData
-  ) {
+  async displayNotification(title: string, body: string, data: NotificationData) {
     try {
       await this.initializeNotificationChannels();
 
@@ -184,48 +173,34 @@ class NotificationService {
   }
 
   // Handle notification when app is in foreground
-  setupForegroundHandler(
-    onNotificationPress: (data: NotificationData) => void
-  ) {
-    return messaging().onMessage(
-      async (remoteMessage: FirebaseMessagingTypes.RemoteMessage) => {
-        if (__DEV__) {
-          console.log(
-            '📨 FCM message received in foreground (metadata only):',
-            {
-              messageId: remoteMessage.messageId,
-              dataKeys: Object.keys(remoteMessage.data || {}),
-            }
-          );
-        }
-
-        const { notification, data } = remoteMessage;
-
-        if (notification && data) {
-          await this.displayNotification(
-            notification.title || 'New Notification',
-            notification.body || '',
-            data as unknown as NotificationData
-          );
-        }
+  setupForegroundHandler(onNotificationPress: (data: NotificationData) => void) {
+    return messaging().onMessage(async (remoteMessage: FirebaseMessagingTypes.RemoteMessage) => {
+      if (__DEV__) {
+        console.log('📨 FCM message received in foreground (metadata only):', {
+          messageId: remoteMessage.messageId,
+          dataKeys: Object.keys(remoteMessage.data || {}),
+        });
       }
-    );
+
+      const { notification, data } = remoteMessage;
+
+      if (notification && data) {
+        await this.displayNotification(
+          notification.title || 'New Notification',
+          notification.body || '',
+          data as unknown as NotificationData,
+        );
+      }
+    });
   }
 
   // Handle notification taps
-  setupNotificationHandler(
-    onNotificationPress: (data: NotificationData) => void
-  ) {
+  setupNotificationHandler(onNotificationPress: (data: NotificationData) => void) {
     // Handle taps while app is backgrounded/quitted
     return notifee.onBackgroundEvent(async ({ type, detail }) => {
       if (type === EventType.PRESS) {
-        console.log(
-          '👆 Notification pressed in background:',
-          detail.notification?.data
-        );
-        const data = detail.notification?.data as
-          | (unknown & NotificationData)
-          | undefined;
+        console.log('👆 Notification pressed in background:', detail.notification?.data);
+        const data = detail.notification?.data as (unknown & NotificationData) | undefined;
         if (data) {
           onNotificationPress(data);
         }

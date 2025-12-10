@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -7,75 +7,64 @@ import {
   Alert,
   ActivityIndicator,
   Image,
-} from "react-native";
-import { useNavigation } from "@react-navigation/native";
-import {
-  LogIn,
-  Mail,
-  Lock,
-  Apple,
-  Smartphone,
-  Eye,
-  EyeOff,
-} from "lucide-react-native";
+} from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { LogIn, Mail, Lock, Apple, Smartphone, Eye, EyeOff } from 'lucide-react-native';
 
-import { StyledInput } from "@/src/components/StyledInput";
-import { SocialButton } from "@/src/components/SocialButton";
-import { KeyboardAvoidingScrollView } from "@/src/components/KeyboardAvoidingScrollView";
-import { useAuth } from "@/src/hooks/useAuth";
-import Colors from "@/src/constants/colors";
+import { StyledInput } from '@/src/components/StyledInput';
+import { SocialButton } from '@/src/components/SocialButton';
+import { KeyboardAvoidingScrollView } from '@/src/components/KeyboardAvoidingScrollView';
+import { useAuth } from '@/src/hooks/useAuth';
+import Colors from '@/src/constants/colors';
 
 export default function LoginScreen() {
   const navigation = useNavigation();
   const { login, loading, resetPassword } = useAuth();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert("Error", "Please enter both email and password");
+      Alert.alert('Error', 'Please enter both email and password');
       return;
     }
 
     try {
       await login(email, password);
     } catch (error: any) {
-      Alert.alert("Login Error", error.message);
+      Alert.alert('Login Error', error.message);
     }
   };
 
-  const handleSocialLogin = (platform: "Apple" | "Phone") => {
-    Alert.alert("Coming Soon", `${platform} login will be available soon!`);
+  const handleSocialLogin = (platform: 'Apple' | 'Phone') => {
+    Alert.alert('Coming Soon', `${platform} login will be available soon!`);
   };
 
   const handleForgotPassword = async () => {
     if (!email) {
-      Alert.alert("Email Required", "Please enter your email address first");
+      Alert.alert('Email Required', 'Please enter your email address first');
       return;
     }
 
-    Alert.alert("Reset Password", `Send password reset email to ${email}?`, [
+    Alert.alert('Reset Password', `Send password reset email to ${email}?`, [
       {
-        text: "Cancel",
-        style: "cancel",
+        text: 'Cancel',
+        style: 'cancel',
       },
       {
-        text: "Send",
+        text: 'Send',
         onPress: async () => {
           try {
             setResetLoading(true);
             await resetPassword(email);
             Alert.alert(
-              "Check Your Email",
-              "Password reset email sent! Please check your inbox/spam and follow the instructions."
+              'Check Your Email',
+              'Password reset email sent! Please check your inbox/spam and follow the instructions.',
             );
           } catch (error: any) {
-            Alert.alert(
-              "Error",
-              error.message || "Failed to send reset email. Please try again."
-            );
+            Alert.alert('Error', error.message || 'Failed to send reset email. Please try again.');
           } finally {
             setResetLoading(false);
           }
@@ -93,13 +82,11 @@ export default function LoginScreen() {
       {/* Application Header/Logo */}
       <View style={styles.headerContainer}>
         <Image
-          source={require("@/src/assets/images/BiteSpotLogotransparent.png")}
+          source={require('@/src/assets/images/BiteSpotLogotransparent.png')}
           style={styles.logo}
           resizeMode="contain" // keeps aspect ratio
         />
-        <Text style={[styles.title, { color: Colors.light.text }]}>
-          BiteSpot
-        </Text>
+        <Text style={[styles.title, { color: Colors.light.text }]}>BiteSpot</Text>
         <Text style={styles.subtitle}>Discover local. Log in to guide.</Text>
       </View>
 
@@ -123,10 +110,7 @@ export default function LoginScreen() {
             onChangeText={setPassword}
             isPassword={!showPassword} // ✅ Use isPassword instead of secureTextEntry
           />
-          <TouchableOpacity
-            style={styles.visibilityToggle}
-            onPress={togglePasswordVisibility}
-          >
+          <TouchableOpacity style={styles.visibilityToggle} onPress={togglePasswordVisibility}>
             {showPassword ? (
               <EyeOff size={20} color={Colors.light.gray[500]} />
             ) : (
@@ -173,21 +157,19 @@ export default function LoginScreen() {
         <SocialButton
           Icon={Apple}
           text="Continue with Apple"
-          onPress={() => handleSocialLogin("Apple")}
+          onPress={() => handleSocialLogin('Apple')}
         />
         <SocialButton
           Icon={Smartphone}
           text="Continue with Phone Number"
-          onPress={() => handleSocialLogin("Phone")}
+          onPress={() => handleSocialLogin('Phone')}
         />
       </View>
 
       {/* Sign Up Link */}
       <View style={styles.signUpContainer}>
         <Text style={styles.signUpText}>{`Don't have an account? `}</Text>
-        <TouchableOpacity
-          onPress={() => navigation.navigate("SignUp" as never)}
-        >
+        <TouchableOpacity onPress={() => navigation.navigate('SignUp' as never)}>
           <Text style={[styles.signUpText, styles.linkText]}>Sign Up</Text>
         </TouchableOpacity>
       </View>
@@ -198,17 +180,17 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   mainContent: {
     flex: 1,
-    justifyContent: "center",
+    justifyContent: 'center',
   },
   headerContainer: {
     marginBottom: 40,
-    alignItems: "center",
+    alignItems: 'center',
   },
   title: {
     fontSize: 48,
-    textAlign: "center",
+    textAlign: 'center',
     marginTop: 12,
-    fontWeight: "800",
+    fontWeight: '800',
   },
   subtitle: {
     fontSize: 18,
@@ -219,30 +201,30 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   passwordContainer: {
-    position: "relative",
+    position: 'relative',
   },
   visibilityToggle: {
-    position: "absolute",
+    position: 'absolute',
     right: 16,
     top: 16,
     zIndex: 10,
     padding: 4,
   },
   forgotPasswordButton: {
-    alignSelf: "flex-end",
+    alignSelf: 'flex-end',
     marginTop: 4,
     marginBottom: 24,
     height: 20,
-    justifyContent: "center",
+    justifyContent: 'center',
   },
   linkText: {
     color: Colors.light.primary,
-    fontWeight: "500",
+    fontWeight: '500',
   },
   loginButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: Colors.light.primary,
     borderRadius: 12,
     padding: 20,
@@ -258,11 +240,11 @@ const styles = StyleSheet.create({
   loginButtonText: {
     fontSize: 20,
     color: Colors.light.background,
-    fontWeight: "700",
+    fontWeight: '700',
   },
   dividerContainer: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 24,
   },
   dividerLine: {
@@ -274,11 +256,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.light.gray[500],
     marginHorizontal: 16,
-    fontWeight: "500",
+    fontWeight: '500',
   },
   signUpContainer: {
-    flexDirection: "row",
-    justifyContent: "center",
+    flexDirection: 'row',
+    justifyContent: 'center',
     marginTop: 32,
     paddingBottom: 16,
   },

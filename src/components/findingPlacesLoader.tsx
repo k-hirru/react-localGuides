@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, Easing, View, Text, StyleSheet } from 'react-native';
-import { MapPin } from 'lucide-react-native'; 
+import { MapPin } from 'lucide-react-native';
 
 const FindingPlacesLoader = () => {
   const pulse = useRef(new Animated.Value(1)).current;
@@ -20,7 +20,7 @@ const FindingPlacesLoader = () => {
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
-      ])
+      ]),
     );
     loop.start();
     return () => loop.stop();

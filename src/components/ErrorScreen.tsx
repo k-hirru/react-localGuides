@@ -1,5 +1,5 @@
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 
 export default function ErrorScreen() {
   const navigation = useNavigation();
@@ -7,10 +7,7 @@ export default function ErrorScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>This screen does not exist.</Text>
-      <TouchableOpacity 
-        style={styles.link}
-        onPress={() => navigation.navigate('Home' as never)}
-      >
+      <TouchableOpacity style={styles.link} onPress={() => navigation.navigate('Home' as never)}>
         <Text style={styles.linkText}>Go to home screen!</Text>
       </TouchableOpacity>
     </View>
@@ -20,13 +17,13 @@ export default function ErrorScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
     padding: 20,
   },
   title: {
     fontSize: 20,
-    fontWeight: "bold",
+    fontWeight: 'bold',
   },
   link: {
     marginTop: 15,
@@ -34,6 +31,6 @@ const styles = StyleSheet.create({
   },
   linkText: {
     fontSize: 14,
-    color: "#2e78b7",
+    color: '#2e78b7',
   },
 });

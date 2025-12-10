@@ -1,28 +1,25 @@
-import { QueryClient } from "@tanstack/react-query";
-import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
-import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import {
-  NavigationContainer,
-  useNavigationContainerRef,
-} from "@react-navigation/native";
-import * as SplashScreen from "expo-splash-screen";
-import React, { useEffect } from "react";
-import { View, ActivityIndicator } from "react-native";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { AuthProvider, useAuthContext } from "@/src/context/AuthContext"; // ← CHANGE THIS
-import { useNotifications } from "@/src/hooks/useNotification";
-import { NotificationData } from "@/src/services/notificationService";
-import { OfflineBanner } from "@/src/components/OfflineBanner";
+import { QueryClient } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
+import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
+import * as SplashScreen from 'expo-splash-screen';
+import React, { useEffect } from 'react';
+import { View, ActivityIndicator } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { AuthProvider, useAuthContext } from '@/src/context/AuthContext'; // ← CHANGE THIS
+import { useNotifications } from '@/src/hooks/useNotification';
+import { NotificationData } from '@/src/services/notificationService';
+import { OfflineBanner } from '@/src/components/OfflineBanner';
 
-import TabNavigator from "./TabNavigator";
-import BusinessDetailsScreen from "../screens/business/BusinessDetailsScreen";
-import AddReviewScreen from "../screens/business/AddReviewScreen";
-import LoginScreen from "../screens/entry/LoginScreen";
-import SignUpScreen from "../screens/entry/SignUpScreen";
-import BusinessMapScreen from "../screens/business/BusinessMapScreen";
-import AdminDashboardScreen from "../screens/admin/AdminDashboardScreen";
+import TabNavigator from './TabNavigator';
+import BusinessDetailsScreen from '../screens/business/BusinessDetailsScreen';
+import AddReviewScreen from '../screens/business/AddReviewScreen';
+import LoginScreen from '../screens/entry/LoginScreen';
+import SignUpScreen from '../screens/entry/SignUpScreen';
+import BusinessMapScreen from '../screens/business/BusinessMapScreen';
+import AdminDashboardScreen from '../screens/admin/AdminDashboardScreen';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -30,7 +27,7 @@ const queryClient = new QueryClient();
 
 const asyncStoragePersister = createAsyncStoragePersister({
   storage: AsyncStorage,
-  key: "react-query",
+  key: 'react-query',
   throttleTime: 1000,
 });
 
@@ -42,10 +39,10 @@ function AuthNavigator() {
 
   // Handle notification press - navigate to business details with review highlight
   const handleNotificationPress = (data: NotificationData) => {
-    console.log("Notification pressed with data:", data);
+    console.log('Notification pressed with data:', data);
     if (data.reviewId && data.businessId) {
       // Navigate to BusinessDetailsScreen with the reviewId to highlight
-      (navigationRef.current as any)?.navigate("BusinessDetails", {
+      (navigationRef.current as any)?.navigate('BusinessDetails', {
         id: data.businessId,
         highlightReviewId: data.reviewId,
       });
@@ -63,7 +60,14 @@ function AuthNavigator() {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#F8F9FA" }}>
+      <View
+        style={{
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: '#F8F9FA',
+        }}
+      >
         <ActivityIndicator size="large" color="#007AFF" />
       </View>
     );
@@ -72,38 +76,26 @@ function AuthNavigator() {
   return (
     <Stack.Navigator
       screenOptions={{
-        headerBackTitle: "Back",
-        animation: "slide_from_right",
+        headerBackTitle: 'Back',
+        animation: 'slide_from_right',
         animationDuration: 200,
       }}
     >
       {!user ? (
         // Auth screens - user not logged in
         <>
-          <Stack.Screen
-            name="Login"
-            component={LoginScreen}
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen
-            name="SignUp"
-            component={SignUpScreen}
-            options={{ headerShown: false }}
-          />
+          <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="SignUp" component={SignUpScreen} options={{ headerShown: false }} />
         </>
       ) : (
         // Main app - user logged in
         <>
-          <Stack.Screen
-            name="Tabs"
-            component={TabNavigator}
-            options={{ headerShown: false }}
-          />
+          <Stack.Screen name="Tabs" component={TabNavigator} options={{ headerShown: false }} />
           <Stack.Screen
             name="BusinessDetails"
             component={BusinessDetailsScreen}
             options={({ route }: any) => ({
-              title: "Business Details",
+              title: 'Business Details',
               headerShown: true,
             })}
           />
@@ -111,17 +103,17 @@ function AuthNavigator() {
             name="AddReview"
             component={AddReviewScreen}
             options={{
-              title: "Add Review",
+              title: 'Add Review',
               headerShown: true,
-              headerBackTitle: "Back",
-              presentation: "modal",
+              headerBackTitle: 'Back',
+              presentation: 'modal',
             }}
           />
           <Stack.Screen
             name="BusinessMap"
             component={BusinessMapScreen}
             options={{
-              title: "Location",
+              title: 'Location',
               headerShown: false,
             }}
           />
@@ -129,7 +121,7 @@ function AuthNavigator() {
             name="AdminDashboard"
             component={AdminDashboardScreen}
             options={{
-              title: "Admin Dashboard",
+              title: 'Admin Dashboard',
               headerShown: false,
             }}
           />

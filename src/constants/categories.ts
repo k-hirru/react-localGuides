@@ -9,7 +9,7 @@ export const CATEGORIES = [
 export const GEOAPIFY_CATEGORIES = {
   restaurants: ['catering.restaurant'],
   cafes: ['catering.cafe'],
-  fast_food: ['catering.fast_food']
+  fast_food: ['catering.fast_food'],
 };
 
 export const PRICE_LEVELS = [

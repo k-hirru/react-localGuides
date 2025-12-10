@@ -1,12 +1,12 @@
-import { 
+import {
   getFirestore,
-  doc, 
-  getDoc, 
-  setDoc, 
+  doc,
+  getDoc,
+  setDoc,
   onSnapshot,
-  arrayUnion, 
-  arrayRemove, 
-  serverTimestamp 
+  arrayUnion,
+  arrayRemove,
+  serverTimestamp,
 } from '@react-native-firebase/firestore';
 
 // Get Firestore instance
@@ -30,7 +30,7 @@ export const favoriteService = {
   async getUserFavorites(userId: string): Promise<string[]> {
     try {
       const userDoc = await getDoc(doc(db, 'userFavorites', userId));
-      
+
       if (userDoc.exists()) {
         return userDoc.data()?.favoriteBusinessIds || [];
       }
@@ -44,10 +44,14 @@ export const favoriteService = {
   // Add a business to favorites
   async addToFavorites(userId: string, businessId: string): Promise<void> {
     try {
-      await setDoc(doc(db, 'userFavorites', userId), {
-        favoriteBusinessIds: arrayUnion(businessId),
-        updatedAt: serverTimestamp(),
-      }, { merge: true });
+      await setDoc(
+        doc(db, 'userFavorites', userId),
+        {
+          favoriteBusinessIds: arrayUnion(businessId),
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true },
+      );
     } catch (error) {
       console.error('Error adding to favorites:', error);
       throw error;
@@ -57,10 +61,14 @@ export const favoriteService = {
   // Remove a business from favorites
   async removeFromFavorites(userId: string, businessId: string): Promise<void> {
     try {
-      await setDoc(doc(db, 'userFavorites', userId), {
-        favoriteBusinessIds: arrayRemove(businessId),
-        updatedAt: serverTimestamp(),
-      }, { merge: true });
+      await setDoc(
+        doc(db, 'userFavorites', userId),
+        {
+          favoriteBusinessIds: arrayRemove(businessId),
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true },
+      );
     } catch (error) {
       console.error('Error removing from favorites:', error);
       throw error;
@@ -68,7 +76,11 @@ export const favoriteService = {
   },
 
   // Toggle favorite status
-  async toggleFavorite(userId: string, businessId: string, isCurrentlyFavorite: boolean): Promise<void> {
+  async toggleFavorite(
+    userId: string,
+    businessId: string,
+    isCurrentlyFavorite: boolean,
+  ): Promise<void> {
     if (isCurrentlyFavorite) {
       await this.removeFromFavorites(userId, businessId);
     } else {
@@ -79,7 +91,7 @@ export const favoriteService = {
   // Real-time listener for favorites changes
   subscribeToFavorites(userId: string, callback: (favorites: string[]) => void): () => void {
     const userRef = doc(db, 'userFavorites', userId);
-    
+
     const unsubscribe = onSnapshot(
       userRef,
       (documentSnapshot) => {
@@ -99,9 +111,9 @@ export const favoriteService = {
         }
 
         console.error('Error in favorites subscription:', error);
-      }
+      },
     );
 
     return unsubscribe;
-  }
+  },
 };

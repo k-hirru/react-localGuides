@@ -15,7 +15,7 @@ export default function PullToRefreshScrollView({
   refreshing,
   onRefresh,
   style,
-  contentContainerStyle
+  contentContainerStyle,
 }: PullToRefreshScrollViewProps) {
   return (
     <ScrollView

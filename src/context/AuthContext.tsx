@@ -1,17 +1,13 @@
-import React, { createContext, useContext, ReactNode } from "react";
-import { useAuth } from "@/src/hooks/useAuth";
-import { FirebaseAuthTypes } from "@react-native-firebase/auth";
+import React, { createContext, useContext, ReactNode } from 'react';
+import { useAuth } from '@/src/hooks/useAuth';
+import { FirebaseAuthTypes } from '@react-native-firebase/auth';
 
 interface AuthContextType {
   user: FirebaseAuthTypes.User | null;
   loading: boolean;
   error: string | null;
   login: (email: string, password: string) => Promise<FirebaseAuthTypes.User>;
-  signup: (
-    email: string,
-    password: string,
-    fullName: string
-  ) => Promise<FirebaseAuthTypes.User>;
+  signup: (email: string, password: string, fullName: string) => Promise<FirebaseAuthTypes.User>;
   logout: () => Promise<boolean>;
   resetPassword: (email: string) => Promise<void>;
   role: 'user' | 'admin';
@@ -35,7 +31,7 @@ export function useAuthContext() {
   const context = useContext(AuthContext);
 
   if (context === undefined) {
-    throw new Error("useAuthContext must be used within an AuthProvider");
+    throw new Error('useAuthContext must be used within an AuthProvider');
   }
 
   return context;

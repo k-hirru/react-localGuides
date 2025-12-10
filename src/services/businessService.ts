@@ -1,9 +1,9 @@
-import { Business } from "@/src/types";
-import { geoapifyService } from "./geoapifyService";
-import { reviewService } from "./reviewService";
-import { mapGeoapifyToBusiness } from "@/src/utils/businessMapper";
-import { queryOptions } from "@tanstack/react-query";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Business } from '@/src/types';
+import { geoapifyService } from './geoapifyService';
+import { reviewService } from './reviewService';
+import { mapGeoapifyToBusiness } from '@/src/utils/businessMapper';
+import { queryOptions } from '@tanstack/react-query';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   getFirestore,
   doc,
@@ -11,7 +11,7 @@ import {
   getDoc,
   updateDoc,
   serverTimestamp,
-} from "@react-native-firebase/firestore";
+} from '@react-native-firebase/firestore';
 
 /**
  * businessService
@@ -33,18 +33,18 @@ import {
 
 const mapAppCategoriesToGeoapify = (categories: string[]): string[] => {
   if (categories.length === 0) {
-    return ["catering.restaurant", "catering.cafe", "catering.fast_food"];
+    return ['catering.restaurant', 'catering.cafe', 'catering.fast_food'];
   }
 
   return categories
     .map((category) => {
       switch (category) {
-        case "restaurants":
-          return "catering.restaurant";
-        case "cafes":
-          return "catering.cafe";
-        case "fast_food":
-          return "catering.fast_food";
+        case 'restaurants':
+          return 'catering.restaurant';
+        case 'cafes':
+          return 'catering.cafe';
+        case 'fast_food':
+          return 'catering.fast_food';
         default:
           return null;
       }
@@ -52,16 +52,11 @@ const mapAppCategoriesToGeoapify = (categories: string[]): string[] => {
     .filter(Boolean) as string[];
 };
 
-const NEARBY_CACHE_PREFIX = "nearbyBusinesses_v1";
+const NEARBY_CACHE_PREFIX = 'nearbyBusinesses_v1';
 const NEARBY_CACHE_MAX_AGE_MS = 6 * 60 * 60 * 1000; // 6 hours
 
-const buildNearbyCacheKey = (
-  lat: number,
-  lng: number,
-  radius: number,
-  categories: string[]
-) => {
-  const cats = [...categories].sort().join(",");
+const buildNearbyCacheKey = (lat: number, lng: number, radius: number, categories: string[]) => {
+  const cats = [...categories].sort().join(',');
   return `${NEARBY_CACHE_PREFIX}:${lat.toFixed(4)}:${lng.toFixed(4)}:${radius}:${cats}`;
 };
 
@@ -78,10 +73,10 @@ const buildAreaKey = (city?: string | null, country?: string | null) => {
 };
 
 export const businessQueryKeys = {
-  all: ["businesses"] as const,
-  lists: () => [...businessQueryKeys.all, "list"] as const,
+  all: ['businesses'] as const,
+  lists: () => [...businessQueryKeys.all, 'list'] as const,
   list: (filters: any) => [...businessQueryKeys.lists(), filters] as const,
-  details: () => [...businessQueryKeys.all, "detail"] as const,
+  details: () => [...businessQueryKeys.all, 'detail'] as const,
   detail: (id: string) => [...businessQueryKeys.details(), id] as const,
 };
 
@@ -91,13 +86,13 @@ export const businessService = {
     lng: number,
     radius: number = 5000,
     categories: string[] = [],
-    forceRefresh: boolean = false
+    forceRefresh: boolean = false,
   ): Promise<Business[]> {
     try {
-      console.log("🔍 BUSINESS SERVICE - Starting getNearbyBusinesses");
-      console.log("📍 Coordinates:", lat, lng);
+      console.log('🔍 BUSINESS SERVICE - Starting getNearbyBusinesses');
+      console.log('📍 Coordinates:', lat, lng);
       const geoapifyCategories = mapAppCategoriesToGeoapify(categories);
-      console.log("🎯 Categories:", geoapifyCategories);
+      console.log('🎯 Categories:', geoapifyCategories);
 
       const cacheKey = buildNearbyCacheKey(lat, lng, radius, geoapifyCategories);
 
@@ -110,20 +105,20 @@ export const businessService = {
             const age = Date.now() - parsed.updatedAt;
 
             if (age < NEARBY_CACHE_MAX_AGE_MS) {
-              console.log("📦 Using fresh enough persisted nearby businesses cache");
+              console.log('📦 Using fresh enough persisted nearby businesses cache');
               return parsed.businesses;
             }
 
-            console.log("⏰ Nearby businesses cache is stale, fetching fresh data");
+            console.log('⏰ Nearby businesses cache is stale, fetching fresh data');
             // Optional: clean up stale cache entry
             try {
               await AsyncStorage.removeItem(cacheKey);
             } catch (cleanupErr) {
-              console.warn("⚠️ Failed to remove stale nearby cache:", cleanupErr);
+              console.warn('⚠️ Failed to remove stale nearby cache:', cleanupErr);
             }
           }
         } catch (err) {
-          console.warn("⚠️ Failed to read nearby businesses cache:", err);
+          console.warn('⚠️ Failed to read nearby businesses cache:', err);
         }
       }
 
@@ -134,27 +129,27 @@ export const businessService = {
         geoapifyCategories,
         60,
         forceRefresh,
-        0
+        0,
       );
 
-      console.log("📊 Geoapify returned places:", places.length);
+      console.log('📊 Geoapify returned places:', places.length);
       if (!places.length) {
-        console.log("❌ No places found from Geoapify");
+        console.log('❌ No places found from Geoapify');
         return [];
       }
 
       const placeIds = places.map((p) => p.place_id);
-      console.log("🆔 Place IDs:", placeIds);
+      console.log('🆔 Place IDs:', placeIds);
       const reviewsMap = await reviewService.getBusinessesWithReviews(placeIds);
 
       const businesses = places.map((place) =>
         mapGeoapifyToBusiness(
           place,
-          reviewsMap.get(place.place_id) || { rating: 0, reviewCount: 0 }
-        )
+          reviewsMap.get(place.place_id) || { rating: 0, reviewCount: 0 },
+        ),
       );
-      console.log("🏪 Final businesses:", businesses.length);
-      console.log("📝 Sample business:", businesses[0]?.name);
+      console.log('🏪 Final businesses:', businesses.length);
+      console.log('📝 Sample business:', businesses[0]?.name);
 
       // Persist to AsyncStorage for cross-session caching
       try {
@@ -163,14 +158,14 @@ export const businessService = {
           updatedAt: Date.now(),
         };
         await AsyncStorage.setItem(cacheKey, JSON.stringify(payload));
-        console.log("💾 Nearby businesses cache saved");
+        console.log('💾 Nearby businesses cache saved');
       } catch (err) {
-        console.warn("⚠️ Failed to persist nearby businesses cache:", err);
+        console.warn('⚠️ Failed to persist nearby businesses cache:', err);
       }
-      
+
       return businesses;
     } catch {
-      console.error("❌ BUSINESS SERVICE - Error:", Error);
+      console.error('❌ BUSINESS SERVICE - Error:', Error);
       return [];
     }
   },
@@ -184,7 +179,7 @@ export const businessService = {
       page?: number;
       pageSize?: number;
       forceRefresh?: boolean;
-    }
+    },
   ): Promise<Business[]> {
     const {
       radius = 5000,
@@ -195,7 +190,7 @@ export const businessService = {
     } = options || {};
 
     try {
-      console.log("🔍 BUSINESS SERVICE - getNearbyBusinessesPage", {
+      console.log('🔍 BUSINESS SERVICE - getNearbyBusinessesPage', {
         lat,
         lng,
         radius,
@@ -214,11 +209,11 @@ export const businessService = {
         geoapifyCategories,
         pageSize,
         forceRefresh,
-        offset
+        offset,
       );
 
       if (!places.length) {
-        console.log("❌ No places found for page", page);
+        console.log('❌ No places found for page', page);
         return [];
       }
 
@@ -228,20 +223,15 @@ export const businessService = {
       const businesses = places.map((place) =>
         mapGeoapifyToBusiness(
           place,
-          reviewsMap.get(place.place_id) || { rating: 0, reviewCount: 0 }
-        )
+          reviewsMap.get(place.place_id) || { rating: 0, reviewCount: 0 },
+        ),
       );
 
-      console.log(
-        "🏪 Page businesses:",
-        page,
-        "count:",
-        businesses.length
-      );
+      console.log('🏪 Page businesses:', page, 'count:', businesses.length);
 
       return businesses;
     } catch (error) {
-      console.error("❌ BUSINESS SERVICE - getNearbyBusinessesPage error:", error);
+      console.error('❌ BUSINESS SERVICE - getNearbyBusinessesPage error:', error);
       return [];
     }
   },
@@ -252,9 +242,7 @@ export const businessService = {
       const reviews = await reviewService.getReviewsForBusiness(placeId);
 
       const rating =
-        reviews.length > 0
-          ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
-          : 0;
+        reviews.length > 0 ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length : 0;
 
       const business = mapGeoapifyToBusiness(place, {
         rating,
@@ -263,7 +251,7 @@ export const businessService = {
 
       // Upsert canonical Firestore business document for analytics/admin
       try {
-        const businessRef = doc(db, "businesses", business.id);
+        const businessRef = doc(db, 'businesses', business.id);
         const existing = await getDoc(businessRef);
 
         const city = place.address?.city ?? null;
@@ -300,9 +288,7 @@ export const businessService = {
             reviewCount: reviews.length,
             avgRating: rating,
             lastReviewAt: reviews.length
-              ? reviews
-                  .map((r) => r.createdAt)
-                  .sort((a, b) => b.getTime() - a.getTime())[0]
+              ? reviews.map((r) => r.createdAt).sort((a, b) => b.getTime() - a.getTime())[0]
               : null,
           });
         } else {
@@ -311,19 +297,13 @@ export const businessService = {
             reviewCount: reviews.length,
             avgRating: rating,
             lastReviewAt: reviews.length
-              ? reviews
-                  .map((r) => r.createdAt)
-                  .sort((a, b) => b.getTime() - a.getTime())[0]
+              ? reviews.map((r) => r.createdAt).sort((a, b) => b.getTime() - a.getTime())[0]
               : null,
             createdAt: serverTimestamp(),
           });
         }
       } catch (firestoreError) {
-        console.warn(
-          "⚠️ Failed to upsert Firestore business doc for",
-          placeId,
-          firestoreError
-        );
+        console.warn('⚠️ Failed to upsert Firestore business doc for', placeId, firestoreError);
       }
 
       return business;
@@ -334,10 +314,10 @@ export const businessService = {
 
   async updateBusinessStats(
     businessId: string,
-    stats: { reviewCount: number; avgRating: number; lastReviewAt?: Date | null }
+    stats: { reviewCount: number; avgRating: number; lastReviewAt?: Date | null },
   ): Promise<void> {
     try {
-      const businessRef = doc(db, "businesses", businessId);
+      const businessRef = doc(db, 'businesses', businessId);
       const payload: any = {
         reviewCount: stats.reviewCount,
         avgRating: stats.avgRating,
@@ -348,7 +328,7 @@ export const businessService = {
       }
       await setDoc(businessRef, payload, { merge: true });
     } catch (error) {
-      console.warn("⚠️ Failed to update business stats in Firestore:", error);
+      console.warn('⚠️ Failed to update business stats in Firestore:', error);
     }
   },
 
@@ -358,53 +338,53 @@ export const businessService = {
     lng: number,
     radius: number = 5000,
     categories: string[] = [],
-    forceRefresh: boolean = false
+    forceRefresh: boolean = false,
   ): Promise<Business[]> {
     try {
-      console.log("🔍 BUSINESS SERVICE - Starting geocoding search for:", query);
-      console.log("📍 Coordinates:", lat, lng);
-      
+      console.log('🔍 BUSINESS SERVICE - Starting geocoding search for:', query);
+      console.log('📍 Coordinates:', lat, lng);
+
       const geoapifyCategories = mapAppCategoriesToGeoapify(categories);
-      console.log("🎯 Categories:", geoapifyCategories);
+      console.log('🎯 Categories:', geoapifyCategories);
 
       // Use geocoding API instead of places API
-      const places = await geoapifyService.searchPlacesByName( 
+      const places = await geoapifyService.searchPlacesByName(
         query,
         lat,
         lng,
         radius,
         geoapifyCategories,
         40,
-        forceRefresh
+        forceRefresh,
       );
 
-      console.log("📊 Geocoding search returned places:", places.length);
-      
+      console.log('📊 Geocoding search returned places:', places.length);
+
       if (!places.length) {
-        console.log("❌ No places found from geocoding search");
+        console.log('❌ No places found from geocoding search');
         return [];
       }
 
       const placeIds = places.map((p) => p.place_id);
-      console.log("🆔 Place IDs from geocoding:", placeIds);
-      
+      console.log('🆔 Place IDs from geocoding:', placeIds);
+
       const reviewsMap = await reviewService.getBusinessesWithReviews(placeIds);
 
       const businesses = places.map((place) =>
         mapGeoapifyToBusiness(
           place,
-          reviewsMap.get(place.place_id) || { rating: 0, reviewCount: 0 }
-        )
+          reviewsMap.get(place.place_id) || { rating: 0, reviewCount: 0 },
+        ),
       );
-      
-      console.log("🏪 Final search businesses:", businesses.length);
+
+      console.log('🏪 Final search businesses:', businesses.length);
       if (businesses.length > 0) {
-        console.log("📝 Sample search business:", businesses[0]?.name);
+        console.log('📝 Sample search business:', businesses[0]?.name);
       }
-      
+
       return businesses;
     } catch (error) {
-      console.error("❌ BUSINESS SERVICE - Places API name search error:", error);
+      console.error('❌ BUSINESS SERVICE - Places API name search error:', error);
       return [];
     }
   },
@@ -413,28 +393,23 @@ export const businessService = {
     query: string,
     lat: number,
     lng: number,
-    radius: number = 5000
+    radius: number = 5000,
   ): Promise<Business[]> {
     return this.getNearbyBusinesses(lat, lng, radius).then((biz) =>
       biz.filter(
         (b) =>
           b.name.toLowerCase().includes(query.toLowerCase()) ||
           b.address.toLowerCase().includes(query.toLowerCase()) ||
-          b.features.some((f) => f.toLowerCase().includes(query.toLowerCase()))
-      )
+          b.features.some((f) => f.toLowerCase().includes(query.toLowerCase())),
+      ),
     );
   },
 
   // ✅ React Query support wrapper
-  getNearbyBusinessesQuery: (
-    lat: number,
-    lng: number,
-    categories: string[] = []
-  ) =>
+  getNearbyBusinessesQuery: (lat: number, lng: number, categories: string[] = []) =>
     queryOptions({
       queryKey: businessQueryKeys.list({ lat, lng, categories }),
-      queryFn: () =>
-        businessService.getNearbyBusinesses(lat, lng, 5000, categories),
+      queryFn: () => businessService.getNearbyBusinesses(lat, lng, 5000, categories),
       staleTime: 5 * 60 * 1000,
       gcTime: 10 * 60 * 1000,
     }),

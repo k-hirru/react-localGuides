@@ -19,7 +19,7 @@ export const StyledInput: React.FC<StyledInputProps> = ({
   onChangeText,
   isPassword = false,
   keyboardType = 'default',
-  autoCapitalize = 'none'
+  autoCapitalize = 'none',
 }) => {
   return (
     <View style={styles.inputContainer}>

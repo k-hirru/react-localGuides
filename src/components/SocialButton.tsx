@@ -13,14 +13,11 @@ export const SocialButton: React.FC<SocialButtonProps> = ({
   Icon,
   text,
   onPress,
-  variant = 'default'
+  variant = 'default',
 }) => {
   return (
     <TouchableOpacity
-      style={[
-        styles.socialButton,
-        variant === 'outline' && styles.socialButtonOutline
-      ]}
+      style={[styles.socialButton, variant === 'outline' && styles.socialButtonOutline]}
       onPress={onPress}
     >
       <Icon size={20} color={Colors.light.gray[700]} style={styles.iconSpacing} />

@@ -12,7 +12,7 @@ export const useNotifications = (onNotificationPress: (data: NotificationData) =
     try {
       if (Platform.OS === 'android' && Platform.Version >= 33) {
         const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
+          PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
         );
         return granted === PermissionsAndroid.RESULTS.GRANTED;
       }
@@ -33,7 +33,7 @@ export const useNotifications = (onNotificationPress: (data: NotificationData) =
 
       // Initialize notification channels
       await notificationService.initializeNotificationChannels();
-      
+
       // Get FCM token and store it for the current user
       if (user) {
         const token = await notificationService.requestPermissionAndGetToken();
@@ -59,11 +59,7 @@ export const useNotifications = (onNotificationPress: (data: NotificationData) =
 
     // Handle app state changes
     const subscription = AppState.addEventListener('change', async (nextAppState) => {
-      if (
-        appState.current.match(/inactive|background/) &&
-        nextAppState === 'active' &&
-        user
-      ) {
+      if (appState.current.match(/inactive|background/) && nextAppState === 'active' && user) {
         // Refresh token when app comes to foreground
         const token = await notificationService.requestPermissionAndGetToken();
         console.log('Refreshed FCM token:', token);

@@ -1,10 +1,4 @@
-import React, {
-  useState,
-  useLayoutEffect,
-  useEffect,
-  useCallback,
-  useRef,
-} from "react";
+import React, { useState, useLayoutEffect, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -17,30 +11,19 @@ import {
   ActivityIndicator,
   Dimensions,
   RefreshControl,
-} from "react-native";
-import {
-  useNavigation,
-  useRoute,
-} from "@react-navigation/native";
-import {
-  Heart,
-  Phone,
-  Globe,
-  Clock,
-  MapPin,
-  MessageSquare,
-  Share,
-} from "lucide-react-native";
-import { useAppStore } from "@/src/hooks/useAppStore";
-import { Business, Review } from "@/src/types";
-import StarRating from "@/src/components/StarRating";
-import ReviewCard from "@/src/components/ReviewCard";
-import { PRICE_LEVELS } from "@/src/constants/categories";
-import { useAuth } from "@/src/hooks/useAuth";
-import { useBusinessDetailsQuery } from "@/src/hooks/queries/useBusinessDetailsQuery";
-import { useBusinessReviewsQuery } from "@/src/hooks/queries/useBusinessReviewsQuery";
+} from 'react-native';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import { Heart, Phone, Globe, Clock, MapPin, MessageSquare, Share } from 'lucide-react-native';
+import { useAppStore } from '@/src/hooks/useAppStore';
+import { Business, Review } from '@/src/types';
+import StarRating from '@/src/components/StarRating';
+import ReviewCard from '@/src/components/ReviewCard';
+import { PRICE_LEVELS } from '@/src/constants/categories';
+import { useAuth } from '@/src/hooks/useAuth';
+import { useBusinessDetailsQuery } from '@/src/hooks/queries/useBusinessDetailsQuery';
+import { useBusinessReviewsQuery } from '@/src/hooks/queries/useBusinessReviewsQuery';
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function BusinessDetailsScreen() {
   const route = useRoute();
@@ -48,12 +31,7 @@ export default function BusinessDetailsScreen() {
   const { user: authUser } = useAuth();
   const { id } = route.params as { id: string };
 
-  const {
-    getBusinessById,
-    toggleFavorite,
-    deleteReview,
-    isFavorite,
-  } = useAppStore();
+  const { getBusinessById, toggleFavorite, deleteReview, isFavorite } = useAppStore();
 
   const [business, setBusiness] = useState<Business | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -95,12 +73,10 @@ export default function BusinessDetailsScreen() {
   const checkUserReview = useCallback(
     (reviewsList: Review[]) => {
       if (!authUser) return null;
-      const userReview = reviewsList.find(
-        (review) => review.userId === authUser.uid
-      );
+      const userReview = reviewsList.find((review) => review.userId === authUser.uid);
       return userReview || null;
     },
-    [authUser]
+    [authUser],
   );
 
   // Sync local state from React Query data
@@ -118,10 +94,10 @@ export default function BusinessDetailsScreen() {
     });
     setReviews(businessReviews);
 
-    console.log("✅ Business data synced from React Query:", {
+    console.log('✅ Business data synced from React Query:', {
       rating: updatedRating,
       reviewCount: businessReviews.length,
-      userReview: foundUserReview ? "exists" : "none",
+      userReview: foundUserReview ? 'exists' : 'none',
       userId: authUser?.uid,
     });
   }, [businessData, businessReviews, calculateRatingFromReviews, checkUserReview, authUser?.uid]);
@@ -130,18 +106,18 @@ export default function BusinessDetailsScreen() {
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      console.log("🔄 Manual refresh triggered for business details");
+      console.log('🔄 Manual refresh triggered for business details');
       await Promise.all([refetchBusiness(), refetchReviews()]);
     } catch (error) {
-      console.error("❌ Manual refresh failed:", error);
-      Alert.alert("Refresh Error", "Failed to refresh data. Please try again.");
+      console.error('❌ Manual refresh failed:', error);
+      Alert.alert('Refresh Error', 'Failed to refresh data. Please try again.');
     } finally {
       setRefreshing(false);
     }
   }, [refetchBusiness, refetchReviews]);
 
   const handleEdit = (review: Review) => {
-    (navigation as any).navigate("AddReview", {
+    (navigation as any).navigate('AddReview', {
       id: id,
       review: review,
       business: business,
@@ -149,18 +125,18 @@ export default function BusinessDetailsScreen() {
   };
 
   const handleDelete = async (reviewId: string) => {
-    Alert.alert("Delete Review", "Are you sure you want to delete this review?", [
-      { text: "Cancel", style: "cancel" },
+    Alert.alert('Delete Review', 'Are you sure you want to delete this review?', [
+      { text: 'Cancel', style: 'cancel' },
       {
-        text: "Delete",
-        style: "destructive",
+        text: 'Delete',
+        style: 'destructive',
         onPress: async () => {
           try {
             await deleteReview(reviewId);
             await Promise.all([refetchBusiness(), refetchReviews()]);
           } catch (error) {
-            console.error("Error deleting review:", error);
-            Alert.alert("Error", "Failed to delete review. Please try again.");
+            console.error('Error deleting review:', error);
+            Alert.alert('Error', 'Failed to delete review. Please try again.');
           }
         },
       },
@@ -169,7 +145,7 @@ export default function BusinessDetailsScreen() {
 
   const handleShare = useCallback(() => {
     if (!business) return;
-    Alert.alert("Share", `Share ${business.name} with friends`);
+    Alert.alert('Share', `Share ${business.name} with friends`);
   }, [business]);
 
   useLayoutEffect(() => {
@@ -187,8 +163,8 @@ export default function BusinessDetailsScreen() {
             >
               <Heart
                 size={20}
-                color={isFavorite(business.id) ? "#FF6B6B" : "#ada9a9ff"}
-                fill={isFavorite(business.id) ? "#FF6B6B" : "transparent"}
+                color={isFavorite(business.id) ? '#FF6B6B' : '#ada9a9ff'}
+                fill={isFavorite(business.id) ? '#FF6B6B' : 'transparent'}
               />
             </TouchableOpacity>
           </View>
@@ -230,19 +206,16 @@ export default function BusinessDetailsScreen() {
     );
   }
 
-  const priceSymbol =
-    PRICE_LEVELS.find((p) => p.level === business.priceLevel)?.symbol || "$";
+  const priceSymbol = PRICE_LEVELS.find((p) => p.level === business.priceLevel)?.symbol || '$';
 
   const businessPhotos =
-    business.photos && business.photos.length > 0
-      ? business.photos
-      : [business.imageUrl];
+    business.photos && business.photos.length > 0 ? business.photos : [business.imageUrl];
 
   const handleCall = () => {
     if (business.phone) {
       Linking.openURL(`tel:${business.phone}`);
     } else {
-      Alert.alert("No Phone", "Phone number not available for this business.");
+      Alert.alert('No Phone', 'Phone number not available for this business.');
     }
   };
 
@@ -250,25 +223,25 @@ export default function BusinessDetailsScreen() {
     if (business.website) {
       Linking.openURL(business.website);
     } else {
-      Alert.alert("No Website", "Website not available for this business.");
+      Alert.alert('No Website', 'Website not available for this business.');
     }
   };
 
   const handleDirections = () => {
-    (navigation as any).navigate("BusinessMap", { id: id, business: business });
+    (navigation as any).navigate('BusinessMap', { id: id, business: business });
   };
 
   const handleAddOrEditReview = () => {
     if (!business) return;
 
     if (userReview) {
-      (navigation as any).navigate("AddReview", {
+      (navigation as any).navigate('AddReview', {
         id: id,
         review: userReview,
         business: business,
       });
     } else {
-      (navigation as any).navigate("AddReview", { id: id, business: business });
+      (navigation as any).navigate('AddReview', { id: id, business: business });
     }
   };
 
@@ -281,7 +254,7 @@ export default function BusinessDetailsScreen() {
         <RefreshControl
           refreshing={refreshing}
           onRefresh={handleRefresh}
-          colors={["#007AFF"]}
+          colors={['#007AFF']}
           tintColor="#007AFF"
         />
       }
@@ -292,9 +265,7 @@ export default function BusinessDetailsScreen() {
           pagingEnabled
           showsHorizontalScrollIndicator={false}
           onMomentumScrollEnd={(event) => {
-            const index = Math.round(
-              event.nativeEvent.contentOffset.x / SCREEN_WIDTH
-            );
+            const index = Math.round(event.nativeEvent.contentOffset.x / SCREEN_WIDTH);
             setSelectedPhotoIndex(index);
           }}
         >
@@ -303,7 +274,7 @@ export default function BusinessDetailsScreen() {
               key={index}
               source={{ uri: photo }}
               style={styles.photo}
-              defaultSource={require("@/src/assets/images/icon.png")}
+              defaultSource={require('@/src/assets/images/icon.png')}
             />
           ))}
         </ScrollView>
@@ -388,7 +359,7 @@ export default function BusinessDetailsScreen() {
       <View style={styles.reviewsContainer}>
         <View style={styles.reviewsHeader}>
           <Text style={styles.reviewsTitle}>
-            Reviews ({(isReviewsLoading || isReviewsFetching) ? "..." : reviews.length})
+            Reviews ({isReviewsLoading || isReviewsFetching ? '...' : reviews.length})
           </Text>
           <TouchableOpacity
             style={[
@@ -398,22 +369,18 @@ export default function BusinessDetailsScreen() {
             onPress={handleAddOrEditReview}
           >
             <MessageSquare size={16} color="#FFF" />
-            <Text style={styles.reviewButtonText}>
-              {userReview ? "Edit Review" : "Add Review"}
-            </Text>
+            <Text style={styles.reviewButtonText}>{userReview ? 'Edit Review' : 'Add Review'}</Text>
           </TouchableOpacity>
         </View>
 
-        {(isReviewsLoading || isReviewsFetching) ? (
+        {isReviewsLoading || isReviewsFetching ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="small" color="#007AFF" />
             <Text>Loading reviews...</Text>
           </View>
         ) : reviews.length === 0 ? (
           <View style={styles.noReviewsContainer}>
-            <Text style={styles.noReviewsText}>
-              No reviews yet. Be the first to review!
-            </Text>
+            <Text style={styles.noReviewsText}>No reviews yet. Be the first to review!</Text>
           </View>
         ) : (
           reviews.map((review) => (
@@ -434,76 +401,87 @@ export default function BusinessDetailsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F8F9FA" },
-  loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center", padding: 20 },
-  loadingText: { marginTop: 12, fontSize: 16, color: "#666" },
-  errorContainer: { flex: 1, justifyContent: "center", alignItems: "center", padding: 20 },
-  errorText: { fontSize: 18, color: "#666", marginBottom: 16 },
-  retryButton: { backgroundColor: "#007AFF", paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
-  retryButtonText: { color: "#FFF", fontSize: 16, fontWeight: "600" },
-  headerButtons: { flexDirection: "row" },
+  container: { flex: 1, backgroundColor: '#F8F9FA' },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
+  loadingText: { marginTop: 12, fontSize: 16, color: '#666' },
+  errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
+  errorText: { fontSize: 18, color: '#666', marginBottom: 16 },
+  retryButton: {
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  retryButtonText: { color: '#FFF', fontSize: 16, fontWeight: '600' },
+  headerButtons: { flexDirection: 'row' },
   headerButton: { marginLeft: 16 },
-  photoContainer: { height: 250, position: "relative", backgroundColor: "#E5E7EB" },
-  photo: { width: SCREEN_WIDTH, height: 250, resizeMode: "cover" },
+  photoContainer: { height: 250, position: 'relative', backgroundColor: '#E5E7EB' },
+  photo: { width: SCREEN_WIDTH, height: 250, resizeMode: 'cover' },
   photoIndicator: {
-    position: "absolute",
+    position: 'absolute',
     bottom: 12,
     right: 12,
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
   },
-  photoIndicatorText: { color: "#FFF", fontSize: 12, fontWeight: "500" },
-  infoContainer: { backgroundColor: "#FFF", padding: 20, marginBottom: 12 },
-  businessName: { fontSize: 24, fontWeight: "bold", color: "#333", marginBottom: 12 },
-  ratingRow: { flexDirection: "row", alignItems: "center", marginBottom: 16 },
-  ratingText: { fontSize: 16, fontWeight: "600", color: "#333", marginLeft: 8 },
-  reviewCount: { fontSize: 14, color: "#666", marginLeft: 8 },
-  price: { fontSize: 16, color: "#4CAF50", fontWeight: "600", marginLeft: "auto" },
-  description: { fontSize: 16, color: "#333", lineHeight: 24, marginBottom: 16 },
-  featuresContainer: { flexDirection: "row", flexWrap: "wrap" },
+  photoIndicatorText: { color: '#FFF', fontSize: 12, fontWeight: '500' },
+  infoContainer: { backgroundColor: '#FFF', padding: 20, marginBottom: 12 },
+  businessName: { fontSize: 24, fontWeight: 'bold', color: '#333', marginBottom: 12 },
+  ratingRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
+  ratingText: { fontSize: 16, fontWeight: '600', color: '#333', marginLeft: 8 },
+  reviewCount: { fontSize: 14, color: '#666', marginLeft: 8 },
+  price: { fontSize: 16, color: '#4CAF50', fontWeight: '600', marginLeft: 'auto' },
+  description: { fontSize: 16, color: '#333', lineHeight: 24, marginBottom: 16 },
+  featuresContainer: { flexDirection: 'row', flexWrap: 'wrap' },
   featureTag: {
-    backgroundColor: "#F0F8FF",
+    backgroundColor: '#F0F8FF',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
     marginRight: 8,
     marginBottom: 8,
   },
-  featureText: { fontSize: 12, color: "#007AFF", fontWeight: "500" },
+  featureText: { fontSize: 12, color: '#007AFF', fontWeight: '500' },
   actionButtons: {
-    flexDirection: "row",
-    backgroundColor: "#FFF",
+    flexDirection: 'row',
+    backgroundColor: '#FFF',
     paddingVertical: 16,
     paddingHorizontal: 20,
     marginBottom: 12,
-    justifyContent: "space-around",
+    justifyContent: 'space-around',
   },
-  actionButton: { alignItems: "center", flex: 1 },
-  actionButtonText: { fontSize: 12, color: "#007AFF", marginTop: 4, fontWeight: "500" },
-  contactContainer: { backgroundColor: "#FFF", padding: 20, marginBottom: 12 },
-  contactItem: { flexDirection: "row", alignItems: "flex-start", marginBottom: 16 },
-  contactText: { fontSize: 16, color: "#333", marginLeft: 12, flex: 1 },
+  actionButton: { alignItems: 'center', flex: 1 },
+  actionButtonText: { fontSize: 12, color: '#007AFF', marginTop: 4, fontWeight: '500' },
+  contactContainer: { backgroundColor: '#FFF', padding: 20, marginBottom: 12 },
+  contactItem: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 16 },
+  contactText: { fontSize: 16, color: '#333', marginLeft: 12, flex: 1 },
   hoursContainer: { marginLeft: 12, flex: 1 },
-  hoursRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 4 },
-  dayText: { fontSize: 14, color: "#333", fontWeight: "500" },
-  hoursText: { fontSize: 14, color: "#666" },
+  hoursRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
+  dayText: { fontSize: 14, color: '#333', fontWeight: '500' },
+  hoursText: { fontSize: 14, color: '#666' },
   reviewsContainer: { marginBottom: 20 },
   reviewsHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: "#FFF",
+    backgroundColor: '#FFF',
     marginBottom: 8,
   },
-  reviewsTitle: { fontSize: 20, fontWeight: "600", color: "#333" },
-  reviewButton: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 },
-  addReviewButton: { backgroundColor: "#007AFF" },
-  editReviewButton: { backgroundColor: "#FFA500" },
-  reviewButtonText: { color: "#FFF", fontSize: 14, fontWeight: "500", marginLeft: 6 },
-  noReviewsContainer: { padding: 20, alignItems: "center" },
-  noReviewsText: { fontSize: 16, color: "#666", textAlign: "center" },
+  reviewsTitle: { fontSize: 20, fontWeight: '600', color: '#333' },
+  reviewButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  addReviewButton: { backgroundColor: '#007AFF' },
+  editReviewButton: { backgroundColor: '#FFA500' },
+  reviewButtonText: { color: '#FFF', fontSize: 14, fontWeight: '500', marginLeft: 6 },
+  noReviewsContainer: { padding: 20, alignItems: 'center' },
+  noReviewsText: { fontSize: 16, color: '#666', textAlign: 'center' },
 });

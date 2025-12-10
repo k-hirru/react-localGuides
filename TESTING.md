@@ -102,7 +102,7 @@ These mocks allow you to test your own logic (business services, hooks, screens)
 - **`__tests__/hooks/useProtectedAction.test.ts`**
   - Uses `useInternetConnectivity` mocks to validate `useProtectedAction`:
     - When `checkConnectivity` returns `true`, the wrapped action is executed and its result is returned.
-    - When `checkConnectivity` returns `false`, the action is *not* invoked, and the hook returns `false` (and would show an alert if enabled).
+    - When `checkConnectivity` returns `false`, the action is _not_ invoked, and the hook returns `false` (and would show an alert if enabled).
 
 ### 3.3 Screens (integration tests)
 
@@ -272,7 +272,7 @@ This is enough to demonstrate that:
 
 Two example Maestro flows are provided:
 
-- `maestro/home_smoke.yaml` – a simple **Home screen smoke test** that assumes the user is already signed in on the device (it does *not* clear app state).
+- `maestro/home_smoke.yaml` – a simple **Home screen smoke test** that assumes the user is already signed in on the device (it does _not_ clear app state).
 - `maestro/login_and_home.yaml` – a **login + Home flow** that starts from a clean state, signs in using credentials supplied via environment variables, then verifies the Home screen.
 
 ### 6.3 Configuring login credentials for E2E (environment variables)
@@ -324,7 +324,6 @@ source ~/.zshrc
 3. **Update the `appId` in `maestro/home_smoke.yaml` and `maestro/login_and_home.yaml` if needed** so they match your actual bundle ID (e.g. `com.khirrucapstone.localguide`). This is the native application ID used on the device.
 
 4. **Run the desired Maestro flow** from the project root:
-
    - To run the home-only smoke test (assumes you are already signed in on the device and does **not** clear app state):
 
      ```bash

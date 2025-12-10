@@ -23,25 +23,21 @@ export const useInternetConnectivity = () => {
   }, []);
 
   // Show offline alert
-  const showOfflineAlert = useCallback(() => {
-
-  }, []);
+  const showOfflineAlert = useCallback(() => {}, []);
 
   // Show online alert
   const showOnlineAlert = useCallback(() => {
-    Alert.alert(
-      'Connection Restored',
-      'Your internet connection has been restored.',
-      [{ text: 'OK' }]
-    );
+    Alert.alert('Connection Restored', 'Your internet connection has been restored.', [
+      { text: 'OK' },
+    ]);
   }, []);
 
   // Listen to connectivity changes
   useEffect(() => {
-    const unsubscribe = NetInfo.addEventListener(state => {
+    const unsubscribe = NetInfo.addEventListener((state) => {
       const wasConnected = isConnected;
       const nowConnected = state.isConnected;
-      
+
       setIsConnected(nowConnected);
 
       // Show alerts on connectivity changes

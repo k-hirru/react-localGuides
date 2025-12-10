@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from "react";
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,7 @@ import {
   Platform,
   Modal,
   RefreshControl,
-} from "react-native";
+} from 'react-native';
 import {
   Star,
   Heart,
@@ -20,34 +20,22 @@ import {
   DoorOpen,
   Camera,
   Image as ImageIcon,
-} from "lucide-react-native";
-import { useNavigation } from "@react-navigation/native";
-import { useAuthContext } from "@/src/context/AuthContext";
-import { useUserReviewsQuery } from "@/src/hooks/queries/useUserReviewsQuery";
-import { useUserFavorites } from "@/src/hooks/useUserFavorites";
-import { useBusinessDetailsQuery } from "@/src/hooks/queries/useBusinessDetailsQuery";
-import { Review } from "@/src/types";
-import { launchCamera, launchImageLibrary } from "react-native-image-picker";
-import { imageService } from "@/src/services/imageService";
-import auth from "@react-native-firebase/auth";
-import {
-  check,
-  request,
-  PERMISSIONS,
-  RESULTS,
-  openSettings,
-} from "react-native-permissions";
+} from 'lucide-react-native';
+import { useNavigation } from '@react-navigation/native';
+import { useAuthContext } from '@/src/context/AuthContext';
+import { useUserReviewsQuery } from '@/src/hooks/queries/useUserReviewsQuery';
+import { useUserFavorites } from '@/src/hooks/useUserFavorites';
+import { useBusinessDetailsQuery } from '@/src/hooks/queries/useBusinessDetailsQuery';
+import { Review } from '@/src/types';
+import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
+import { imageService } from '@/src/services/imageService';
+import auth from '@react-native-firebase/auth';
+import { check, request, PERMISSIONS, RESULTS, openSettings } from 'react-native-permissions';
 
-function ProfileReviewRow({
-  review,
-  onPress,
-}: {
-  review: Review;
-  onPress: () => void;
-}) {
+function ProfileReviewRow({ review, onPress }: { review: Review; onPress: () => void }) {
   const { data: business, isLoading } = useBusinessDetailsQuery(review.businessId);
 
-  const businessName = business?.name || (isLoading ? "Loading..." : "Unknown Business");
+  const businessName = business?.name || (isLoading ? 'Loading...' : 'Unknown Business');
 
   return (
     <TouchableOpacity style={styles.activityItem} onPress={onPress}>
@@ -55,10 +43,10 @@ function ProfileReviewRow({
       <View style={styles.activityContent}>
         <Text style={styles.activityText}>{businessName}</Text>
         <Text style={styles.activityDate}>
-          {new Date(review.createdAt).toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
+          {new Date(review.createdAt).toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
           })}
         </Text>
       </View>
@@ -71,21 +59,19 @@ function ProfileReviewRow({
 }
 
 const getProfileInitials = (name?: string | null) => {
-  if (!name) return "U";
+  if (!name) return 'U';
   const parts = name.trim().split(/\s+/);
   if (parts.length >= 2) {
     return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
   }
-  return parts[0][0]?.toUpperCase() || "U";
+  return parts[0][0]?.toUpperCase() || 'U';
 };
 
 export default function ProfileScreen() {
   const { user: authUser, logout, isAdmin, role } = useAuthContext();
   const navigation = useNavigation();
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(
-    authUser?.photoURL ?? null
-  );
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(authUser?.photoURL ?? null);
   const [showImagePicker, setShowImagePicker] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -100,11 +86,11 @@ export default function ProfileScreen() {
     inFlightRef.current = true;
     setRefreshing(true);
     try {
-      console.log("🔄 Refreshing profile reviews (React Query)...");
+      console.log('🔄 Refreshing profile reviews (React Query)...');
       await refetch();
-      console.log("✅ Profile reviews refreshed successfully");
+      console.log('✅ Profile reviews refreshed successfully');
     } catch (error) {
-      console.error("❌ Failed to refresh profile data:", error);
+      console.error('❌ Failed to refresh profile data:', error);
     } finally {
       setRefreshing(false);
       inFlightRef.current = false;
@@ -112,24 +98,24 @@ export default function ProfileScreen() {
   }, [refetch]);
 
   const handleLogout = async () => {
-    Alert.alert("Log Out", "Are you sure you want to log out?", [
-      { text: "Cancel", style: "cancel" },
+    Alert.alert('Log Out', 'Are you sure you want to log out?', [
+      { text: 'Cancel', style: 'cancel' },
       {
-        text: "Log Out",
-        style: "destructive",
+        text: 'Log Out',
+        style: 'destructive',
         onPress: async () => {
           try {
             await logout();
-            console.log("✅ User logged out successfully");
+            console.log('✅ User logged out successfully');
 
             // Extra safety: explicitly reset navigation to the auth stack
             (navigation as any).reset({
               index: 0,
-              routes: [{ name: "Login" }],
+              routes: [{ name: 'Login' }],
             });
           } catch (error) {
-            console.error("❌ Logout failed:", error);
-            Alert.alert("Error", "Failed to log out. Please try again.");
+            console.error('❌ Logout failed:', error);
+            Alert.alert('Error', 'Failed to log out. Please try again.');
           }
         },
       },
@@ -139,9 +125,7 @@ export default function ProfileScreen() {
   const requestCameraPermission = async (): Promise<boolean> => {
     try {
       const permission =
-        Platform.OS === "ios"
-          ? PERMISSIONS.IOS.CAMERA
-          : PERMISSIONS.ANDROID.CAMERA;
+        Platform.OS === 'ios' ? PERMISSIONS.IOS.CAMERA : PERMISSIONS.ANDROID.CAMERA;
 
       const result = await check(permission);
 
@@ -154,34 +138,34 @@ export default function ProfileScreen() {
 
       if (result === RESULTS.BLOCKED) {
         Alert.alert(
-          "Camera Permission Required",
-          "Please enable camera access in your device settings.",
+          'Camera Permission Required',
+          'Please enable camera access in your device settings.',
           [
-            { text: "Cancel", style: "cancel" },
-            { text: "Open Settings", onPress: () => openSettings() },
-          ]
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Open Settings', onPress: () => openSettings() },
+          ],
         );
         return false;
       }
 
       return false;
     } catch (error) {
-      console.error("Error requesting camera permission:", error);
+      console.error('Error requesting camera permission:', error);
       return false;
     }
   };
 
   const handleShowImagePicker = () => {
-    if (Platform.OS === "ios") {
+    if (Platform.OS === 'ios') {
       Alert.alert(
-        "Update Profile Picture",
-        "Choose a photo source",
+        'Update Profile Picture',
+        'Choose a photo source',
         [
-          { text: "Cancel", style: "cancel" },
-          { text: "Take Photo", onPress: takePhoto },
-          { text: "Choose from Library", onPress: pickFromLibrary },
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Take Photo', onPress: takePhoto },
+          { text: 'Choose from Library', onPress: pickFromLibrary },
         ],
-        { cancelable: true }
+        { cancelable: true },
       );
     } else {
       setShowImagePicker(true);
@@ -197,7 +181,7 @@ export default function ProfileScreen() {
 
       try {
         const result = await launchCamera({
-          mediaType: "photo",
+          mediaType: 'photo',
           quality: 0.8,
           maxWidth: 800,
           maxHeight: 800,
@@ -208,8 +192,8 @@ export default function ProfileScreen() {
         if (result.didCancel) return;
 
         if (result.errorCode) {
-          console.error("Camera error:", result.errorCode);
-          Alert.alert("Camera Error", "Unable to access camera.");
+          console.error('Camera error:', result.errorCode);
+          Alert.alert('Camera Error', 'Unable to access camera.');
           return;
         }
 
@@ -217,8 +201,8 @@ export default function ProfileScreen() {
           await uploadProfilePicture(result.assets[0].base64);
         }
       } catch (error) {
-        console.error("Camera launch error:", error);
-        Alert.alert("Error", "Failed to open camera.");
+        console.error('Camera launch error:', error);
+        Alert.alert('Error', 'Failed to open camera.');
       }
     }, 100);
   };
@@ -229,7 +213,7 @@ export default function ProfileScreen() {
     setTimeout(async () => {
       try {
         const result = await launchImageLibrary({
-          mediaType: "photo",
+          mediaType: 'photo',
           quality: 0.8,
           maxWidth: 800,
           maxHeight: 800,
@@ -240,8 +224,8 @@ export default function ProfileScreen() {
         if (result.didCancel) return;
 
         if (result.errorCode) {
-          console.error("Gallery error:", result.errorCode);
-          Alert.alert("Gallery Error", "Unable to access photo library.");
+          console.error('Gallery error:', result.errorCode);
+          Alert.alert('Gallery Error', 'Unable to access photo library.');
           return;
         }
 
@@ -249,8 +233,8 @@ export default function ProfileScreen() {
           await uploadProfilePicture(result.assets[0].base64);
         }
       } catch (error) {
-        console.error("Gallery launch error:", error);
-        Alert.alert("Error", "Failed to open photo library.");
+        console.error('Gallery launch error:', error);
+        Alert.alert('Error', 'Failed to open photo library.');
       }
     }, 100);
   };
@@ -260,23 +244,23 @@ export default function ProfileScreen() {
 
     setUploadingAvatar(true);
     try {
-      console.log("📤 Uploading profile picture...");
+      console.log('📤 Uploading profile picture...');
 
-      const base64WithPrefix = base64.startsWith("data:")
+      const base64WithPrefix = base64.startsWith('data:')
         ? base64
         : `data:image/jpeg;base64,${base64}`;
 
-      if (authUser.photoURL?.includes("firebasestorage.googleapis.com")) {
+      if (authUser.photoURL?.includes('firebasestorage.googleapis.com')) {
         try {
           await imageService.deleteImage(authUser.photoURL);
-          console.log("🗑️ Old profile picture deleted");
+          console.log('🗑️ Old profile picture deleted');
         } catch (error) {
-          console.warn("Failed to delete old profile picture:", error);
+          console.warn('Failed to delete old profile picture:', error);
         }
       }
 
-      const imageUrl = await imageService.uploadImage(base64WithPrefix, "profile");
-      console.log("✅ Profile picture uploaded:", imageUrl);
+      const imageUrl = await imageService.uploadImage(base64WithPrefix, 'profile');
+      console.log('✅ Profile picture uploaded:', imageUrl);
 
       await auth().currentUser?.updateProfile({ photoURL: imageUrl });
       await auth().currentUser?.reload();
@@ -284,21 +268,21 @@ export default function ProfileScreen() {
       // Immediately update local avatar so the UI reflects the change
       setAvatarUrl(imageUrl);
 
-      Alert.alert("Success", "Profile picture updated successfully!");
+      Alert.alert('Success', 'Profile picture updated successfully!');
     } catch (error: any) {
-      console.error("❌ Profile picture upload failed:", error);
-      Alert.alert("Upload Failed", error.message || "Failed to update profile picture.");
+      console.error('❌ Profile picture upload failed:', error);
+      Alert.alert('Upload Failed', error.message || 'Failed to update profile picture.');
     } finally {
       setUploadingAvatar(false);
     }
   };
 
   const handleNavigateToFavorites = () => {
-    (navigation as any).navigate("Favorites");
+    (navigation as any).navigate('Favorites');
   };
 
   const handleNavigateToReview = (reviewId: string, businessId: string) => {
-    (navigation as any).navigate("BusinessDetails", { id: businessId });
+    (navigation as any).navigate('BusinessDetails', { id: businessId });
   };
 
   if (!authUser) {
@@ -320,7 +304,7 @@ export default function ProfileScreen() {
           <RefreshControl
             refreshing={refreshing || isFetching}
             onRefresh={handleRefresh}
-            colors={["#007AFF"]}
+            colors={['#007AFF']}
             tintColor="#007AFF"
           />
         }
@@ -344,7 +328,7 @@ export default function ProfileScreen() {
             )}
           </View>
 
-          <Text style={styles.name}>{authUser.displayName || "User"}</Text>
+          <Text style={styles.name}>{authUser.displayName || 'User'}</Text>
           <Text style={styles.email}>{authUser.email}</Text>
 
           <TouchableOpacity
@@ -354,7 +338,7 @@ export default function ProfileScreen() {
           >
             <Camera size={16} color="#007AFF" />
             <Text style={styles.editButtonText}>
-              {uploadingAvatar ? "Uploading..." : "Upload Profile Picture"}
+              {uploadingAvatar ? 'Uploading...' : 'Upload Profile Picture'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -388,7 +372,7 @@ export default function ProfileScreen() {
           {isAdmin && (
             <TouchableOpacity
               style={styles.menuItem}
-              onPress={() => (navigation as any).navigate("AdminDashboard")}
+              onPress={() => (navigation as any).navigate('AdminDashboard')}
             >
               <MessageSquare size={20} color="#007AFF" />
               <Text style={styles.menuText}>Admin Dashboard</Text>
@@ -413,15 +397,15 @@ export default function ProfileScreen() {
               </Text>
             </View>
           ) : (
-            userReviews.slice(0, 5).map((review) => (
-              <ProfileReviewRow
-                key={review.id}
-                review={review}
-                onPress={() =>
-                  handleNavigateToReview(review.id, review.businessId)
-                }
-              />
-            ))
+            userReviews
+              .slice(0, 5)
+              .map((review) => (
+                <ProfileReviewRow
+                  key={review.id}
+                  review={review}
+                  onPress={() => handleNavigateToReview(review.id, review.businessId)}
+                />
+              ))
           )}
         </View>
       </ScrollView>
@@ -466,133 +450,142 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F8F9FA" },
-  notLoggedInContainer: { flex: 1, justifyContent: "center", alignItems: "center", padding: 20 },
-  notLoggedInText: { fontSize: 18, color: "#666", textAlign: "center" },
+  container: { flex: 1, backgroundColor: '#F8F9FA' },
+  notLoggedInContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
+  notLoggedInText: { fontSize: 18, color: '#666', textAlign: 'center' },
   header: {
-    backgroundColor: "#FFF",
-    alignItems: "center",
+    backgroundColor: '#FFF',
+    alignItems: 'center',
     paddingVertical: 30,
     paddingHorizontal: 20,
     borderBottomWidth: 1,
-    borderBottomColor: "#E0E0E0",
+    borderBottomColor: '#E0E0E0',
   },
-  avatarContainer: { position: "relative", marginBottom: 16 },
-  avatar: { width: 100, height: 100, borderRadius: 50, backgroundColor: "#E5E7EB" },
+  avatarContainer: { position: 'relative', marginBottom: 16 },
+  avatar: { width: 100, height: 100, borderRadius: 50, backgroundColor: '#E5E7EB' },
   avatarPlaceholder: {
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: "#007AFF",
-    justifyContent: "center",
-    alignItems: "center",
+    backgroundColor: '#007AFF',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  avatarPlaceholderText: { fontSize: 40, fontWeight: "600", color: "#FFF" },
+  avatarPlaceholderText: { fontSize: 40, fontWeight: '600', color: '#FFF' },
   uploadingOverlay: {
-    position: "absolute",
-    top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     borderRadius: 50,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  name: { fontSize: 24, fontWeight: "bold", color: "#333", marginBottom: 4 },
-  email: { fontSize: 16, color: "#666", marginBottom: 4 },
-  roleDebug: { fontSize: 14, color: "#6B7280", marginBottom: 16 },
+  name: { fontSize: 24, fontWeight: 'bold', color: '#333', marginBottom: 4 },
+  email: { fontSize: 16, color: '#666', marginBottom: 4 },
+  roleDebug: { fontSize: 14, color: '#6B7280', marginBottom: 16 },
   editButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#F0F8FF",
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0F8FF',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
   },
-  editButtonText: { fontSize: 14, color: "#007AFF", marginLeft: 6, fontWeight: "500" },
+  editButtonText: { fontSize: 14, color: '#007AFF', marginLeft: 6, fontWeight: '500' },
   statsContainer: {
-    flexDirection: "row",
-    backgroundColor: "#FFF",
+    flexDirection: 'row',
+    backgroundColor: '#FFF',
     paddingVertical: 20,
     marginTop: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#E0E0E0",
+    borderBottomColor: '#E0E0E0',
   },
-  statItem: { flex: 1, alignItems: "center" },
-  statNumber: { fontSize: 20, fontWeight: "bold", color: "#333", marginTop: 8, marginBottom: 4 },
-  statLabel: { fontSize: 14, color: "#666" },
+  statItem: { flex: 1, alignItems: 'center' },
+  statNumber: { fontSize: 20, fontWeight: 'bold', color: '#333', marginTop: 8, marginBottom: 4 },
+  statLabel: { fontSize: 14, color: '#666' },
   menuContainer: {
-    backgroundColor: "#FFF",
+    backgroundColor: '#FFF',
     marginTop: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#E0E0E0",
+    borderBottomColor: '#E0E0E0',
   },
   menuItem: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "#F0F0F0",
+    borderBottomColor: '#F0F0F0',
   },
-  menuText: { fontSize: 16, color: "#333", marginLeft: 16, flex: 1 },
-  menuTextLogout: { fontSize: 16, color: "#FF3B30", marginLeft: 16, flex: 1 },
+  menuText: { fontSize: 16, color: '#333', marginLeft: 16, flex: 1 },
+  menuTextLogout: { fontSize: 16, color: '#FF3B30', marginLeft: 16, flex: 1 },
   menuBadge: {
-    backgroundColor: "#007AFF",
-    color: "#FFF",
+    backgroundColor: '#007AFF',
+    color: '#FFF',
     fontSize: 12,
-    fontWeight: "600",
+    fontWeight: '600',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 10,
     minWidth: 20,
-    textAlign: "center",
+    textAlign: 'center',
   },
   activityContainer: {
-    backgroundColor: "#FFF",
+    backgroundColor: '#FFF',
     marginTop: 12,
     paddingHorizontal: 20,
     paddingVertical: 16,
     marginBottom: 20,
   },
-  sectionTitle: { fontSize: 18, fontWeight: "600", color: "#333", marginBottom: 16 },
-  emptyState: { alignItems: "center", paddingVertical: 40 },
-  emptyStateText: { fontSize: 16, fontWeight: "600", color: "#666", marginTop: 16, marginBottom: 4 },
-  emptyStateSubtext: { fontSize: 14, color: "#999", textAlign: "center" },
+  sectionTitle: { fontSize: 18, fontWeight: '600', color: '#333', marginBottom: 16 },
+  emptyState: { alignItems: 'center', paddingVertical: 40 },
+  emptyStateText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#666',
+    marginTop: 16,
+    marginBottom: 4,
+  },
+  emptyStateSubtext: { fontSize: 14, color: '#999', textAlign: 'center' },
   activityItem: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#F0F0F0",
+    borderBottomColor: '#F0F0F0',
   },
   activityContent: { flex: 1, marginLeft: 12 },
-  activityText: { fontSize: 14, fontWeight: "500", color: "#333", marginBottom: 2 },
-  activityDate: { fontSize: 12, color: "#666" },
+  activityText: { fontSize: 14, fontWeight: '500', color: '#333', marginBottom: 2 },
+  activityDate: { fontSize: 12, color: '#666' },
   activityRating: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#FFF9E6",
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF9E6',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
   },
-  activityRatingText: { fontSize: 12, fontWeight: "600", color: "#333", marginLeft: 4 },
-  modalOverlay: { flex: 1, backgroundColor: "rgba(0, 0, 0, 0.5)", justifyContent: "flex-end" },
+  activityRatingText: { fontSize: 12, fontWeight: '600', color: '#333', marginLeft: 4 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'flex-end' },
   modalContent: {
-    backgroundColor: "#FFF",
+    backgroundColor: '#FFF',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    paddingBottom: Platform.OS === "android" ? 20 : 34,
+    paddingBottom: Platform.OS === 'android' ? 20 : 34,
   },
-  modalHeader: { padding: 20, borderBottomWidth: 1, borderBottomColor: "#E5E7EB" },
-  modalTitle: { fontSize: 18, fontWeight: "600", color: "#333", textAlign: "center" },
+  modalHeader: { padding: 20, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
+  modalTitle: { fontSize: 18, fontWeight: '600', color: '#333', textAlign: 'center' },
   modalOption: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: "#F3F4F6",
+    borderBottomColor: '#F3F4F6',
   },
-  modalOptionText: { fontSize: 16, color: "#333", marginLeft: 16 },
-  modalCancelButton: { padding: 20, alignItems: "center" },
-  modalCancelText: { fontSize: 16, color: "#FF6B6B", fontWeight: "600" },
+  modalOptionText: { fontSize: 16, color: '#333', marginLeft: 16 },
+  modalCancelButton: { padding: 20, alignItems: 'center' },
+  modalCancelText: { fontSize: 16, color: '#FF6B6B', fontWeight: '600' },
 });

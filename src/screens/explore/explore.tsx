@@ -1,15 +1,15 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ScrollView, 
-  TextInput, 
-  FlatList, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TextInput,
+  FlatList,
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
-  Keyboard 
+  Keyboard,
 } from 'react-native';
 import { Search, Filter, MapPin, Star, X } from 'lucide-react-native';
 import BusinessCard from '@/src/components/BusinessCard';
@@ -23,7 +23,7 @@ import { useBusinessSearchQuery } from '@/src/hooks/queries/useBusinessSearchQue
 export default function ExploreScreen() {
   const navigation = useNavigation();
   const route = useRoute();
- 
+
   const {
     data: nearbyBusinesses = [],
     isLoading: isNearbyLoading,
@@ -35,18 +35,18 @@ export default function ExploreScreen() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const lastSearchRef = useRef(''); 
+  const lastSearchRef = useRef('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
-  
+
   const [filters, setFilters] = useState<Partial<SearchFilters>>({
     category: 'all',
     priceLevel: [],
     rating: 0,
     sortBy: 'rating',
-  }); 
+  });
 
-  const [isSearchActive, setIsSearchActive] = useState(false); 
- 
+  const [isSearchActive, setIsSearchActive] = useState(false);
+
   const searchInputRef = useRef<TextInput>(null);
   const searchTimeoutRef = useRef<number | null>(null);
 
@@ -72,73 +72,73 @@ export default function ExploreScreen() {
       const timer = setTimeout(() => {
         searchInputRef.current?.focus();
       }, 300);
-      
+
       return () => clearTimeout(timer);
     }
   }, [autoFocus]);
 
-// Handle API search with debounce (updates debouncedQuery)
-useEffect(() => {
-  if (searchTimeoutRef.current) {
-    clearTimeout(searchTimeoutRef.current);
-  }
-
-  const trimmed = searchQuery.trim();
-
-  // Only update debounced query if it actually changed and is not empty
-  if (trimmed.length > 0 && trimmed !== lastSearchRef.current) {
-    lastSearchRef.current = trimmed;
-
-    searchTimeoutRef.current = setTimeout(() => {
-      console.log("🔍 EXPLORE - Setting debounced search query to:", trimmed);
-      setDebouncedQuery(trimmed);
-    }, 800);
-  }
-
-  // If the user clears the search box, reset debounced query
-  if (!trimmed.length) {
-    setDebouncedQuery('');
-  }
-
-  return () => {
+  // Handle API search with debounce (updates debouncedQuery)
+  useEffect(() => {
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
     }
-  };
-}, [searchQuery, selectedCategory]);
 
-const handleCleanup = useCallback(() => {
-  setShowFilters(false);
-  setSearchQuery('');
-  setIsSearchActive(false);
-  setDebouncedQuery('');
-  if (searchTimeoutRef.current) {
-    clearTimeout(searchTimeoutRef.current);
-  }
-}, []);
+    const trimmed = searchQuery.trim();
 
-const handleRefresh = async () => {
-  setRefreshing(true);
-  try {
-    if (isSearchActive && debouncedQuery.trim().length > 0) {
-      await refetchSearch();
-    } else {
-      await refetchNearby();
+    // Only update debounced query if it actually changed and is not empty
+    if (trimmed.length > 0 && trimmed !== lastSearchRef.current) {
+      lastSearchRef.current = trimmed;
+
+      searchTimeoutRef.current = setTimeout(() => {
+        console.log('🔍 EXPLORE - Setting debounced search query to:', trimmed);
+        setDebouncedQuery(trimmed);
+      }, 800);
     }
-  } finally {
-    setRefreshing(false);
-  }
-};
 
-const handleClearSearch = () => {
-  setSearchQuery('');
-  setIsSearchActive(false);
-  setDebouncedQuery('');
-  if (searchTimeoutRef.current) {
-    clearTimeout(searchTimeoutRef.current);
-  }
-  Keyboard.dismiss();
-};
+    // If the user clears the search box, reset debounced query
+    if (!trimmed.length) {
+      setDebouncedQuery('');
+    }
+
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [searchQuery, selectedCategory]);
+
+  const handleCleanup = useCallback(() => {
+    setShowFilters(false);
+    setSearchQuery('');
+    setIsSearchActive(false);
+    setDebouncedQuery('');
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+  }, []);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      if (isSearchActive && debouncedQuery.trim().length > 0) {
+        await refetchSearch();
+      } else {
+        await refetchNearby();
+      }
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery('');
+    setIsSearchActive(false);
+    setDebouncedQuery('');
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    Keyboard.dismiss();
+  };
 
   const handleBusinessPress = (businessId: string) => {
     (navigation as any).navigate('BusinessDetails', { id: businessId });
@@ -147,9 +147,9 @@ const handleClearSearch = () => {
   const togglePriceLevel = (level: number) => {
     const currentLevels = filters.priceLevel || [];
     const newLevels = currentLevels.includes(level)
-      ? currentLevels.filter(l => l !== level)
+      ? currentLevels.filter((l) => l !== level)
       : [...currentLevels, level];
-    
+
     setFilters({ ...filters, priceLevel: newLevels });
   };
 
@@ -162,66 +162,61 @@ const handleClearSearch = () => {
     });
     setSelectedCategory('all');
   };
-  
-// ------------------------------------------------------------------
-// START OF RENDER LOGIC
-// ------------------------------------------------------------------
 
-const isInitialLoading =
-  !isSearchActive && (isNearbyLoading || isNearbyFetching) && nearbyBusinesses.length === 0;
+  // ------------------------------------------------------------------
+  // START OF RENDER LOGIC
+  // ------------------------------------------------------------------
 
-// Local helper to apply filters to nearby businesses when not in search mode
-const filteredNearbyBusinesses = React.useMemo(() => {
-  let result: Business[] = nearbyBusinesses;
+  const isInitialLoading =
+    !isSearchActive && (isNearbyLoading || isNearbyFetching) && nearbyBusinesses.length === 0;
 
-  if (searchQuery.trim()) {
-    const q = searchQuery.toLowerCase();
-    result = result.filter(
-      (b) =>
-        b.name.toLowerCase().includes(q) ||
-        b.address.toLowerCase().includes(q) ||
-        b.features.some((f) => f.toLowerCase().includes(q))
-    );
-  }
+  // Local helper to apply filters to nearby businesses when not in search mode
+  const filteredNearbyBusinesses = React.useMemo(() => {
+    let result: Business[] = nearbyBusinesses;
 
-  const effectiveFilters: Partial<SearchFilters> = {
-    ...filters,
-    category: selectedCategory,
-  };
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(
+        (b) =>
+          b.name.toLowerCase().includes(q) ||
+          b.address.toLowerCase().includes(q) ||
+          b.features.some((f) => f.toLowerCase().includes(q)),
+      );
+    }
 
-  if (effectiveFilters.category && effectiveFilters.category !== 'all') {
-    result = result.filter((b) => b.category === effectiveFilters.category);
-  }
+    const effectiveFilters: Partial<SearchFilters> = {
+      ...filters,
+      category: selectedCategory,
+    };
 
-  if (effectiveFilters.priceLevel?.length) {
-    result = result.filter((b) =>
-      effectiveFilters.priceLevel!.includes(b.priceLevel)
-    );
-  }
+    if (effectiveFilters.category && effectiveFilters.category !== 'all') {
+      result = result.filter((b) => b.category === effectiveFilters.category);
+    }
 
-  if (effectiveFilters.rating !== undefined) {
-    result = result.filter((b) => b.rating >= effectiveFilters.rating!);
-  }
+    if (effectiveFilters.priceLevel?.length) {
+      result = result.filter((b) => effectiveFilters.priceLevel!.includes(b.priceLevel));
+    }
 
-  if (effectiveFilters.sortBy) {
-    result = [...result].sort((a, b) => {
-      if (effectiveFilters.sortBy === 'rating') return b.rating - a.rating;
-      if (effectiveFilters.sortBy === 'reviewCount')
-        return b.reviewCount - a.reviewCount;
-      return 0;
-    });
-  }
+    if (effectiveFilters.rating !== undefined) {
+      result = result.filter((b) => b.rating >= effectiveFilters.rating!);
+    }
 
-  return result;
-}, [nearbyBusinesses, searchQuery, filters, selectedCategory]);
+    if (effectiveFilters.sortBy) {
+      result = [...result].sort((a, b) => {
+        if (effectiveFilters.sortBy === 'rating') return b.rating - a.rating;
+        if (effectiveFilters.sortBy === 'reviewCount') return b.reviewCount - a.reviewCount;
+        return 0;
+      });
+    }
 
-const displayedBusinesses = isSearchActive && !isSearchLoading
-  ? searchResults
-  : filteredNearbyBusinesses;
-  
-return (
+    return result;
+  }, [nearbyBusinesses, searchQuery, filters, selectedCategory]);
+
+  const displayedBusinesses =
+    isSearchActive && !isSearchLoading ? searchResults : filteredNearbyBusinesses;
+
+  return (
     <View style={styles.container}>
-      
       {/* Search Header */}
       <View style={styles.searchHeader}>
         <View style={styles.searchContainer}>
@@ -236,11 +231,11 @@ return (
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity onPress={handleClearSearch} style={styles.clearButton}>
-                <X size={18} color="#666" />
+              <X size={18} color="#666" />
             </TouchableOpacity>
           )}
         </View>
-        
+
         <TouchableOpacity
           style={styles.filterButton}
           onPress={() => setShowFilters(!showFilters)}
@@ -257,7 +252,7 @@ return (
           onCategoryChange={setSelectedCategory}
         />
       )}
-      
+
       {/* Advanced Filters (Scrollable) */}
       {showFilters && !isSearchActive && (
         <ScrollView style={styles.filtersScroll} contentContainerStyle={styles.filtersContainer}>
@@ -281,7 +276,8 @@ return (
                   <Text
                     style={[
                       styles.priceButtonText,
-                      (filters.priceLevel || []).includes(price.level) && styles.selectedPriceButtonText,
+                      (filters.priceLevel || []).includes(price.level) &&
+                        styles.selectedPriceButtonText,
                     ]}
                   >
                     {price.symbol}
@@ -304,10 +300,10 @@ return (
                   ]}
                   onPress={() => setFilters({ ...filters, rating })}
                 >
-                  <Star 
-                    size={14} 
-                    color={filters.rating === rating ? "#FFF" : "#FFD700"} 
-                    fill={filters.rating === rating ? "#FFF" : "#FFD700"} 
+                  <Star
+                    size={14}
+                    color={filters.rating === rating ? '#FFF' : '#FFD700'}
+                    fill={filters.rating === rating ? '#FFF' : '#FFD700'}
                   />
                   <Text
                     style={[
@@ -336,7 +332,9 @@ return (
                     styles.sortButton,
                     filters.sortBy === sort.key && styles.selectedSortButton,
                   ]}
-                  onPress={() => setFilters({ ...filters, sortBy: sort.key as 'rating' | 'reviewCount' })}
+                  onPress={() =>
+                    setFilters({ ...filters, sortBy: sort.key as 'rating' | 'reviewCount' })
+                  }
                 >
                   <Text
                     style={[
@@ -366,11 +364,11 @@ return (
           </TouchableOpacity>
         </View>
       )}
-      
+
       {/* List Area Container ensures stable height */}
       <View style={styles.listAreaContainer}>
         {/* Loading/Searching State */}
-        {(isInitialLoading || isSearchLoading) ? (
+        {isInitialLoading || isSearchLoading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#007AFF" />
             <Text style={styles.loadingText}>
@@ -383,28 +381,19 @@ return (
             data={displayedBusinesses}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
-              <BusinessCard
-                business={item}
-                onPress={() => handleBusinessPress(item.id)}
-              />
+              <BusinessCard business={item} onPress={() => handleBusinessPress(item.id)} />
             )}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.listContainer}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={handleRefresh}
-              />
-            }
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
             ListEmptyComponent={
               <View style={styles.emptyState}>
                 <Text style={styles.emptyStateText}>
                   {isSearchActive
                     ? `No results found for "${searchQuery}"`
-                    : nearbyBusinesses.length === 0 
-                      ? "No places found nearby. Pull to refresh."
-                      : "No results match your current filters."
-                  }
+                    : nearbyBusinesses.length === 0
+                      ? 'No places found nearby. Pull to refresh.'
+                      : 'No results match your current filters.'}
                 </Text>
               </View>
             }
@@ -454,7 +443,7 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   filtersScroll: {
-    maxHeight: 300, 
+    maxHeight: 300,
     borderBottomWidth: 1,
     borderBottomColor: '#E0E0E0',
   },
@@ -577,13 +566,13 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   listAreaContainer: {
-    flex: 1, 
+    flex: 1,
   },
   listContainer: {
     paddingBottom: 20,
   },
   loadingContainer: {
-    flex: 1, 
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 40,

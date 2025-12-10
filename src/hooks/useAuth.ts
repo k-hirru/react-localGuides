@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   getAuth,
   onAuthStateChanged,
@@ -8,7 +8,7 @@ import {
   sendPasswordResetEmail,
   updateProfile,
   FirebaseAuthTypes,
-} from "@react-native-firebase/auth";
+} from '@react-native-firebase/auth';
 import {
   getFirestore,
   doc,
@@ -18,8 +18,8 @@ import {
   serverTimestamp,
   arrayUnion,
   FieldValue,
-} from "@react-native-firebase/firestore";
-import { notificationService } from "@/src/services/notificationService";
+} from '@react-native-firebase/firestore';
+import { notificationService } from '@/src/services/notificationService';
 
 type User = FirebaseAuthTypes.User;
 
@@ -51,12 +51,12 @@ export const useAuth = () => {
       if (!token) return;
 
       try {
-        const userRef = doc(firestore, "users", user.uid);
+        const userRef = doc(firestore, 'users', user.uid);
         const userDoc = await getDoc(userRef);
 
         const userData: Partial<UserDocument> = {
-          name: user.displayName || "",
-          email: user.email || "",
+          name: user.displayName || '',
+          email: user.email || '',
           updatedAt: serverTimestamp(),
         };
 
@@ -78,10 +78,10 @@ export const useAuth = () => {
           });
         }
       } catch (error) {
-        console.error("Error storing FCM token:", error);
+        console.error('Error storing FCM token:', error);
       }
     },
-    [firestore]
+    [firestore],
   );
 
   useEffect(() => {
@@ -99,16 +99,16 @@ export const useAuth = () => {
       if (user) {
         // Load role and profile data from Firestore (default to 'user' if missing)
         try {
-          const userRef = doc(firestore, "users", user.uid);
+          const userRef = doc(firestore, 'users', user.uid);
           const snap = await getDoc(userRef);
-          console.log("🔐 useAuth: loaded user doc for role", {
+          console.log('🔐 useAuth: loaded user doc for role', {
             uid: user.uid,
             exists: snap.exists(),
             data: snap.exists() ? snap.data() : null,
           });
           if (snap.exists()) {
             const data = snap.data() as Partial<UserDocument>;
-            console.log("🔐 useAuth: derived role", data.role);
+            console.log('🔐 useAuth: derived role', data.role);
             setUserRole(data.role === 'admin' ? 'admin' : 'user');
             setProfileName(data.name || user.displayName || null);
           } else {
@@ -118,7 +118,7 @@ export const useAuth = () => {
             // signup (fullName) so Home greeting doesn't briefly show "there".
           }
         } catch (roleError) {
-          console.warn("⚠️ Failed to load user role:", roleError);
+          console.warn('⚠️ Failed to load user role:', roleError);
           setUserRole('user');
           // Likewise, don't clobber profileName on role load failure.
         }
@@ -142,37 +142,31 @@ export const useAuth = () => {
       try {
         setError(null);
         setLoading(true);
-        const userCredential = await signInWithEmailAndPassword(
-          auth,
-          email,
-          password
-        );
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
 
         const existingToken = notificationService.getCurrentToken();
-        const token =
-          existingToken ||
-          (await notificationService.requestPermissionAndGetToken());
+        const token = existingToken || (await notificationService.requestPermissionAndGetToken());
         await updateUserFcmToken(userCredential.user, token);
 
         return userCredential.user;
       } catch (error: any) {
-        let errorMessage = "Login failed. Please try again.";
+        let errorMessage = 'Login failed. Please try again.';
 
         switch (error.code) {
-          case "auth/invalid-email":
-            errorMessage = "Invalid email address.";
+          case 'auth/invalid-email':
+            errorMessage = 'Invalid email address.';
             break;
-          case "auth/user-disabled":
-            errorMessage = "This account has been disabled.";
+          case 'auth/user-disabled':
+            errorMessage = 'This account has been disabled.';
             break;
-          case "auth/user-not-found":
-            errorMessage = "No account found with this email.";
+          case 'auth/user-not-found':
+            errorMessage = 'No account found with this email.';
             break;
-          case "auth/wrong-password":
-            errorMessage = "Incorrect password.";
+          case 'auth/wrong-password':
+            errorMessage = 'Incorrect password.';
             break;
-          case "auth/too-many-requests":
-            errorMessage = "Too many failed attempts. Please try again later.";
+          case 'auth/too-many-requests':
+            errorMessage = 'Too many failed attempts. Please try again later.';
             break;
         }
 
@@ -182,7 +176,7 @@ export const useAuth = () => {
         setLoading(false);
       }
     },
-    [auth, updateUserFcmToken]
+    [auth, updateUserFcmToken],
   );
 
   const signup = useCallback(
@@ -191,11 +185,7 @@ export const useAuth = () => {
         setError(null);
         setLoading(true);
 
-        const userCredential = await createUserWithEmailAndPassword(
-          auth,
-          email,
-          password
-        );
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
 
         await updateProfile(userCredential.user, {
           displayName: fullName,
@@ -203,7 +193,7 @@ export const useAuth = () => {
 
         // Write/merge Firestore user document with the correct name
         try {
-          const userRef = doc(firestore, "users", userCredential.user.uid);
+          const userRef = doc(firestore, 'users', userCredential.user.uid);
           await setDoc(
             userRef,
             {
@@ -212,10 +202,10 @@ export const useAuth = () => {
               createdAt: serverTimestamp(),
               updatedAt: serverTimestamp(),
             },
-            { merge: true }
+            { merge: true },
           );
         } catch (e) {
-          console.warn("⚠️ Failed to write user profile doc on signup:", e);
+          console.warn('⚠️ Failed to write user profile doc on signup:', e);
         }
 
         // Ensure in-memory user has the updated displayName so Home can greet properly
@@ -224,7 +214,7 @@ export const useAuth = () => {
           setUser(userCredential.user);
           setProfileName(fullName);
         } catch (e) {
-          console.warn("⚠️ Failed to reload user after signup:", e);
+          console.warn('⚠️ Failed to reload user after signup:', e);
         }
 
         const token = await notificationService.requestPermissionAndGetToken();
@@ -233,26 +223,26 @@ export const useAuth = () => {
         return userCredential.user;
       } catch (error: any) {
         // 👇 NEW: log the raw error so we can see what Firebase is returning
-        console.error("Signup error (raw):", {
+        console.error('Signup error (raw):', {
           code: error?.code,
           message: error?.message,
           full: error,
         });
 
-        let errorMessage = "Sign up failed. Please try again.";
+        let errorMessage = 'Sign up failed. Please try again.';
 
         switch (error.code) {
-          case "auth/email-already-in-use":
-            errorMessage = "An account with this email already exists.";
+          case 'auth/email-already-in-use':
+            errorMessage = 'An account with this email already exists.';
             break;
-          case "auth/invalid-email":
-            errorMessage = "Invalid email address.";
+          case 'auth/invalid-email':
+            errorMessage = 'Invalid email address.';
             break;
-          case "auth/operation-not-allowed":
-            errorMessage = "Email/password accounts are not enabled.";
+          case 'auth/operation-not-allowed':
+            errorMessage = 'Email/password accounts are not enabled.';
             break;
-          case "auth/weak-password":
-            errorMessage = "Password is too weak.";
+          case 'auth/weak-password':
+            errorMessage = 'Password is too weak.';
             break;
         }
 
@@ -262,7 +252,7 @@ export const useAuth = () => {
         setLoading(false);
       }
     },
-    [auth, updateUserFcmToken]
+    [auth, updateUserFcmToken],
   );
 
   const logoutAndCleanup = useCallback(async () => {
@@ -285,7 +275,7 @@ export const useAuth = () => {
         throw error;
       }
     },
-    [auth]
+    [auth],
   );
 
   const isProfileLoading = !!user && profileName === null;
@@ -314,7 +304,7 @@ export const useAuth = () => {
       resetPassword,
       userRole,
       profileName,
-    ]
+    ],
   );
 
   return authValue;
