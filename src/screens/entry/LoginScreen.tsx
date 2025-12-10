@@ -16,6 +16,12 @@ import { SocialButton } from '@/src/components/SocialButton';
 import { KeyboardAvoidingScrollView } from '@/src/components/KeyboardAvoidingScrollView';
 import { useAuth } from '@/src/hooks/useAuth';
 import Colors from '@/src/constants/colors';
+import { z } from 'zod';
+
+const loginSchema = z.object({
+  email: z.string().email('Please enter a valid email address'),
+  password: z.string().min(6, 'Password should be at least 6 characters long'),
+});
 
 export default function LoginScreen() {
   const navigation = useNavigation();
@@ -26,15 +32,16 @@ export default function LoginScreen() {
   const [resetLoading, setResetLoading] = useState(false);
 
   const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert('Error', 'Please enter both email and password');
-      return;
-    }
-
     try {
-      await login(email, password);
+      const parsed = loginSchema.parse({ email: email.trim(), password });
+
+      await login(parsed.email, parsed.password);
     } catch (error: any) {
-      Alert.alert('Login Error', error.message);
+      if (error?.issues?.length) {
+        Alert.alert('Invalid Credentials', error.issues[0].message);
+      } else {
+        Alert.alert('Login Error', error.message || 'Failed to sign in. Please try again.');
+      }
     }
   };
 

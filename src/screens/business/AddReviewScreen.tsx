@@ -27,6 +27,15 @@ import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 import { check, request, PERMISSIONS, RESULTS, openSettings } from 'react-native-permissions';
 import { reviewQueryKeys } from '@/src/services/reviewQueryKeys';
 import { businessQueryKeys } from '@/src/services/businessService';
+import { z } from 'zod';
+
+const reviewSchema = z.object({
+  rating: z
+    .number()
+    .min(1, 'Please select a star rating')
+    .max(5, 'Rating cannot be more than 5 stars'),
+  reviewText: z.string().trim().min(10, 'Please write at least 10 characters'),
+});
 
 export default function AddReviewScreen() {
   const route = useRoute();
@@ -361,19 +370,10 @@ export default function AddReviewScreen() {
   };
 
   const handleSubmit = async () => {
-    if (rating === 0) {
-      Alert.alert('Rating Required', 'Please select a star rating');
-      return;
-    }
-
-    if (reviewText.trim().length < 10) {
-      Alert.alert('Review Too Short', 'Please write at least 10 characters');
-      return;
-    }
-
-    setIsSubmitting(true);
-
     try {
+      const parsed = reviewSchema.parse({ rating, reviewText });
+      setIsSubmitting(true);
+
       if (isEditMode && existingReview) {
         console.log('✏️ Updating review:', existingReview.id);
 
@@ -425,7 +425,11 @@ export default function AddReviewScreen() {
       }
     } catch (error: any) {
       console.error('❌ Review submission error:', error);
-      Alert.alert('Error', error.message || 'Failed to submit review. Please try again.');
+      if (error?.issues?.length) {
+        Alert.alert('Invalid Review', error.issues[0].message);
+      } else {
+        Alert.alert('Error', error.message || 'Failed to submit review. Please try again.');
+      }
 
       if (!isEditMode && selectedImages.length > 0) {
         console.log('🗑️ Cleaning up uploaded images after failed submission');

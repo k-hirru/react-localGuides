@@ -63,7 +63,7 @@ export default function FavoritesScreen() {
         />
       </View>
     ),
-    [handleFavoritePress],
+    [handleFavoritePress, handleBusinessPress],
   );
 
   // ✅ Show login prompt if user is not logged in
