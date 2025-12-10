@@ -308,7 +308,23 @@ The app is designed to avoid unnecessary network calls and to degrade gracefully
 
 Together, these layers go beyond default React Query caching to provide explicit retry/backoff, request deduplication, multi-tier caching, and a concrete example of offline queue/sync behavior.
 
-## 6. Testing Strategy
+## 6. Security
+
+While the app is primarily a client for Firebase/Geoapify, it still applies several security-focused practices:
+
+- **Input validation:**
+  - Auth and review forms use Zod schemas to validate email format, password strength, and review length before calling Firebase or Firestore.
+  - This reduces the risk of malformed input and ensures users get clear feedback on what needs to be fixed.
+- **Backend security rules (Firebase):**
+  - Firestore rules (not shown here) enforce that only authenticated users can create reviews and favorites, and that users can only modify their own data.
+  - Sensitive operations (e.g., admin dashboards) are guarded by role checks and Firestore constraints.
+- **Secrets handling:**
+  - Sensitive values such as `GEOAPIFY_API_KEY` and Firebase config are sourced from `.env`/Expo config and are not committed to version control.
+- **Dependency vulnerability scanning:**
+  - `npm run security:audit` runs `npm audit --audit-level=moderate` to surface known vulnerabilities in third-party packages.
+  - This can be run periodically or as part of CI to keep dependencies in a healthier state.
+
+## 7. Testing Strategy
 
 The test suite uses **Jest** and **@testing-library/react-native** for unit and integration tests, plus **Maestro** for a small end-to-end smoke test.
 
@@ -369,7 +385,7 @@ To run these flows, install Maestro CLI and follow the instructions in `TESTING.
 
 ---
 
-## 7. Summary
+## 8. Summary
 
 This project’s architecture separates concerns into:
 
@@ -386,7 +402,7 @@ This structure and documentation are designed to make the app easier to understa
 
 ---
 
-## 8. Code Quality & Tooling
+## 9. Code Quality & Tooling
 
 - **Linting:** `npm run lint` (Expo lint) and `npm run lint:eslint` (raw ESLint) enforce code style and catch common issues across JS/TS/React Native files.
 - **Formatting:** `npm run format` and `npm run format:check` use Prettier to keep formatting consistent across the codebase.

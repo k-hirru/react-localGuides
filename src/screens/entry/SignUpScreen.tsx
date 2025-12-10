@@ -17,6 +17,25 @@ import { KeyboardAvoidingScrollView } from '@/src/components/KeyboardAvoidingScr
 import { FormContainer } from '@/src/components/FormContainer';
 import { useAuthContext } from '@/src/context/AuthContext';
 import Colors from '@/src/constants/colors';
+import { z } from 'zod';
+
+const signUpSchema = z
+  .object({
+    fullName: z.string().min(2, 'Please enter your full name'),
+    email: z.string().email('Please enter a valid email address'),
+    password: z
+      .string()
+      .min(8, 'Password should be at least 8 characters')
+      .regex(
+        /^(?=.*[A-Za-z])(?=.*\d).+$/,
+        'Password should include at least one letter and one number',
+      ),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  });
 
 export default function SignUpScreen() {
   const navigation = useNavigation();
@@ -27,25 +46,26 @@ export default function SignUpScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
 
   const handleSignUp = async () => {
-    if (!fullName || !email || !password || !confirmPassword) {
-      Alert.alert('Error', 'Please fill in all fields');
-      return;
-    }
-    if (password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
-      return;
-    }
-    if (password.length < 6) {
-      Alert.alert('Error', 'Password should be at least 6 characters');
-      return;
-    }
-
     try {
-      await signup(email, password, fullName);
+      const parsed = signUpSchema.parse({
+        fullName: fullName.trim(),
+        email: email.trim(),
+        password,
+        confirmPassword,
+      });
+
+      await signup(parsed.email, parsed.password, parsed.fullName);
       // User stays signed in; AuthNavigator will switch to the main app (Tabs/Home).
       // No extra navigation needed here to avoid race conditions.
     } catch (error: any) {
-      Alert.alert('Sign Up Error', error.message);
+      if (error?.issues?.length) {
+        Alert.alert('Sign Up Error', error.issues[0].message);
+      } else {
+        Alert.alert(
+          'Sign Up Error',
+          error.message || 'Failed to create account. Please try again.',
+        );
+      }
     }
   };
 
@@ -54,14 +74,7 @@ export default function SignUpScreen() {
     Alert.alert('Coming Soon', `${platform} sign up will be available soon!`);
   };
 
-  const isButtonDisabled =
-    loading ||
-    !fullName ||
-    !email ||
-    !password ||
-    !confirmPassword ||
-    password !== confirmPassword ||
-    password.length < 6;
+  const isButtonDisabled = loading || !fullName || !email || !password || !confirmPassword;
 
   return (
     <SafeAreaView style={styles.safeArea}>

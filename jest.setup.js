@@ -216,10 +216,12 @@ jest.mock('react-native-encrypted-storage', () => {
 
 // Some React Native internals expect clearImmediate / setImmediate to exist (e.g., StatusBar)
 if (!global.clearImmediate) {
+  // eslint-disable-next-line @typescript-eslint/no-implied-eval
   // eslint-disable-next-line no-undef
   global.clearImmediate = () => {};
 }
 if (!global.setImmediate) {
+  // eslint-disable-next-line @typescript-eslint/no-implied-eval
   // eslint-disable-next-line no-undef
   global.setImmediate = (fn, ...args) => setTimeout(fn, 0, ...args);
 }
