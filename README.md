@@ -323,6 +323,8 @@ While the app is primarily a client for Firebase/Geoapify, it still applies seve
 - **Dependency vulnerability scanning:**
   - `npm run security:audit` runs `npm audit --audit-level=moderate` to surface known vulnerabilities in third-party packages.
   - This can be run periodically or as part of CI to keep dependencies in a healthier state.
+- **Client-side rate limiting:**
+  - A small in-memory `RateLimiter` caps login attempts (e.g. 5/minute per email), signup attempts (e.g. 3 per 5 minutes), and review submissions by user/place, returning a friendly "too many attempts, wait N seconds" message.
 
 ## 7. Testing Strategy
 
