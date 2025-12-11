@@ -28,6 +28,7 @@ import { check, request, PERMISSIONS, RESULTS, openSettings } from 'react-native
 import { reviewQueryKeys } from '@/src/services/reviewQueryKeys';
 import { businessQueryKeys } from '@/src/services/businessService';
 import { z } from 'zod';
+import { rateLimiter } from '@/src/utils/rateLimiter';
 
 const reviewSchema = z.object({
   rating: z
@@ -370,6 +371,21 @@ export default function AddReviewScreen() {
   };
 
   const handleSubmit = async () => {
+    // Limit review submissions per user+business to reduce spammy taps
+    const userKey = authUser?.uid || 'anonymous';
+    const key = `review:${userKey}:${id}`;
+    const allowed = rateLimiter.isAllowed(key, 3, 5 * 60_000); // 3 attempts per 5 minutes
+
+    if (!allowed) {
+      const remainingMs = rateLimiter.getRemainingTime(key);
+      const seconds = Math.ceil(remainingMs / 1000) || 1;
+      Alert.alert(
+        'Too many attempts',
+        `You have submitted too many reviews for this place. Please wait ${seconds}s before trying again.`,
+      );
+      return;
+    }
+
     try {
       const parsed = reviewSchema.parse({ rating, reviewText });
       setIsSubmitting(true);

@@ -18,6 +18,7 @@ import { FormContainer } from '@/src/components/FormContainer';
 import { useAuthContext } from '@/src/context/AuthContext';
 import Colors from '@/src/constants/colors';
 import { z } from 'zod';
+import { rateLimiter } from '@/src/utils/rateLimiter';
 
 const signUpSchema = z
   .object({
@@ -46,6 +47,19 @@ export default function SignUpScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
 
   const handleSignUp = async () => {
+    const key = `signup:${email.trim().toLowerCase() || 'anonymous'}`;
+    const allowed = rateLimiter.isAllowed(key, 3, 5 * 60_000); // 3 attempts per 5 minutes
+
+    if (!allowed) {
+      const remainingMs = rateLimiter.getRemainingTime(key);
+      const seconds = Math.ceil(remainingMs / 1000) || 1;
+      Alert.alert(
+        'Too many attempts',
+        `You have tried to create an account too many times. Please wait ${seconds}s before trying again.`,
+      );
+      return;
+    }
+
     try {
       const parsed = signUpSchema.parse({
         fullName: fullName.trim(),

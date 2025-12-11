@@ -17,6 +17,7 @@ import { KeyboardAvoidingScrollView } from '@/src/components/KeyboardAvoidingScr
 import { useAuth } from '@/src/hooks/useAuth';
 import Colors from '@/src/constants/colors';
 import { z } from 'zod';
+import { rateLimiter } from '@/src/utils/rateLimiter';
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -32,6 +33,19 @@ export default function LoginScreen() {
   const [resetLoading, setResetLoading] = useState(false);
 
   const handleLogin = async () => {
+    const key = `login:${email.trim().toLowerCase() || 'anonymous'}`;
+    const allowed = rateLimiter.isAllowed(key, 5, 60_000); // 5 attempts per minute
+
+    if (!allowed) {
+      const remainingMs = rateLimiter.getRemainingTime(key);
+      const seconds = Math.ceil(remainingMs / 1000) || 1;
+      Alert.alert(
+        'Too many attempts',
+        `You have tried to sign in too many times. Please wait ${seconds}s before trying again.`,
+      );
+      return;
+    }
+
     try {
       const parsed = loginSchema.parse({ email: email.trim(), password });
 
