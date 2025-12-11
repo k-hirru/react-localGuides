@@ -10,7 +10,7 @@ The app features:
 - Favorites and profile screens.
 - An admin dashboard for high-level analytics.
 
-This README focuses on **setup**, **architecture/structure**, **API integration**, and **testing**, to address the mentor feedback on documentation and project design.
+This README focuses on **setup**, **architecture/structure**, **API integration**, and **testing**.
 
 ---
 
