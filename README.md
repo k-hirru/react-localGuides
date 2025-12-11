@@ -10,7 +10,7 @@ The app features:
 - Favorites and profile screens.
 - An admin dashboard for high-level analytics.
 
-This README focuses on **setup**, **architecture/structure**, **API integration**, and **testing**, to address the mentor feedback on documentation and project design.
+This README focuses on **setup**, **architecture/structure**, **API integration**, and **testing**.
 
 ---
 
@@ -57,13 +57,13 @@ These are read in `app.config.js` and exposed via `Constants.expoConfig?.extra` 
 
 ```bash
 # iOS simulator
-npm run ios
+npm run expo:ios
 
 # Android emulator / device
-npm run android
+npm run expo:android
 
 # Metro / dev server
-npm start
+npm expo start
 ```
 
 Expo will take care of bundling and launching the app on the chosen platform.
@@ -326,7 +326,20 @@ While the app is primarily a client for Firebase/Geoapify, it still applies seve
 - **Client-side rate limiting:**
   - A small in-memory `RateLimiter` caps login attempts (e.g. 5/minute per email), signup attempts (e.g. 3 per 5 minutes), and review submissions by user/place, returning a friendly "too many attempts, wait N seconds" message.
 
-## 7. Testing Strategy
+## 7. Monitoring & Observability
+
+- **Crash reporting (stubbed):**
+  - A `CrashReporter` service (currently a Sentry-ready stub) is initialized at app startup and used by a top-level `AppErrorBoundary` to capture render-time errors.
+- **Error boundaries:**
+  - `AppErrorBoundary` wraps the navigation tree and shows a friendly `ErrorScreen` when unrecoverable errors occur, while sending details to the crash reporter in one place.
+- **Structured logging:**
+  - A `logger` utility provides `debug`, `info`, `warn`, and `error` methods with an optional `context` tag so logs are easier to search and group (e.g. `Auth.login`, `Reviews.addReview`).
+  - Key flows like auth and reviews use `logger.error` instead of raw `console.error`.
+- **Analytics events (stubbed):**
+  - An `analyticsService` currently logs a few important events in dev (`user_login_success`, `user_signup_success`, `review_submitted`, `favorite_toggled`).
+  - This can be wired to a real analytics backend later without changing call sites.
+
+## 8. Testing Strategy
 
 The test suite uses **Jest** and **@testing-library/react-native** for unit and integration tests, plus **Maestro** for a small end-to-end smoke test.
 
@@ -387,7 +400,7 @@ To run these flows, install Maestro CLI and follow the instructions in `TESTING.
 
 ---
 
-## 8. Summary
+## 9. Summary
 
 This project’s architecture separates concerns into:
 
@@ -404,7 +417,7 @@ This structure and documentation are designed to make the app easier to understa
 
 ---
 
-## 9. Code Quality & Tooling
+## 10. Code Quality & Tooling
 
 - **Linting:** `npm run lint` (Expo lint) and `npm run lint:eslint` (raw ESLint) enforce code style and catch common issues across JS/TS/React Native files.
 - **Formatting:** `npm run format` and `npm run format:check` use Prettier to keep formatting consistent across the codebase.

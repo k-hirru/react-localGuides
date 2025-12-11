@@ -8,10 +8,12 @@ import * as SplashScreen from 'expo-splash-screen';
 import React, { useEffect } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { AuthProvider, useAuthContext } from '@/src/context/AuthContext'; // ← CHANGE THIS
+import { AuthProvider, useAuthContext } from '@/src/context/AuthContext';
 import { useNotifications } from '@/src/hooks/useNotification';
 import { NotificationData } from '@/src/services/notificationService';
 import { OfflineBanner } from '@/src/components/OfflineBanner';
+import { AppErrorBoundary } from '@/src/components/AppErrorBoundary';
+import { crashReporter } from '@/src/services/crashReporter';
 
 import TabNavigator from './TabNavigator';
 import BusinessDetailsScreen from '../screens/business/BusinessDetailsScreen';
@@ -22,6 +24,8 @@ import BusinessMapScreen from '../screens/business/BusinessMapScreen';
 import AdminDashboardScreen from '../screens/admin/AdminDashboardScreen';
 
 SplashScreen.preventAutoHideAsync();
+
+crashReporter.init();
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -159,10 +163,12 @@ export default function AppNavigator() {
         }}
       >
         <NavigationContainer>
-          <GestureHandlerRootView style={{ flex: 1 }}>
-            <OfflineBanner />
-            <AuthNavigator />
-          </GestureHandlerRootView>
+          <AppErrorBoundary>
+            <GestureHandlerRootView style={{ flex: 1 }}>
+              <OfflineBanner />
+              <AuthNavigator />
+            </GestureHandlerRootView>
+          </AppErrorBoundary>
         </NavigationContainer>
       </PersistQueryClientProvider>
     </AuthProvider>
