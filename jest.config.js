@@ -7,7 +7,9 @@ module.exports = {
   moduleNameMapper: {
     '^@/src/(.*)$': '<rootDir>/src/$1',
   },
+  // Allow Jest to transform certain React Native libraries that ship untranspiled
+  // ESM/modern syntax, including react-native-reanimated.
   transformIgnorePatterns: [
-    'node_modules/(?!(@react-native|react-native|@react-navigation|@react-native-firebase)/)',
+    'node_modules/(?!((jest-)?react-native|@react-native(-community)?|@react-navigation|@react-native-firebase|react-native-reanimated)/)',
   ],
 };

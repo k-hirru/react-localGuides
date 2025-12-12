@@ -1,34 +1,36 @@
-import React, { useEffect, useRef } from 'react';
-import { Animated, Easing, View, Text, StyleSheet } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 import { MapPin } from 'lucide-react-native';
 
 const FindingPlacesLoader = () => {
-  const pulse = useRef(new Animated.Value(1)).current;
+  const scale = useSharedValue(1);
 
   useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulse, {
-          toValue: 1.3,
-          duration: 700,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulse, {
-          toValue: 1,
-          duration: 700,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-      ]),
+    scale.value = withRepeat(
+      withSequence(
+        withTiming(1.3, { duration: 700, easing: Easing.inOut(Easing.ease) }),
+        withTiming(1, { duration: 700, easing: Easing.inOut(Easing.ease) }),
+      ),
+      -1,
+      true,
     );
-    loop.start();
-    return () => loop.stop();
-  }, [pulse]);
+  }, [scale]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
 
   return (
     <View style={styles.container}>
-      <Animated.View style={[styles.iconContainer, { transform: [{ scale: pulse }] }]}>
+      <Animated.View style={[styles.iconContainer, animatedStyle]}>
         <MapPin color="#007AFF" size={54} />
       </Animated.View>
       <Text style={styles.text}>Finding nearby places…</Text>

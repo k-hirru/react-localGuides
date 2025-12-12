@@ -1,5 +1,11 @@
-import React, { useRef, useEffect } from 'react';
-import { Animated, Easing, View } from 'react-native';
+import React, { useEffect } from 'react';
+import { View } from 'react-native';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 
 type AnimatedTabLabelProps = {
   label: string;
@@ -8,26 +14,30 @@ type AnimatedTabLabelProps = {
 };
 
 const AnimatedTabLabel: React.FC<AnimatedTabLabelProps> = ({ label, color, focused }) => {
-  const scaleAnim = useRef(new Animated.Value(focused ? 1.05 : 1)).current;
+  const scale = useSharedValue(focused ? 1.05 : 1);
 
   useEffect(() => {
-    Animated.timing(scaleAnim, {
-      toValue: focused ? 1.1 : 1,
-      duration: 15,
+    scale.value = withTiming(focused ? 1.1 : 1, {
+      duration: 150,
       easing: Easing.out(Easing.ease),
-      useNativeDriver: true,
-    }).start();
-  }, [focused, scaleAnim]);
+    });
+  }, [focused, scale]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }, { translateY: -2 }],
+  }));
 
   return (
     <View style={{ alignItems: 'center' }}>
       <Animated.Text
-        style={{
-          color: color,
-          fontSize: 12,
-          fontWeight: focused ? '700' : '500',
-          transform: [{ scale: scaleAnim }, { translateY: -2 }],
-        }}
+        style={[
+          {
+            color,
+            fontSize: 12,
+            fontWeight: focused ? '700' : '500',
+          },
+          animatedStyle,
+        ]}
       >
         {label}
       </Animated.Text>

@@ -1,6 +1,17 @@
 import React, { memo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { Heart, MapPin } from 'lucide-react-native';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
+import {
+  TapGestureHandler,
+  State as GestureState,
+  TapGestureHandlerStateChangeEvent,
+} from 'react-native-gesture-handler';
 import { Business } from '../types';
 import { useAppStore } from '../hooks/useAppStore';
 import StarRating from './StarRating';
@@ -19,9 +30,49 @@ const BusinessCard = memo(({ business, onPress, customHeartAction }: BusinessCar
   const favorite = isFavorite(business.id);
   const priceSymbol = PRICE_LEVELS.find((p) => p.level === business.priceLevel)?.symbol || '$';
 
-  const handlePress = () => {
-    console.log('🟢 BusinessCard - Pressed business ID:', business.id);
-    onPress(business.id);
+  const scale = useSharedValue(1);
+  const pressed = useSharedValue(0);
+
+  const animatedStyle = useAnimatedStyle(() => {
+    const opacity = pressed.value ? 0.9 : 1;
+    const backgroundColor = pressed.value ? 'rgba(207, 208, 209, 1)' : '#FFF'; // subtle gray overlay
+
+    return {
+      transform: [{ scale: scale.value }],
+      opacity,
+      backgroundColor,
+    };
+  });
+
+  const handleStateChange = (event: TapGestureHandlerStateChangeEvent) => {
+    const { state } = event.nativeEvent;
+
+    if (state === GestureState.BEGAN) {
+      // Press in: subtle shrink + dim overlay
+      pressed.value = 1;
+      scale.value = withTiming(0.98, {
+        duration: 90,
+        easing: Easing.out(Easing.ease),
+      });
+    }
+
+    if (
+      state === GestureState.END ||
+      state === GestureState.CANCELLED ||
+      state === GestureState.FAILED
+    ) {
+      // Finger lifted or gesture cancelled: reset visuals
+      pressed.value = 0;
+      scale.value = withTiming(1, {
+        duration: 140,
+        easing: Easing.out(Easing.ease),
+      });
+
+      if (state === GestureState.END) {
+        console.log('🟢 BusinessCard - Pressed business ID:', business.id);
+        onPress(business.id);
+      }
+    }
   };
 
   // ✅ Handle heart press - use custom action if provided, otherwise default
@@ -36,45 +87,47 @@ const BusinessCard = memo(({ business, onPress, customHeartAction }: BusinessCar
   };
 
   return (
-    <TouchableOpacity style={styles.card} onPress={handlePress}>
-      <Image
-        source={{ uri: business.imageUrl }}
-        style={styles.image}
-        resizeMode="cover"
-        fadeDuration={300}
-      />
-
-      <TouchableOpacity
-        style={styles.favoriteButton}
-        onPress={handleFavoritePress}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-      >
-        <Heart
-          size={20}
-          fill={favorite ? '#FF6B6B' : 'transparent'}
-          color={favorite ? '#FF6B6B' : '#FFF'}
+    <TapGestureHandler onHandlerStateChange={handleStateChange}>
+      <Animated.View style={[styles.card, animatedStyle]}>
+        <Image
+          source={{ uri: business.imageUrl }}
+          style={styles.image}
+          resizeMode="cover"
+          fadeDuration={300}
         />
-      </TouchableOpacity>
 
-      <View style={styles.content}>
-        <Text style={styles.name} numberOfLines={1}>
-          {business.name}
-        </Text>
+        <TouchableOpacity
+          style={styles.favoriteButton}
+          onPress={handleFavoritePress}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Heart
+            size={20}
+            fill={favorite ? '#FF6B6B' : 'transparent'}
+            color={favorite ? '#FF6B6B' : '#FFF'}
+          />
+        </TouchableOpacity>
 
-        <View style={styles.ratingRow}>
-          <StarRating rating={business.rating} size={14} />
-          <Text style={styles.reviewCount}>({business.reviewCount})</Text>
-          <Text style={styles.price}>{priceSymbol}</Text>
-        </View>
-
-        <View style={styles.locationRow}>
-          <MapPin size={12} color="#666" />
-          <Text style={styles.address} numberOfLines={1}>
-            {business.address}
+        <View style={styles.content}>
+          <Text style={styles.name} numberOfLines={1}>
+            {business.name}
           </Text>
+
+          <View style={styles.ratingRow}>
+            <StarRating rating={business.rating} size={14} />
+            <Text style={styles.reviewCount}>({business.reviewCount})</Text>
+            <Text style={styles.price}>{priceSymbol}</Text>
+          </View>
+
+          <View style={styles.locationRow}>
+            <MapPin size={12} color="#666" />
+            <Text style={styles.address} numberOfLines={1}>
+              {business.address}
+            </Text>
+          </View>
         </View>
-      </View>
-    </TouchableOpacity>
+      </Animated.View>
+    </TapGestureHandler>
   );
 });
 
