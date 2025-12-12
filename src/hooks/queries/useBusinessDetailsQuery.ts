@@ -11,7 +11,8 @@ export const useBusinessDetailsQuery = (id: string | undefined) => {
     queryFn: () =>
       protectedAction(() => businessService.getBusinessById(id || ''), {
         actionName: 'Loading business details',
-        retry: true,
+        retry: false,
+        showAlert: false,
       }) as Promise<Awaited<ReturnType<typeof businessService.getBusinessById>>>,
   });
 };

@@ -289,11 +289,11 @@ Key integration points:
 
 ---
 
-## 5. Network Performance & Caching
+## 5. Network Performance, Caching & Offline-first
 
-The app is designed to avoid unnecessary network calls and to degrade gracefully when the network is unreliable:
+The app is designed to avoid unnecessary network calls, work sensibly while offline, and recover cleanly when the network comes back:
 
-- **React Query + persistence:**
+- **React Query + persistence (read-side caching):**
   - `AppNavigator` configures a `QueryClient` with explicit exponential backoff (capped) and avoids retrying obvious client errors (4xx).
   - Queries use a 5-minute `staleTime` and 10-minute `gcTime`, while `PersistQueryClientProvider` persists data to AsyncStorage for up to 6 hours, reducing refetches across app launches.
 - **Geoapify service caching & deduplication:**
@@ -302,11 +302,24 @@ The app is designed to avoid unnecessary network calls and to degrade gracefully
 - **Business service TTL cache:**
   - `businessService` wraps Geoapify with an AsyncStorage cache of mapped `Business` models (6-hour TTL) for nearby searches.
   - This sits on top of the in-memory Geoapify cache to keep “nearby” lists fast both within a session and across app restarts.
-- **Offline-friendly favorites:**
-  - `useAppStore.toggleFavorite` performs optimistic updates and, when offline, enqueues favorite toggles to AsyncStorage.
-  - `useInternetConnectivity` flushes this queue when connectivity is restored by replaying the queued operations through `favoriteService.toggleFavorite`.
+- **Offline-friendly favorites (mutation queue):**
+  - `useAppStore.toggleFavorite` performs optimistic UI updates immediately.
+  - When a toggle is blocked by `useProtectedAction` (offline), it is enqueued to `favoritesOfflineQueue_v1` in AsyncStorage.
+  - `AppNavigator` + `useInternetConnectivity` flush this queue once the user is logged in and the device is back online by replaying each toggle through `favoriteService.toggleFavorite`.
+- **Offline mutation queue for reviews & helpful votes:**
+  - `offlineQueueService` is a small AsyncStorage-backed queue that stores pending mutations when the device is offline.
+  - **Reviews:**
+    - `useAppStore.addReview` and `useAppStore.deleteReview` use `useProtectedAction` to guard network calls.
+    - When offline, they enqueue `review:add` / `review:delete` mutations and apply optimistic local state updates so the user still sees their new or removed review while offline.
+    - Offline-created reviews are rendered with a `Pending sync` badge in `ReviewCard` so it is visually clear they have not yet reached the backend.
+  - **Helpful votes:**
+    - `ReviewCard` performs optimistic increment/decrement of `helpful` counts.
+    - If the underlying `reviewService.addHelpfulVote` / `removeHelpfulVote` / `updateReviewHelpfulCount` calls fail (e.g., due to connectivity), a `review:helpful` mutation is enqueued instead of hard failing.
+  - On reconnect, `AppNavigator` reads the mutation queue via `offlineQueueService` and replays each mutation through `reviewService`, keeping any failures in the queue for a later retry.
+  - `BusinessDetailsScreen` and `AddReviewScreen` display inline offline banners (e.g. "You are offline – your review will be saved locally and synced automatically when your connection is restored") so users understand the offline queue behavior without being spammed by generic network alerts.
+  - When connectivity is restored while `BusinessDetailsScreen` is visible, it automatically refreshes business details and reviews using the existing React Query refetches, so the screen picks up fresh data without requiring a manual pull-to-refresh.
 
-Together, these layers go beyond default React Query caching to provide explicit retry/backoff, request deduplication, multi-tier caching, and a concrete example of offline queue/sync behavior.
+Together, these layers go beyond default React Query caching to provide explicit retry/backoff, request deduplication, multi-tier caching, and a concrete offline-first story: cached reads, optimistic writes while offline, and queued mutations that automatically sync when connectivity is restored, with clear but unobtrusive offline UX affordances.
 
 ## 6. Security
 
@@ -367,6 +380,7 @@ Highlights:
   - `__tests__/services/geoapifyService.test.ts` – URL building, response transform, caching, and error fallback.
   - `__tests__/services/reviewService.test.ts` – mapping Firestore snapshots into `Review` objects, deleting review images.
   - `__tests__/services/imageService.test.ts` – upload/delete flows with Storage and auth guards.
+  - `__tests__/services/offlineQueueService.test.ts` – behavior of the offline mutation queue (enqueue, clear/replace, and MAX_MUTATIONS trimming) used for offline-first review and helpful vote syncing.
 
 - **Hooks**
   - `__tests__/hooks/useProtectedAction.test.ts` – behavior when online vs offline and guarding actions.

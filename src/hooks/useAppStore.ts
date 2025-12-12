@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { reviewService } from '@/src/services/reviewService';
 import { businessService } from '@/src/services/businessService';
 import { favoriteService } from '@/src/services/favoriteService';
+import { offlineQueueService } from '@/src/services/offlineQueueService';
 import { useAuth } from './useAuth';
 import { useLocation } from './useLocation';
 import { Review, Business, SearchFilters } from '@/src/types';
@@ -392,7 +394,7 @@ export const useAppStore = () => {
     [notifyBusinessUpdate, protectedAction],
   );
 
-  // ✅ Review management with auto-refresh
+  // ✅ Review management with auto-refresh + offline queue
   const addReview = async (reviewData: Omit<Review, 'id' | 'date' | 'createdAt' | 'updatedAt'>) => {
     if (!authUser) throw new Error('User must be logged in');
 
@@ -427,11 +429,54 @@ export const useAppStore = () => {
       {
         actionName: 'Adding review',
         retry: false,
+        // Offline behavior for reviews is handled via the queue, so we
+        // avoid showing a blocking "no internet" alert here.
+        showAlert: false,
       },
     );
 
     if (result === false) {
-      throw new Error('No internet connection');
+      // Offline: enqueue mutation so it can be replayed later.
+      try {
+        await offlineQueueService.enqueue({
+          type: 'review:add',
+          id: `review:add:${authUser.uid}:${reviewData.businessId}:${Date.now()}`,
+          payload: {
+            businessId: reviewData.businessId,
+            userId: authUser.uid,
+            userName: authUser.displayName || 'Anonymous User',
+            userAvatar: authUser.photoURL || '',
+            rating: reviewData.rating,
+            text: reviewData.text,
+            images: reviewData.images || [],
+          },
+          createdAt: new Date().toISOString(),
+        });
+      } catch (queueError) {
+        console.error('Failed to enqueue offline review add:', queueError);
+      }
+
+      // Optimistically reflect the new review in local state so the
+      // user sees it immediately while offline.
+      setReviews((prev) => [
+        ...prev,
+        {
+          id: `offline-${Date.now()}`,
+          businessId: reviewData.businessId,
+          userId: authUser.uid,
+          userName: authUser.displayName || 'Anonymous User',
+          userAvatar: authUser.photoURL || '',
+          rating: reviewData.rating,
+          text: reviewData.text,
+          images: reviewData.images || [],
+          helpful: 0,
+          date: new Date().toISOString().split('T')[0],
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ]);
+
+      return 'offline';
     }
 
     return result;
@@ -485,8 +530,33 @@ export const useAppStore = () => {
       {
         actionName: 'Deleting review',
         retry: false,
+        // Deletions are also queued when offline, so we skip the generic
+        // connectivity alert for a smoother UX.
+        showAlert: false,
       },
     );
+
+    if (result === false) {
+      // Offline: enqueue delete and optimistically remove from local state.
+      const review = reviews.find((r) => r.id === reviewId);
+      if (review) {
+        try {
+          await offlineQueueService.enqueue({
+            type: 'review:delete',
+            id: `review:delete:${reviewId}:${Date.now()}`,
+            reviewId,
+            businessId: review.businessId,
+            createdAt: new Date().toISOString(),
+          });
+        } catch (queueError) {
+          console.error('Failed to enqueue offline review delete:', queueError);
+        }
+
+        setReviews((prev) => prev.filter((r) => r.id !== reviewId));
+      }
+
+      return false;
+    }
 
     return result !== false;
   };
@@ -541,6 +611,9 @@ export const useAppStore = () => {
       {
         actionName: 'Saving favorite',
         retry: false,
+        // Favorites are optimistic + queued offline, so we suppress the
+        // generic "no internet" alert for this action.
+        showAlert: false,
       },
     );
 
