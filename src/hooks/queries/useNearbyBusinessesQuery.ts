@@ -27,7 +27,7 @@ export const useNearbyBusinessesQuery = () => {
             [],
             false,
           ),
-        { actionName: 'Loading nearby businesses', retry: true },
+        { actionName: 'Loading nearby places', retry: true },
       ) as Promise<Awaited<ReturnType<typeof businessService.getNearbyBusinesses>>>,
     staleTime: 5 * 60 * 1000,
   });
@@ -59,7 +59,7 @@ export const useRefreshNearbyBusinesses = () => {
           [],
           true, // forceRefresh: bypass AsyncStorage cache
         ),
-      { actionName: 'Refreshing nearby businesses', retry: true },
+      { actionName: 'Refreshing nearby places', retry: true },
     )) as Awaited<ReturnType<typeof businessService.getNearbyBusinesses>>;
 
     queryClient.setQueryData(queryKey, data);
@@ -113,8 +113,7 @@ export const useInfiniteNearbyBusinessesQuery = () => {
             forceRefresh: false,
           }),
         {
-          actionName:
-            page === 1 ? 'Loading nearby businesses (infinite)' : 'Loading more nearby businesses',
+          actionName: page === 1 ? 'Loading nearby places' : 'Loading more nearby places',
           retry: true,
         },
       )) as Awaited<ReturnType<typeof businessService.getNearbyBusinessesPage>>;

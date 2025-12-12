@@ -14,8 +14,9 @@ export const useUserReviewsQuery = () => {
     queryKey: reviewQueryKeys.user(user?.uid ?? ''),
     queryFn: () =>
       protectedAction(() => reviewService.getUserReviews(user!.uid), {
-        actionName: 'Loading user reviews',
-        retry: true,
+        actionName: 'Loading your reviews',
+        retry: false,
+        showAlert: false,
       }) as Promise<Review[]>,
   });
 };

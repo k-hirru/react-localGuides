@@ -22,6 +22,7 @@ import { PRICE_LEVELS } from '@/src/constants/categories';
 import { useAuth } from '@/src/hooks/useAuth';
 import { useBusinessDetailsQuery } from '@/src/hooks/queries/useBusinessDetailsQuery';
 import { useBusinessReviewsQuery } from '@/src/hooks/queries/useBusinessReviewsQuery';
+import { useInternetConnectivity } from '@/src/hooks/useInternetConnectivity';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -30,6 +31,7 @@ export default function BusinessDetailsScreen() {
   const navigation = useNavigation();
   const { user: authUser } = useAuth();
   const { id } = route.params as { id: string };
+  const { isConnected } = useInternetConnectivity();
 
   const { getBusinessById, toggleFavorite, deleteReview, isFavorite } = useAppStore();
 
@@ -106,15 +108,25 @@ export default function BusinessDetailsScreen() {
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      console.log('🔄 Manual refresh triggered for business details');
+      console.log('🔄 Refresh triggered for business details');
       await Promise.all([refetchBusiness(), refetchReviews()]);
     } catch (error) {
-      console.error('❌ Manual refresh failed:', error);
+      console.error('❌ Refresh failed:', error);
       Alert.alert('Refresh Error', 'Failed to refresh data. Please try again.');
     } finally {
       setRefreshing(false);
     }
   }, [refetchBusiness, refetchReviews]);
+
+  // Automatically refresh details + reviews when connectivity is restored
+  useEffect(() => {
+    if (!isConnected) return;
+    // When we transition from offline -> online while this screen is mounted,
+    // trigger a background refresh so the latest data is loaded without
+    // requiring a manual pull-to-refresh.
+    handleRefresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isConnected]);
 
   const handleEdit = (review: Review) => {
     (navigation as any).navigate('AddReview', {
@@ -289,6 +301,16 @@ export default function BusinessDetailsScreen() {
       </View>
 
       <View style={styles.infoContainer}>
+        {!isConnected && (
+          <View style={styles.offlineBanner}>
+            <Text style={styles.offlineBannerTitle}>You are offline</Text>
+            <Text style={styles.offlineBannerText}>
+              New reviews and helpful votes will be queued and synced automatically when your
+              connection is restored.
+            </Text>
+          </View>
+        )}
+
         <Text style={styles.businessName}>{business.name}</Text>
 
         <View style={styles.ratingRow}>
@@ -472,6 +494,24 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   reviewsTitle: { fontSize: 20, fontWeight: '600', color: '#333' },
+  offlineBanner: {
+    marginBottom: 12,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FBBF24',
+  },
+  offlineBannerTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#92400E',
+    marginBottom: 2,
+  },
+  offlineBannerText: {
+    fontSize: 12,
+    color: '#92400E',
+  },
   reviewButton: {
     flexDirection: 'row',
     alignItems: 'center',

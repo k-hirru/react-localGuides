@@ -35,19 +35,18 @@ export const useProtectedAction = () => {
 
       if (!connected) {
         if (showAlert) {
-          Alert.alert(
-            'No Internet Connection',
-            `${actionName} requires an internet connection. Please check your connection and try again.`,
-            retry
-              ? [
-                  { text: 'Cancel', style: 'cancel' },
-                  {
-                    text: 'Retry',
-                    onPress: () => protectedAction(action, options),
-                  },
-                ]
-              : [{ text: 'OK' }],
-          );
+          const message = `${actionName} requires an internet connection.`;
+          if (retry) {
+            Alert.alert('No Internet Connection', message, [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Retry',
+                onPress: () => protectedAction(action, options),
+              },
+            ]);
+          } else {
+            Alert.alert('No Internet Connection', message, [{ text: 'OK' }]);
+          }
         }
         return false;
       }

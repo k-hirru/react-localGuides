@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Pressable } from 'react-native';
 import { Heart, MapPin } from 'lucide-react-native';
 import Animated, {
   Easing,
@@ -7,11 +7,6 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import {
-  TapGestureHandler,
-  State as GestureState,
-  TapGestureHandlerStateChangeEvent,
-} from 'react-native-gesture-handler';
 import { Business } from '../types';
 import { useAppStore } from '../hooks/useAppStore';
 import StarRating from './StarRating';
@@ -44,37 +39,6 @@ const BusinessCard = memo(({ business, onPress, customHeartAction }: BusinessCar
     };
   });
 
-  const handleStateChange = (event: TapGestureHandlerStateChangeEvent) => {
-    const { state } = event.nativeEvent;
-
-    if (state === GestureState.BEGAN) {
-      // Press in: subtle shrink + dim overlay
-      pressed.value = 1;
-      scale.value = withTiming(0.98, {
-        duration: 90,
-        easing: Easing.out(Easing.ease),
-      });
-    }
-
-    if (
-      state === GestureState.END ||
-      state === GestureState.CANCELLED ||
-      state === GestureState.FAILED
-    ) {
-      // Finger lifted or gesture cancelled: reset visuals
-      pressed.value = 0;
-      scale.value = withTiming(1, {
-        duration: 140,
-        easing: Easing.out(Easing.ease),
-      });
-
-      if (state === GestureState.END) {
-        console.log('🟢 BusinessCard - Pressed business ID:', business.id);
-        onPress(business.id);
-      }
-    }
-  };
-
   // ✅ Handle heart press - use custom action if provided, otherwise default
   const handleFavoritePress = () => {
     if (customHeartAction) {
@@ -87,7 +51,26 @@ const BusinessCard = memo(({ business, onPress, customHeartAction }: BusinessCar
   };
 
   return (
-    <TapGestureHandler onHandlerStateChange={handleStateChange}>
+    <Pressable
+      onPress={() => {
+        console.log('🟢 BusinessCard - Pressed business ID:', business.id);
+        onPress(business.id);
+      }}
+      onPressIn={() => {
+        pressed.value = 1;
+        scale.value = withTiming(0.98, {
+          duration: 90,
+          easing: Easing.out(Easing.ease),
+        });
+      }}
+      onPressOut={() => {
+        pressed.value = 0;
+        scale.value = withTiming(1, {
+          duration: 140,
+          easing: Easing.out(Easing.ease),
+        });
+      }}
+    >
       <Animated.View style={[styles.card, animatedStyle]}>
         <Image
           source={{ uri: business.imageUrl }}
@@ -127,7 +110,7 @@ const BusinessCard = memo(({ business, onPress, customHeartAction }: BusinessCar
           </View>
         </View>
       </Animated.View>
-    </TapGestureHandler>
+    </Pressable>
   );
 });
 

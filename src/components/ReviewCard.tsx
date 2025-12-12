@@ -12,6 +12,7 @@ import {
   Image as ImageIcon,
 } from 'lucide-react-native';
 import { reviewService } from '@/src/services/reviewService';
+import { offlineQueueService } from '@/src/services/offlineQueueService';
 
 interface ReviewCardProps {
   review: Review;
@@ -32,6 +33,14 @@ const ReviewCard = memo(
 
     const isOwnReview = authUser?.uid === review.userId;
     const hasImages = review.images && review.images.length > 0;
+
+    const isDefaultAvatarUrl = (url?: string | null) => {
+      if (!url) return true;
+      // Treat the old Unsplash fallback as "no real avatar" so we show initials instead.
+      return url.includes('photo-1535713875002-d1d0cf377fde');
+    };
+
+    const hasCustomAvatar = !!review.userAvatar && !isDefaultAvatarUrl(review.userAvatar);
 
     useEffect(() => {
       const checkExistingVote = async () => {
@@ -74,20 +83,54 @@ const ReviewCard = memo(
 
       try {
         if (isHelpful) {
-          await reviewService.removeHelpfulVote(review.id, authUser.uid);
+          // Optimistic UI update first
           setHelpfulCount((prev) => prev - 1);
           setIsHelpful(false);
-          await reviewService.updateReviewHelpfulCount(review.id, -1);
+
+          try {
+            await reviewService.removeHelpfulVote(review.id, authUser.uid);
+            await reviewService.updateReviewHelpfulCount(review.id, -1);
+          } catch (error) {
+            // If the network call fails entirely (e.g. offline), capture it for
+            // later replay via the offline queue.
+            console.warn('Failed to send unhelpful vote, enqueuing offline:', error);
+            await offlineQueueService.enqueue({
+              type: 'review:helpful',
+              id: `review:helpful:-1:${review.id}:${authUser.uid}:${Date.now()}`,
+              reviewId: review.id,
+              reviewOwnerId: review.userId,
+              taggedBy: authUser.uid,
+              businessId: business.id,
+              delta: -1,
+              createdAt: new Date().toISOString(),
+            });
+          }
         } else {
-          await reviewService.addHelpfulVote({
-            reviewId: review.id,
-            reviewOwnerId: review.userId,
-            taggedBy: authUser.uid,
-            businessId: business.id,
-          });
+          // Optimistic UI update first
           setHelpfulCount((prev) => prev + 1);
           setIsHelpful(true);
-          await reviewService.updateReviewHelpfulCount(review.id, 1);
+
+          try {
+            await reviewService.addHelpfulVote({
+              reviewId: review.id,
+              reviewOwnerId: review.userId,
+              taggedBy: authUser.uid,
+              businessId: business.id,
+            });
+            await reviewService.updateReviewHelpfulCount(review.id, 1);
+          } catch (error) {
+            console.warn('Failed to send helpful vote, enqueuing offline:', error);
+            await offlineQueueService.enqueue({
+              type: 'review:helpful',
+              id: `review:helpful:+1:${review.id}:${authUser.uid}:${Date.now()}`,
+              reviewId: review.id,
+              reviewOwnerId: review.userId,
+              taggedBy: authUser.uid,
+              businessId: business.id,
+              delta: 1,
+              createdAt: new Date().toISOString(),
+            });
+          }
         }
       } catch (error) {
         console.error('Error with helpful vote:', error);
@@ -110,14 +153,6 @@ const ReviewCard = memo(
       }
       return 'U';
     };
-
-    const isDefaultAvatarUrl = (url?: string | null) => {
-      if (!url) return true;
-      // Treat the old Unsplash fallback as "no real avatar" so we show initials instead.
-      return url.includes('photo-1535713875002-d1d0cf377fde');
-    };
-
-    const hasCustomAvatar = !!review.userAvatar && !isDefaultAvatarUrl(review.userAvatar);
 
     return (
       <View style={[styles.container, isUsersReview && styles.usersReviewContainer]}>
@@ -146,7 +181,12 @@ const ReviewCard = memo(
                   </View>
                 )}
               </View>
-              <Text style={styles.date}>{review.date}</Text>
+              <View style={styles.metaRow}>
+                <Text style={styles.date}>{review.date}</Text>
+                {String(review.id).startsWith('offline-') && (
+                  <Text style={styles.pendingBadge}>Pending sync</Text>
+                )}
+              </View>
             </View>
           </View>
 
@@ -332,6 +372,16 @@ const styles = StyleSheet.create({
   date: {
     fontSize: 12,
     color: '#666',
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  pendingBadge: {
+    fontSize: 11,
+    color: '#9A6C00',
+    marginLeft: 8,
   },
   menuButton: {
     padding: 4, // Add padding for better touch area

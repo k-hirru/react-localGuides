@@ -40,7 +40,7 @@ export const useBusinessSearchQuery = (query: string, categories: string[] = [])
       protectedAction(
         () =>
           businessService.searchBusinessesWithQuery(trimmed, lat!, lng!, 5000, categories, false),
-        { actionName: 'Searching businesses', retry: true },
+        { actionName: 'Searching places', retry: false, showAlert: false },
       ) as Promise<Business[]>,
     staleTime: 60 * 1000,
   });

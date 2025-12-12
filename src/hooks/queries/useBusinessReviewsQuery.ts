@@ -13,7 +13,8 @@ export const useBusinessReviewsQuery = (businessId: string | undefined) => {
     queryFn: () =>
       protectedAction(() => reviewService.getReviewsForBusiness(businessId || ''), {
         actionName: 'Loading business reviews',
-        retry: true,
+        retry: false,
+        showAlert: false,
       }) as Promise<Review[]>,
   });
 };

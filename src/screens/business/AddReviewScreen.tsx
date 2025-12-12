@@ -29,6 +29,7 @@ import { reviewQueryKeys } from '@/src/services/reviewQueryKeys';
 import { businessQueryKeys } from '@/src/services/businessService';
 import { z } from 'zod';
 import { rateLimiter } from '@/src/utils/rateLimiter';
+import { useInternetConnectivity } from '@/src/hooks/useInternetConnectivity';
 
 const reviewSchema = z.object({
   rating: z
@@ -42,6 +43,7 @@ export default function AddReviewScreen() {
   const route = useRoute();
   const navigation = useNavigation();
   const queryClient = useQueryClient();
+  const { isConnected } = useInternetConnectivity();
   const {
     id,
     review: existingReview,
@@ -510,6 +512,16 @@ export default function AddReviewScreen() {
             </View>
           </View>
 
+          {!isConnected && (
+            <View style={styles.offlineBanner}>
+              <Text style={styles.offlineBannerTitle}>You are offline</Text>
+              <Text style={styles.offlineBannerText}>
+                Your review will be saved locally and synced automatically when your connection is
+                restored.
+              </Text>
+            </View>
+          )}
+
           <View style={styles.ratingSection}>
             <Text style={styles.sectionTitle}>How was your experience?</Text>
             <View style={styles.ratingContainer}>
@@ -722,6 +734,24 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 17, fontWeight: '600', color: '#333', marginBottom: 16 },
   ratingContainer: { alignItems: 'center' },
   ratingText: { fontSize: 15, color: '#666', marginTop: 12 },
+  offlineBanner: {
+    backgroundColor: '#FEF3C7',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#FBBF24',
+  },
+  offlineBannerTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#92400E',
+    marginBottom: 2,
+  },
+  offlineBannerText: {
+    fontSize: 12,
+    color: '#92400E',
+  },
   photoSection: {
     backgroundColor: '#FFF',
     padding: 16,
