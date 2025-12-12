@@ -52,6 +52,7 @@ const BusinessCard = memo(({ business, onPress, customHeartAction }: BusinessCar
 
   return (
     <Pressable
+      testID="business-card-root"
       onPress={() => {
         console.log('🟢 BusinessCard - Pressed business ID:', business.id);
         onPress(business.id);
@@ -83,6 +84,9 @@ const BusinessCard = memo(({ business, onPress, customHeartAction }: BusinessCar
           style={styles.favoriteButton}
           onPress={handleFavoritePress}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          accessibilityRole="button"
+          accessibilityLabel="Toggle favorite"
+          testID="business-card-heart"
         >
           <Heart
             size={20}
