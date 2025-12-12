@@ -79,10 +79,10 @@ const HomeScreen = memo(function HomeScreen() {
     [navigation],
   );
 
-  // Memoized render item
+  // Memoized render item; BusinessCard now includes its own animated tap feedback
   const renderBusinessItem = useCallback(
     ({ item }: ListRenderItemInfo<Business>) => (
-      <BusinessCard business={item} onPress={() => handleBusinessPress(item.id)} />
+      <BusinessCard business={item} onPress={handleBusinessPress} />
     ),
     [handleBusinessPress],
   );
