@@ -414,7 +414,16 @@ To run these flows, install Maestro CLI and follow the instructions in `TESTING.
 
 ---
 
-## 9. Summary
+## 9. Development & Contribution Docs
+
+- Day-to-day dev workflow, test commands, and offline-first notes: see `docs/DEVELOPMENT.md`.
+- Branch naming and Conventional Commit structure: see `CONTRIBUTING.md`.
+
+These two docs are the source of truth for how to work on this project and how to structure history.
+
+---
+
+## 10. Summary
 
 This project’s architecture separates concerns into:
 
@@ -425,13 +434,13 @@ This project’s architecture separates concerns into:
 - **Context** for shared app state (auth, role, profile).
 - **Utils** for pure helpers (like mapping external API data to domain models).
 
-Testing covers core services, hooks, and screens via Jest, with a minimal Maestro-based e2e flow to validate the real app on a device.
+Testing covers core services, hooks, and screens via Jest, with a minimal Maestro-based e2e flow to validate the real app on a device. In addition to the heavier integration suites, there are several small, fast tests for utilities and UI pieces (e.g. `rateLimiter`, `logger`, `OfflineBanner`, and simple form components) to push coverage without adding flakiness.
 
 This structure and documentation are designed to make the app easier to understand, extend, and evaluate from an architectural and production-readiness perspective.
 
 ---
 
-## 10. Code Quality & Tooling
+## 11. Code Quality & Tooling
 
 - **Linting:** `npm run lint` (Expo lint) and `npm run lint:eslint` (raw ESLint) enforce code style and catch common issues across JS/TS/React Native files.
 - **Formatting:** `npm run format` and `npm run format:check` use Prettier to keep formatting consistent across the codebase.
